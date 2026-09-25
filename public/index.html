@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EC Rental Property Management LLC — Fresno, California</title>
+  <meta name="description" content="EC Rental Property Management LLC — trusted rental property management in Fresno, California. Tenant placement, maintenance, rent collection, and full-service property management." />
+  <style>
+    :root {
+      --primary: #1a5632;
+      --primary-dark: #0f3d22;
+      --accent: #c9a227;
+      --light: #f7f9f7;
+      --dark: #1a1a1a;
+      --gray: #6b7280;
+      --white: #ffffff;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: var(--dark);
+      line-height: 1.6;
+      background: var(--white);
+    }
+
+    /* Header */
+    header {
+      background: var(--white);
+      box-shadow: 0 1px 10px rgba(0,0,0,0.06);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--dark);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--primary); }
+
+    .nav-cta {
+      background: var(--primary);
+      color: var(--white);
+      padding: 0.6rem 1.4rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .nav-cta:hover { background: var(--primary-dark); }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+      color: var(--white);
+      padding: 5rem 1.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: rgba(201, 162, 39, 0.08);
+      border-radius: 50%;
+    }
+
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0 auto 2rem;
+      opacity: 0.92;
+      position: relative;
+    }
+
+    .hero-cta {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--dark);
+      padding: 0.9rem 2.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.05rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .hero-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+
+    /* Stats Bar */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+      padding: 2.5rem 1.5rem;
+      background: var(--light);
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Services */
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-title h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .section-title p {
+      color: var(--gray);
+      font-size: 1.05rem;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+
+    .service-card {
+      background: var(--white);
+      border: 1px solid #e5e7eb;
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+
+    .service-card:hover { transform: translateY(-4px); }
+
+    .service-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .service-card h3 {
+      font-size: 1.2rem;
+      color: var(--primary);
+      margin-bottom: 0.6rem;
+    }
+
+    .service-card p {
+      color: var(--gray);
+      font-size: 0.95rem;
+    }
+
+    /* Tax Reporting */
+    .tax-table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid #e5e7eb;
+    }
+
+    .tax-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      min-width: 640px;
+    }
+
+    .tax-table th {
+      background: var(--primary);
+      color: var(--white);
+      padding: 1rem 1.25rem;
+      text-align: left;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tax-table td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.95rem;
+    }
+
+    .tax-table tr:last-child td { border-bottom: none; }
+
+    .tax-table tbody tr:nth-child(even) { background: var(--light); }
+
+    .tax-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .tax-table .total-row td {
+      font-weight: 700;
+      background: #eef4ee;
+      color: var(--primary-dark);
+    }
+
+    .tax-note {
+      text-align: center;
+      color: var(--gray);
+      font-size: 0.9rem;
+      margin-top: 1.25rem;
+    }
+
+    /* About */
+    .about {
+      background: var(--light);
+    }
+
+    .about-content {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .about-content p {
+      color: var(--gray);
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Contact */
+    .contact {
+      background: var(--primary-dark);
+      color: var(--white);
+    }
+
+    .contact .section-title h2 { color: var(--white); }
+    .contact .section-title p { color: rgba(255,255,255,0.8); }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .contact-item {
+      text-align: center;
+      padding: 1.5rem;
+    }
+
+    .contact-item .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .contact-item h3 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .contact-item a, .contact-item p {
+      color: rgba(255,255,255,0.9);
+      text-decoration: none;
+      font-size: 1.05rem;
+    }
+
+    .contact-item a:hover { color: var(--accent); }
+
+    /* Footer */
+    footer {
+      background: var(--dark);
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      padding: 2rem 1.5rem;
+      font-size: 0.85rem;
+    }
+
+    footer .footer-logo {
+      color: var(--white);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    /* AI Chat Widget */
+    .chat-toggle {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      z-index: 9999;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .chat-toggle:hover { transform: scale(1.08); background: var(--primary-dark); }
+
+    .chat-toggle.hidden { display: none; }
+
+    .chat-widget {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 370px;
+      max-width: calc(100vw - 3rem);
+      height: 520px;
+      max-height: calc(100vh - 3rem);
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      display: none;
+      flex-direction: column;
+      z-index: 9999;
+      overflow: hidden;
+    }
+
+    .chat-widget.open { display: flex; }
+
+    .chat-header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-header-info {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .chat-header-info .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .chat-header-info h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .chat-header-info span {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+
+    .chat-close {
+      background: none;
+      border: none;
+      color: var(--white);
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .chat-close:hover { opacity: 1; }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: var(--light);
+    }
+
+    .chat-msg {
+      max-width: 80%;
+      padding: 0.7rem 1rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .chat-msg.bot {
+      align-self: flex-start;
+      background: var(--white);
+      border: 1px solid #e5e7eb;
+      color: var(--dark);
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: var(--white);
+    }
+
+    .chat-msg.typing {
+      align-self: flex-start;
+      background: var(--white);
+      border: 1px solid #e5e7eb;
+      color: var(--gray);
+      font-style: italic;
+    }
+
+    .chat-suggestions {
+      padding: 0.5rem 1.25rem 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chat-suggestion {
+      background: #eef4ee;
+      border: 1px solid #d1e7d8;
+      color: var(--primary-dark);
+      padding: 0.35rem 0.7rem;
+      border-radius: 16px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .chat-suggestion:hover { background: #dfeee3; }
+
+    .chat-input-area {
+      padding: 0.75rem 1.25rem 1rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.88rem;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .chat-input:focus { border-color: var(--primary); }
+
+    .chat-send {
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .chat-send:hover { background: var(--primary-dark); }
+
+    .chat-footer-brand {
+      text-align: center;
+      padding: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--gray);
+      background: var(--light);
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .chat-footer-brand a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero h1 { font-size: 2rem; }
+      .hero p { font-size: 1.05rem; }
+      .stats { gap: 1.5rem; }
+      .stat-num { font-size: 1.8rem; }
+      .chat-widget {
+        bottom: 0;
+        right: 0;
+        width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+      .chat-toggle {
+        bottom: 1rem;
+        right: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <nav class="nav">
+      <div class="logo">EC<span> Rental</span> PM</div>
+      <ul class="nav-links">
+        <li><a href="#services">Services</a></li>
+        <li><a href="#tax-reporting">Tax Reports</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+      <a href="#contact" class="nav-cta">Get a Quote</a>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>EC Rental Property Management LLC</h1>
+    <p>Professional rental property management in Fresno, California. We maximize your investment income while minimizing your stress — from tenant placement to maintenance and everything in between.</p>
+    <a href="#contact" class="hero-cta">Request a Free Consultation</a>
+  </section>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Locally Owned</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">24/7</div>
+      <div class="stat-label">Maintenance Support</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">Fresno</div>
+      <div class="stat-label">CA Based</div>
+    </div>
+  </div>
+
+  <!-- Services -->
+  <section class="section" id="services">
+    <div class="section-title">
+      <h2>Our Services</h2>
+      <p>Full-service property management tailored to Fresno area rental owners</p>
+    </div>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-icon">🏠</div>
+        <h3>Tenant Placement</h3>
+        <p>Marketing, screening, and placing qualified tenants with thorough background, credit, and reference checks.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🔧</div>
+        <h3>Maintenance & Repairs</h3>
+        <p>24/7 maintenance coordination with trusted local vendors to keep your property in top condition.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">💰</div>
+        <h3>Rent Collection</h3>
+        <p>Online rent collection, late fee enforcement, and detailed financial reporting every month.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">📋</div>
+        <h3>Lease Management</h3>
+        <p>Lease drafting, renewals, and compliance with California rental laws to protect your investment.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">📊</div>
+        <h3>Financial Reporting</h3>
+        <p>Transparent monthly statements and annual summaries so you always know how your property is performing.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">📑</div>
+        <h3>Tax Reporting</h3>
+        <p>Per-property statements showing rent collected, expenses, and net amounts paid to you — organized and ready for tax season.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🔍</div>
+        <h3>Property Inspections</h3>
+        <p>Regular interior and exterior inspections to safeguard your property's condition and value.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="section about" id="about">
+    <div class="section-title">
+      <h2>About Us</h2>
+    </div>
+    <div class="about-content">
+      <p>EC Rental Property Management LLC is a locally owned and operated property management company serving Fresno, California and the surrounding Central Valley. We understand the local rental market and California landlord-tenant laws inside and out.</p>
+      <p>Our mission is simple: protect your investment, keep quality tenants happy, and deliver peace of mind to property owners. Whether you own a single rental home or a multi-unit portfolio, we provide personalized, professional service every step of the way.</p>
+    </div>
+  </section>
+
+  <!-- Tax Reporting -->
+  <section class="section" id="tax-reporting">
+    <div class="section-title">
+      <h2>Tax Reporting &amp; Owner Statements</h2>
+      <p>Property-by-property financial reporting, ready for tax season</p>
+    </div>
+    <div class="tax-table-wrap">
+      <table class="tax-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th class="num">Rent Collected</th>
+            <th class="num">Expenses</th>
+            <th class="num">Management Fee</th>
+            <th class="num">Paid to Owner</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>123 Maple Ave, Fresno</td>
+            <td class="num">$1,800.00</td>
+            <td class="num">$245.00</td>
+            <td class="num">$144.00</td>
+            <td class="num">$1,411.00</td>
+          </tr>
+          <tr>
+            <td>456 Oak St, Fresno</td>
+            <td class="num">$1,450.00</td>
+            <td class="num">$0.00</td>
+            <td class="num">$116.00</td>
+            <td class="num">$1,334.00</td>
+          </tr>
+          <tr>
+            <td>789 Pine Dr, Clovis</td>
+            <td class="num">$2,100.00</td>
+            <td class="num">$380.00</td>
+            <td class="num">$168.00</td>
+            <td class="num">$1,552.00</td>
+          </tr>
+          <tr class="total-row">
+            <td>Totals</td>
+            <td class="num">$5,350.00</td>
+            <td class="num">$625.00</td>
+            <td class="num">$428.00</td>
+            <td class="num">$4,297.00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tax-note">Sample data for illustration. Each property receives its own monthly statement and year-end tax report with rent collected, expenses, fees, and net distributions — ready for your accountant.</p>
+  </section>
+
+  <!-- Contact -->
+  <section class="section contact" id="contact">
+    <div class="section-title">
+      <h2>Get in Touch</h2>
+      <p>Ready to learn how we can manage your rental property? Contact us today.</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-item">
+        <div class="icon">📍</div>
+        <h3>Location</h3>
+        <p>Fresno, California</p>
+        <p>Serving the Central Valley</p>
+      </div>
+      <div class="contact-item">
+        <div class="icon">✉️</div>
+        <h3>Email</h3>
+        <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a>
+      </div>
+      <div class="contact-item">
+        <div class="icon">📞</div>
+        <h3>Phone</h3>
+        <a href="tel:+15590000000">(559) 000-0000</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-logo">EC Rental Property Management LLC</div>
+    <p>Fresno, California &copy; 2026 EC Rental Property Management LLC. All rights reserved.</p>
+  </footer>
+
+  <!-- AI Chat Widget -->
+  <button class="chat-toggle" id="chatToggle" aria-label="Open chat assistant">💬</button>
+  <div class="chat-widget" id="chatWidget">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="avatar">🤖</div>
+        <div>
+          <h4>EC Rental Assistant</h4>
+          <span>Powered by Thelo AI</span>
+        </div>
+      </div>
+      <button class="chat-close" id="chatClose" aria-label="Close chat">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg bot">Hi! I'm the EC Rental Property Management assistant. I can help answer questions about our services, rental properties, tax reporting, or getting in touch. How can I help you today?</div>
+    </div>
+    <div class="chat-suggestions" id="chatSuggestions">
+      <div class="chat-suggestion" data-msg="What services do you offer?">What services do you offer?</div>
+      <div class="chat-suggestion" data-msg="How do I get a quote?">How do I get a quote?</div>
+      <div class="chat-suggestion" data-msg="Tell me about tax reporting">Tell me about tax reporting</div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." />
+      <button class="chat-send" id="chatSend">Send</button>
+    </div>
+    <div class="chat-footer-brand"><a href="https://theloai.com" target="_blank" rel="noopener">Powered by Thelo AI</a></div>
+  </div>
+
+  <script>
+    (function() {
+      var toggle = document.getElementById('chatToggle');
+      var widget = document.getElementById('chatWidget');
+      var closeBtn = document.getElementById('chatClose');
+      var messages = document.getElementById('chatMessages');
+      var input = document.getElementById('chatInput');
+      var sendBtn = document.getElementById('chatSend');
+      var suggestions = document.getElementById('chatSuggestions');
+
+      function openChat() {
+        widget.classList.add('open');
+        toggle.classList.add('hidden');
+        setTimeout(function() { input.focus(); }, 300);
+      }
+
+      function closeChat() {
+        widget.classList.remove('open');
+        toggle.classList.remove('hidden');
+      }
+
+      toggle.addEventListener('click', openChat);
+      closeBtn.addEventListener('click', closeChat);
+
+      function addMessage(text, sender) {
+        var msg = document.createElement('div');
+        msg.className = 'chat-msg ' + sender;
+        msg.textContent = text;
+        messages.appendChild(msg);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function addTyping() {
+        var msg = document.createElement('div');
+        msg.className = 'chat-msg typing';
+        msg.id = 'typingIndicator';
+        msg.textContent = 'Assistant is typing...';
+        messages.appendChild(msg);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function removeTyping() {
+        var t = document.getElementById('typingIndicator');
+        if (t) t.remove();
+      }
+
+      function sendMessage(text) {
+        if (!text.trim()) return;
+        addMessage(text, 'user');
+        input.value = '';
+        suggestions.style.display = 'none';
+        addTyping();
+
+        // Call the Worker's AI-powered chat endpoint
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            removeTyping();
+            var reply = data.response || 'Sorry, I couldn\'t generate a response right now. Please try again or contact us directly.';
+            addMessage(reply, 'bot');
+          })
+          .catch(function() {
+            removeTyping();
+            addMessage('Sorry, I\'m having trouble connecting right now. Please try again or contact us directly.', 'bot');
+          });
+      }
+
+      sendBtn.addEventListener('click', function() {
+        sendMessage(input.value);
+      });
+
+      input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage(input.value);
+      });
+
+      var suggestionItems = document.querySelectorAll('.chat-suggestion');
+      for (var i = 0; i < suggestionItems.length; i++) {
+        suggestionItems[i].addEventListener('click', function() {
+          sendMessage(this.getAttribute('data-msg'));
+        });
+      }
+    })();
+  </script>
+
+</body>
+</html>

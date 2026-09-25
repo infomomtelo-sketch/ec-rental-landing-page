@@ -1,0 +1,11 @@
+name = "ec-rental-landing-page"
+main = "src/index.ts"
+compatibility_date = "2026-09-25"
+compatibility_flags = ["nodejs_compat"]
+
+[ai]
+binding = "AI"
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
