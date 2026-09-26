@@ -9,3 +9,8 @@ binding = "AI"
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ec-rental-db"
+database_id = "80e01fdc-9511-4868-9b82-e803290e7700"
