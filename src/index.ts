@@ -1,0 +1,167 @@
+/**
+ * EC Rental Property Management LLC — Worker
+ * Powered by Thelo AI (branded), running on Cloudflare Workers AI.
+ */
+interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; }
+interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; message?: string; }
+interface LoginRequest { email: string; password: string; }
+
+const SYSTEM_PROMPT = `You are the EC Rental Property Management LLC assistant in Fresno, California. You are "Powered by Thelo AI."
+Company info:
+- Locally owned property management in Fresno, CA serving the Central Valley including Clovis.
+- Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
+- Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited).
+- Contact: info@ecrentalpm.com, (559) 000-0000 (placeholder).
+- AI Home Inspections: upload photos of each area, Thelo AI analyzes condition, identifies needed repairs, and provides recommendations.
+Rules:
+- Be friendly but VERY concise. Max 2-3 sentences per response.
+- Never use more than 40 words unless absolutely necessary.
+- Only answer about EC Rental, property management, or Fresno rentals.
+- Don't make up URLs, buttons, or features that don't exist on the site.
+Special actions — include these tags in your response to trigger UI elements:
+- If asked about applying as tenant, renting, available properties, or becoming a renter: include [SHOW_TENANT_FORM] in your response.
+- If asked about pricing, cost, plans, or subscription: include [SHOW_PRICING] in your response.
+- If asked about services or what you offer: include [SHOW_SERVICES] in your response.
+- If asked about tax reporting, statements, or financial reports: include [SHOW_TAX_INFO] in your response.
+- If asked about maintenance or repairs: include [SHOW_MAINTENANCE] in your response.
+Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
+
+const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
+
+function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
+function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...corsHeaders() } }); }
+function generateToken(): string { const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; let token = ""; for (let i = 0; i < 48; i++) { token += chars[Math.floor(Math.random() * chars.length)]; } return token; }
+async function hashPassword(password: string, salt: string): Promise<string> { const encoder = new TextEncoder(); const data = encoder.encode(password + salt); const hash = await crypto.subtle.digest("SHA-256", data); return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join(""); }
+function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRandomValues(arr); return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join(""); }
+async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
+interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
+
+    // Chat API
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      try {
+        const body = await request.json() as ChatRequest;
+        const userMessage = body.message?.trim();
+        if (!userMessage) return json({ error: "Message is required" }, 400);
+        const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...(body.history || []).map((m) => ({ role: m.role, content: m.content })), { role: "user", content: userMessage }];
+        const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
+        return json({ response: (aiResponse as { response?: string }).response || "I'm sorry, I couldn't generate a response right now." });
+      } catch { return json({ error: "Something went wrong." }, 500); }
+    }
+
+    // Tenant Application API (from chat)
+    if (url.pathname === "/api/tenant-application" && request.method === "POST") {
+      try {
+        const body = await request.json() as Record<string, unknown>;
+        if (!body.name || !body.email || !body.phone) return json({ success: false, error: "Name, email, and phone required" }, 400);
+        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", body.email, body.phone, "tenant", "tenant_application", JSON.stringify({ area: body.area, bedrooms: body.bedrooms, budget: body.budget, moveIn: body.moveIn }), "pending", new Date().toISOString()).run();
+        return json({ success: true });
+      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+    }
+
+    // Maintenance Request API (from chat)
+    if (url.pathname === "/api/maintenance-request" && request.method === "POST") {
+      try {
+        const body = await request.json() as Record<string, unknown>;
+        if (!body.name || !body.address || !body.description) return json({ success: false, error: "Name, address, and description required" }, 400);
+        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", "", "", "maintenance", "maintenance_request", JSON.stringify({ address: body.address, description: body.description, priority: body.priority }), "pending", new Date().toISOString()).run();
+        return json({ success: true });
+      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+    }
+
+    // Subscribe API
+    if (url.pathname === "/api/subscribe" && request.method === "POST") {
+      try {
+        const body = await request.json() as SubscribeRequest;
+        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan) return json({ success: false, error: "Missing required fields" }, 400);
+        const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
+        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, body.phone, body.propertyCount, planNames[body.plan] || body.plan, body.message || "", new Date().toISOString()).run();
+        const salt = generateSalt(); const passwordHash = await hashPassword(body.email + "ec-temp", salt); const propertyLimit = PLAN_LIMITS[body.plan] || 5;
+        await env.DB.prepare("INSERT OR IGNORE INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, passwordHash, salt, body.plan, propertyLimit, "landlord", new Date().toISOString()).run();
+        return json({ success: true, message: "Signup received" });
+      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+    }
+
+    // Login API
+    if (url.pathname === "/api/login" && request.method === "POST") {
+      try {
+        const body = await request.json() as LoginRequest;
+        if (!body.email || !body.password) return json({ error: "Email and password required" }, 400);
+        const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE email = ?").bind(body.email).first<User & { password_hash: string; password_salt: string }>();
+        if (!user) return json({ error: "Invalid email or password" }, 401);
+        const hash = await hashPassword(body.password, user.password_salt);
+        if (hash !== user.password_hash) return json({ error: "Invalid email or password" }, 401);
+        const token = generateToken(); const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, user.id, expires, new Date().toISOString()).run();
+        const { password_hash, password_salt, ...userWithoutPw } = user;
+        return json({ token, user: userWithoutPw });
+      } catch { return json({ error: "Something went wrong." }, 500); }
+    }
+
+    const user = await getUserFromRequest(request, env);
+    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request") return json({ error: "Unauthorized" }, 401);
+
+    // Me API
+    if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
+    if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch { return json({ error: "Update failed" }, 500); } }
+
+    // Properties API
+    if (url.pathname === "/api/properties" && request.method === "GET") { const results = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC").bind(user!.id).all(); return json(results.results); }
+    if (url.pathname === "/api/properties" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); if (count && count.count >= user!.property_limit) return json({ error: "Property limit reached for your plan. Upgrade to add more." }, 403); const result = await env.DB.prepare("INSERT INTO properties (user_id, address, city, state, zip, rent_amount, tenant_name, tenant_email, tenant_phone, lease_start, lease_end, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(user!.id, body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", new Date().toISOString()).run(); return json({ success: true, id: result.meta.last_row_id }); } catch { return json({ error: "Failed to create property" }, 500); } }
+    const propMatch = url.pathname.match(/^\/api\/properties\/(\d+)$/);
+    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { await env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).run(); await env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId).run(); await env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId).run(); return json({ success: true }); } }
+
+    // Transactions API
+    if (url.pathname === "/api/transactions" && request.method === "GET") { const results = await env.DB.prepare("SELECT t.*, p.address as property_address FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? ORDER BY t.date DESC").bind(user!.id).all(); return json(results.results); }
+    if (url.pathname === "/api/transactions" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("INSERT INTO transactions (property_id, type, amount, description, date, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(body.property_id, body.type, body.amount, body.description || "", body.date, new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create transaction" }, 500); } }
+
+    // Maintenance API
+    if (url.pathname === "/api/maintenance" && request.method === "GET") { const results = await env.DB.prepare("SELECT m.*, p.address as property_address FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? ORDER BY m.created_at DESC").bind(user!.id).all(); return json(results.results); }
+    if (url.pathname === "/api/maintenance" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("INSERT INTO maintenance_requests (property_id, tenant_name, description, priority, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)").bind(body.property_id, body.tenant_name || "", body.description, body.priority || "normal", new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create request" }, 500); } } }
+    const maintMatch = url.pathname.match(/^\/api\/maintenance\/(\d+)$/);
+    if (maintMatch && request.method === "PUT") { const maintId = parseInt(maintMatch[1]); try { const body = await request.json() as { status?: string }; await env.DB.prepare("UPDATE maintenance_requests SET status = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.status || "resolved", maintId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } }
+
+    // Reports API
+    if (url.pathname === "/api/reports" && request.method === "GET") { const properties = await env.DB.prepare("SELECT id, address FROM properties WHERE user_id = ?").bind(user!.id).all<{ id: number; address: string }>(); const reports = []; for (const prop of properties.results) { const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'rent'").bind(prop.id).first<{ total: number }>(); const expenseResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'expense'").bind(prop.id).first<{ total: number }>(); const feeResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'fee'").bind(prop.id).first<{ total: number }>(); const rent = rentResult?.total || 0; const expenses = expenseResult?.total || 0; const fees = feeResult?.total || 0; reports.push({ address: prop.address, rent_collected: rent, expenses: expenses, mgmt_fee: fees, paid_to_owner: rent - expenses - fees }); } return json(reports); }
+
+    // Dashboard Overview API
+    if (url.pathname === "/api/dashboard/overview" && request.method === "GET") { const props = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC LIMIT 5").bind(user!.id).all(); const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); const occupied = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ? AND status = 'occupied'").bind(user!.id).first<{ count: number }>(); const now = new Date(); const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(t.amount), 0) as total FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? AND t.type = 'rent' AND t.date >= ?").bind(user!.id, monthStart).first<{ total: number }>(); const maintResult = await env.DB.prepare("SELECT COUNT(*) as count FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? AND m.status = 'open'").bind(user!.id).first<{ count: number }>(); return json({ totalProperties: count?.count || 0, propertyLimit: user!.property_limit, occupied: occupied?.count || 0, vacant: (count?.count || 0) - (occupied?.count || 0), monthlyRent: rentResult?.total || 0, openMaintenance: maintResult?.count || 0, properties: props.results }); }
+
+    // === Inspection API ===
+    if (url.pathname === "/api/inspections" && request.method === "POST") {
+      try {
+        const body = await request.json() as { property_id: number; inspector_name?: string; inspection_date: string; photos: { room_area: string; photo_data: string }[] };
+        const inspResult = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at) VALUES (?, ?, ?, '', '', 'in_progress', ?)").bind(body.property_id, body.inspector_name || "", body.inspection_date, new Date().toISOString()).run();
+        const inspectionId = inspResult.meta.last_row_id;
+        const photoResults = []; let repairCount = 0;
+        for (const photo of body.photos) {
+          const visionMessages = [{ role: "system", content: "You are a professional home inspector. Analyze this property photo and provide: 1) What you see (condition), 2) Whether repair or replacement is needed, 3) Specific recommendations. Be concise but thorough. Format as JSON: {\"condition\":\"\",\"repair_needed\":true/false,\"recommendation\":\"\"}" }, { role: "user", content: "Analyze this photo of the " + photo.room_area + ". What is the condition? Does it need repair or replacement? Provide specific recommendations." }];
+          let aiAnalysis = ""; let aiCondition = "unknown"; let aiRecommendation = ""; let aiRepairNeeded = 0;
+          try {
+            const aiResponse = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", { messages: visionMessages, image: photo.photo_data });
+            aiAnalysis = (aiResponse as { response?: string }).response || "";
+            const jsonMatch = aiAnalysis.match(/\{[\s\S]*\}/);
+            if (jsonMatch) { try { const parsed = JSON.parse(jsonMatch[0]); aiCondition = parsed.condition || "unknown"; aiRepairNeeded = parsed.repair_needed ? 1 : 0; aiRecommendation = parsed.recommendation || ""; } catch { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; } } else { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; }
+          } catch { aiAnalysis = "Analysis unavailable"; aiCondition = "unknown"; aiRecommendation = "Unable to analyze photo"; }
+          if (aiRepairNeeded) repairCount++;
+          const photoResult = await env.DB.prepare("INSERT INTO inspection_photos (inspection_id, room_area, photo_data, ai_analysis, ai_condition, ai_recommendation, ai_repair_needed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(inspectionId, photo.room_area, "", aiAnalysis, aiCondition, aiRecommendation, aiRepairNeeded, new Date().toISOString()).run();
+          photoResults.push({ id: photoResult.meta.last_row_id, room_area: photo.room_area, condition: aiCondition, repair_needed: aiRepairNeeded === 1, recommendation: aiRecommendation });
+        }
+        const overallCondition = repairCount === 0 ? "Good" : repairCount <= 2 ? "Fair" : "Needs Attention";
+        const summary = "Inspected " + body.photos.length + " areas. " + repairCount + " need repair. Overall: " + overallCondition + ".";
+        await env.DB.prepare("UPDATE inspections SET overall_condition = ?, summary = ?, status = 'completed' WHERE id = ?").bind(overallCondition, summary, inspectionId).run();
+        return json({ success: true, inspection_id: inspectionId, overall_condition: overallCondition, repair_count: repairCount, photos: photoResults });
+      } catch { return json({ error: "Failed to create inspection" }, 500); }
+    }
+    if (url.pathname === "/api/inspections" && request.method === "GET") { const results = await env.DB.prepare("SELECT i.*, p.address as property_address FROM inspections i JOIN properties p ON i.property_id = p.id WHERE p.user_id = ? ORDER BY i.created_at DESC").bind(user!.id).all(); return json(results.results); }
+    const inspMatch = url.pathname.match(/^\/api\/inspections\/(\d+)$/);
+    if (inspMatch && request.method === "GET") { const inspId = parseInt(inspMatch[1]); const inspection = await env.DB.prepare("SELECT i.*, p.address as property_address FROM inspections i JOIN properties p ON i.property_id = p.id WHERE i.id = ? AND p.user_id = ?").bind(inspId, user!.id).first(); if (!inspection) return json({ error: "Not found" }, 404); const photos = await env.DB.prepare("SELECT * FROM inspection_photos WHERE inspection_id = ? ORDER BY created_at ASC").bind(inspId).all(); return json({ inspection, photos: photos.results }); }
+
+    return env.ASSETS.fetch(request);
+  },
+};
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; }
