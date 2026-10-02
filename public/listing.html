@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rental Listing — EC Rental Property Management</title>
+  <link rel="stylesheet" href="/css/rentals.css" />
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap" id="detail"><p class="muted">Loading...</p></main>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, national origin, familial status, disability, or any other class protected by federal, California, or local law.</p></footer>
+  <script src="/js/listing-common.js"></script>
+  <script>
+    (function() {
+      var E = window.ECR, root = document.getElementById('detail');
+      var id = new URLSearchParams(location.search).get('id');
+      if (!/^\d+$/.test(id || '')) { root.innerHTML = '<p class="muted">Listing not found. <a href="/listings">See all rentals</a>.</p>'; return; }
+      fetch('/api/public/listings/' + id).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Not found'); return d; }); }).then(function(l) {
+        document.title = E.money(l.rent) + '/mo · ' + l.bedrooms + ' bd · ' + l.street + ', ' + l.city + ' — EC Rental';
+        var photos = l.photos || [];
+        var gallery = photos.length ? '<div class="gallery"><img id="mainPhoto" src="' + E.esc(photos[0].url) + '" alt="Photo of ' + E.esc(l.street) + '" />' + (photos.length > 1 ? '<div class="thumbs">' + photos.map(function(p, i) { return '<img src="' + E.esc(p.url) + '" data-i="' + i + '" alt="Photo ' + (i + 1) + '" loading="lazy" />'; }).join('') + '</div>' : '') + '</div>' : '<div class="noimg big">Photos coming soon</div>';
+        var facts = [['Rent', E.money(l.rent) + '/mo'], ['Bedrooms', l.bedrooms], ['Bathrooms', E.baths(l)], ['Size', l.square_feet ? l.square_feet.toLocaleString() + ' sq ft' : ''], ['Deposit', l.deposit ? E.money(l.deposit) : ''], ['Application fee', l.application_fee ? E.money(l.application_fee) : ''], ['Lease', { '12 Months': '12 months', '6 Months': '6 months', monthly: 'Month to month', contactForDetails: 'Contact for details' }[l.lease_term] || ''], ['Pets', E.pets(l)], ['Laundry', { in_unit: 'In unit', hookups: 'Hookups', shared: 'Shared', none: 'None' }[l.laundry] || ''], ['Parking', { garageAttached: 'Attached garage', garageLot: 'Garage', coveredLot: 'Covered', surfaceLot: 'Off-street', street: 'Street', other: 'Other', none: 'None' }[l.parking_type] || ''], ['Furnished', l.furnished ? 'Yes' : '']].filter(function(f) { return f[1] !== ''; });
+        root.innerHTML = '<a href="/listings" class="back">← All rentals</a>' + gallery +
+          '<div class="detail-grid"><div><h1>' + E.esc(l.title || (l.bedrooms + ' bedroom ' + ({ HOUSE: 'house', CONDO: 'home', TOWNHOUSE: 'townhouse' }[l.property_type] || 'home') + ' for rent')) + '</h1><p class="addr">' + E.esc(E.address(l)) + '</p><p class="avail">' + E.available(l) + '</p>' +
+          '<dl class="facts-list">' + facts.map(function(f) { return '<div><dt>' + f[0] + '</dt><dd>' + E.esc(f[1]) + '</dd></div>'; }).join('') + '</dl>' +
+          (l.description ? '<h2>About this home</h2><p class="desc">' + E.esc(l.description) + '</p>' : '') + (l.amenities ? '<h2>Amenities</h2><p>' + E.esc(l.amenities) + '</p>' : '') + '</div>' +
+          '<aside class="contact"><h2>Interested?</h2><p class="muted">Send a message and we\'ll reply with showing times.</p><form id="inq"><input name="name" required placeholder="Full name" autocomplete="name" /><input name="email" type="email" required placeholder="Email" autocomplete="email" /><input name="phone" type="tel" required placeholder="Phone" autocomplete="tel" /><label class="muted small">Desired move-in<input name="moveIn" type="date" /></label><textarea name="message" rows="3" placeholder="Questions or preferred showing times"></textarea><button type="submit">Request a showing</button><p id="inqMsg" class="small"></p></form>' + (l.contact_phone ? '<p class="small muted">Or call <a href="tel:+1' + E.esc(l.contact_phone) + '">' + E.esc(l.contact_phone.replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')) + '</a></p>' : '') + '</aside></div>';
+        root.querySelectorAll('.thumbs img').forEach(function(t) { t.addEventListener('click', function() { document.getElementById('mainPhoto').src = photos[+t.getAttribute('data-i')].url; }); });
+        document.getElementById('inq').addEventListener('submit', function(e) {
+          e.preventDefault(); var f = e.target, m = document.getElementById('inqMsg'), btn = f.querySelector('button'); btn.disabled = true;
+          var data = {}; new FormData(f).forEach(function(v, k) { data[k] = v; });
+          fetch('/api/public/listings/' + l.id + '/inquiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(function(r) { return r.json(); }).then(function(d) {
+            btn.disabled = false; if (d.success) { f.reset(); m.className = 'small ok'; m.textContent = 'Thanks! We got your request and will be in touch soon.'; } else { m.className = 'small err'; m.textContent = d.error || 'Something went wrong.'; }
+          }).catch(function() { btn.disabled = false; m.className = 'small err'; m.textContent = 'Could not send. Please try again.'; });
+        });
+      }).catch(function(err) { root.innerHTML = '<p class="muted">' + E.esc(err.message) + ' <a href="/listings">See all rentals</a>.</p>'; });
+    })();
+  </script>
+</body>
+</html>

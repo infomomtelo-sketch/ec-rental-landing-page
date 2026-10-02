@@ -26,6 +26,8 @@ Special actions — include these tags in your response to trigger UI elements:
 - If asked about maintenance or repairs: include [SHOW_MAINTENANCE] in your response.
 Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
 
+import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
+
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 
 function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
@@ -120,10 +122,15 @@ export default {
       } catch (err) { return dbErrorResponse("login", err); }
     }
 
+    // Public listings, listing photos and the Zillow feed
+    try { const publicRes = await handlePublicListingRoutes(request, env, url); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
+
     const user = await getUserFromRequest(request, env);
     if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request") return json({ error: "Unauthorized" }, 401);
 
     // Me API
+    if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
+
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
     if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch { return json({ error: "Update failed" }, 500); } }
 
@@ -203,4 +210,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; }
