@@ -28,6 +28,7 @@ Always give a real answer first, then include the tag. Never just say "contact u
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
+import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 
@@ -61,6 +62,11 @@ async function sendEmail(env: Env, to: string, subject: string, html: string, te
   const res = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html, text }) });
   if (!res.ok) console.error("Resend " + res.status + ": " + (await res.text()));
   return res.ok;
+}
+function tenantHelpers(env: Env): TenantHelpers {
+  return { generateToken, generateSalt, hashPassword, verifyPassword, sha256Hex, minPasswordLength: MIN_PASSWORD_LENGTH,
+    sendEmail: (to, subject, html, text) => sendEmail(env, to, subject, html, text),
+    allowAuthAttempt: (request, keys) => underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request), ...keys]) };
 }
 async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
 interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
@@ -186,9 +192,15 @@ export default {
     // Public listings, listing photos and the Zillow feed
     try { const publicRes = await handlePublicListingRoutes(request, env, url); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
+    try { const inviteRes = await handlePublicTenantRoutes(request, env, url, tenantHelpers(env)); if (inviteRes) return inviteRes; } catch (err) { return dbErrorResponse("tenant-invite", err); }
 
     const user = await getUserFromRequest(request, env);
-    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/")) return json({ error: "Unauthorized" }, 401);
+    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) return json({ error: "Unauthorized" }, 401);
+
+    // Tenants only reach their portal; every other API route is for landlords.
+    if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
+    if (user && url.pathname.startsWith("/api/tenant/")) { try { const res = await handleTenantPortalRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenant-portal", err); } }
+    if (user && url.pathname.startsWith("/api/tenancies")) { try { const res = await handleTenancyRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenancies", err); } }
 
     // Me API
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }

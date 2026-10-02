@@ -1,4 +1,4 @@
--- EC Rental Property Management — Database Schema (Phase 2 + Inspections + Listings + Applications)
+-- EC Rental Property Management — Database Schema (Phase 2 + Inspections + Listings + Applications + Tenants)
 
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company TEXT DEFAULT '', email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, plan TEXT DEFAULT 'solo', property_limit INTEGER DEFAULT 5, role TEXT DEFAULT 'landlord', created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -15,3 +15,7 @@ CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id
 CREATE TABLE IF NOT EXISTS applications (id INTEGER PRIMARY KEY AUTOINCREMENT, listing_id INTEGER NOT NULL, landlord_user_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'new', screening_status TEXT NOT NULL DEFAULT 'not_started', first_name TEXT NOT NULL, last_name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT NOT NULL, move_in_date TEXT DEFAULT '', occupants INTEGER DEFAULT 1, current_address TEXT DEFAULT '', current_rent INTEGER DEFAULT 0, time_at_address TEXT DEFAULT '', current_landlord_name TEXT DEFAULT '', current_landlord_phone TEXT DEFAULT '', reason_for_moving TEXT DEFAULT '', employer TEXT DEFAULT '', job_title TEXT DEFAULT '', employer_phone TEXT DEFAULT '', employment_length TEXT DEFAULT '', monthly_income INTEGER DEFAULT 0, other_income TEXT DEFAULT '', pets TEXT DEFAULT '', vehicles TEXT DEFAULT '', additional_info TEXT DEFAULT '', signature_name TEXT NOT NULL, signed_at TEXT NOT NULL, signer_ip TEXT DEFAULT '', landlord_notes TEXT DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_applications_landlord ON applications(landlord_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_applications_listing ON applications(listing_id, email);
+CREATE TABLE IF NOT EXISTS tenancies (id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL, landlord_user_id INTEGER NOT NULL, tenant_user_id INTEGER, email TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'invited', invite_token_hash TEXT, invite_expires_at TEXT, accepted_at TEXT, created_at TEXT NOT NULL, FOREIGN KEY (property_id) REFERENCES properties(id));
+CREATE INDEX IF NOT EXISTS idx_tenancies_landlord ON tenancies(landlord_user_id, status);
+CREATE INDEX IF NOT EXISTS idx_tenancies_tenant ON tenancies(tenant_user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tenancies_invite ON tenancies(invite_token_hash);

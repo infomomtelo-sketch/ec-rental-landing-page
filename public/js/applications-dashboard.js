@@ -24,7 +24,7 @@
     if (!token()) return;
     api('/applications').then(function(list) {
       var fresh = list.filter(function(a) { return a.status === 'new'; }).length;
-      if (badgeEl) badgeEl.textContent = fresh ? fresh : '';
+      if (badgeEl) { badgeEl.textContent = fresh ? fresh : ''; badgeEl.style.display = fresh ? '' : 'none'; }
       if (!list.length) { body.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">📝</div>No applications yet. Renters can apply from any Active listing.</td></tr>'; return; }
       body.innerHTML = list.map(function(a) {
         var s = STATUS[a.status] || [a.status, 'badge-gray'];
