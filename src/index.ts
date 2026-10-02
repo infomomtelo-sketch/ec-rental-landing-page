@@ -27,6 +27,7 @@ Special actions — include these tags in your response to trigger UI elements:
 Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
+import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 
@@ -126,11 +127,13 @@ export default {
 
     // Public listings, listing photos and the Zillow feed
     try { const publicRes = await handlePublicListingRoutes(request, env, url); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
+    try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
 
     const user = await getUserFromRequest(request, env);
     if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request") return json({ error: "Unauthorized" }, 401);
 
     // Me API
+    if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
 
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });

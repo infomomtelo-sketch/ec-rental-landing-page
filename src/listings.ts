@@ -117,6 +117,8 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
       return json({ success: true });
     }
     if (request.method === "DELETE") {
+      const apps = await env.DB.prepare("SELECT COUNT(*) as n FROM applications WHERE listing_id = ?").bind(id).first<{ n: number }>();
+      if (apps && apps.n > 0) return json({ error: "This listing has applications, so it can't be deleted. Set its status to Rented to hide it instead." }, 409);
       const photos = await env.DB.prepare("SELECT r2_key FROM listing_photos WHERE listing_id = ?").bind(id).all<{ r2_key: string }>();
       if (env.PHOTOS && photos.results.length) await env.PHOTOS.delete(photos.results.map((p) => p.r2_key));
       await env.DB.batch([env.DB.prepare("DELETE FROM listing_photos WHERE listing_id = ?").bind(id), env.DB.prepare("DELETE FROM listings WHERE id = ? AND user_id = ?").bind(id, user.id)]);
