@@ -181,13 +181,14 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   const inquiry = path.match(/^\/api\/public\/listings\/(\d+)\/inquiry$/);
   if (inquiry && request.method === "POST") {
     const id = parseInt(inquiry[1]);
-    const l = await env.DB.prepare("SELECT id, street, unit, city FROM listings WHERE id = ? AND status = 'active'").bind(id).first<{ id: number; street: string; unit: string; city: string }>();
+    const l = await env.DB.prepare("SELECT id, street, unit, city, bedrooms, rent FROM listings WHERE id = ? AND status = 'active'").bind(id).first<{ id: number; street: string; unit: string; city: string; bedrooms: number; rent: number }>();
     if (!l) return json({ success: false, error: "This listing is no longer available." }, 404);
     const body = await request.json() as Record<string, unknown>;
     const name = str(body.name, 100), email = str(body.email, 200), phone = str(body.phone, 30), message = str(body.message, 2000), moveIn = str(body.moveIn, 20);
     if (!name || !/^\S+@\S+\.\S+$/.test(email) || !phone) return json({ success: false, error: "Please enter your name, email and phone." }, 400);
     await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(name, "", email, phone, "tenant", "listing_inquiry", JSON.stringify({ listingId: l.id, address: [l.street, l.unit, l.city].filter(Boolean).join(", "), moveIn, message }), "pending", new Date().toISOString()).run();
+      // Saved as a tenant_application so it appears with the other tenant leads on the admin Leads page.
+      .bind(name, "", email, phone, "tenant", "tenant_application", JSON.stringify({ source: "listing", listingId: l.id, area: [l.street, l.unit, l.city].filter(Boolean).join(", "), bedrooms: l.bedrooms, budget: "$" + Math.round(l.rent) + "/mo listing", moveIn, message }), "pending", new Date().toISOString()).run();
     return json({ success: true });
   }
 
