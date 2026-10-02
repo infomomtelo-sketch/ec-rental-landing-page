@@ -10,11 +10,17 @@ binding = "AI"
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/feeds/*", "/photos/*"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ec-rental-db"
 database_id = "80e01fdc-9511-4868-9b82-e803290e7700"
+
+# Listing photos. Create once with: npx wrangler r2 bucket create ec-rental-photos
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "ec-rental-photos"
 
 [vars]
 # Must be an address on a domain verified in Resend. RESEND_API_KEY is a secret: npx wrangler secret put RESEND_API_KEY
