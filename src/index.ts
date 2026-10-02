@@ -3,7 +3,7 @@
  * Powered by Thelo AI (branded), running on Cloudflare Workers AI.
  */
 interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; }
-interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; message?: string; }
+interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
 const SYSTEM_PROMPT = `You are the EC Rental Property Management LLC assistant in Fresno, California. You are "Powered by Thelo AI."
@@ -30,9 +30,17 @@ const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 9
 
 function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...corsHeaders() } }); }
-function generateToken(): string { const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; let token = ""; for (let i = 0; i < 48; i++) { token += chars[Math.floor(Math.random() * chars.length)]; } return token; }
-async function hashPassword(password: string, salt: string): Promise<string> { const encoder = new TextEncoder(); const data = encoder.encode(password + salt); const hash = await crypto.subtle.digest("SHA-256", data); return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join(""); }
-function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRandomValues(arr); return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join(""); }
+function toHex(bytes: Uint8Array): string { return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join(""); }
+function generateToken(): string { const arr = new Uint8Array(32); crypto.getRandomValues(arr); return toHex(arr); }
+// New hashes are PBKDF2 and prefixed "pbkdf2$"; unprefixed hashes are legacy single-pass SHA-256 and get upgraded on login.
+async function hashPassword(password: string, salt: string): Promise<string> { const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]); const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 100000 }, key, 256); return "pbkdf2$" + toHex(new Uint8Array(bits)); }
+async function legacyHashPassword(password: string, salt: string): Promise<string> { const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password + salt)); return toHex(new Uint8Array(hash)); }
+async function verifyPassword(password: string, salt: string, stored: string): Promise<boolean> { const hash = stored.startsWith("pbkdf2$") ? await hashPassword(password, salt) : await legacyHashPassword(password, salt); return timingSafeEqual(hash, stored); }
+function timingSafeEqual(a: string, b: string): boolean { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; }
+function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRandomValues(arr); return toHex(arr); }
+const MIN_PASSWORD_LENGTH = 8;
+async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
+function dataUrlToBytes(dataUrl: string): number[] { const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl; const bin = atob(base64); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
 async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
 interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
 
@@ -77,10 +85,11 @@ export default {
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
       try {
         const body = await request.json() as SubscribeRequest;
-        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan) return json({ success: false, error: "Missing required fields" }, 400);
+        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan || !body.password) return json({ success: false, error: "Missing required fields" }, 400);
+        if (body.password.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
         const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
         await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, body.phone, body.propertyCount, planNames[body.plan] || body.plan, body.message || "", new Date().toISOString()).run();
-        const salt = generateSalt(); const passwordHash = await hashPassword(body.email + "ec-temp", salt); const propertyLimit = PLAN_LIMITS[body.plan] || 5;
+        const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const propertyLimit = PLAN_LIMITS[body.plan] || 5;
         await env.DB.prepare("INSERT OR IGNORE INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, passwordHash, salt, body.plan, propertyLimit, "landlord", new Date().toISOString()).run();
         return json({ success: true, message: "Signup received" });
       } catch { return json({ success: false, error: "Something went wrong." }, 500); }
@@ -93,8 +102,8 @@ export default {
         if (!body.email || !body.password) return json({ error: "Email and password required" }, 400);
         const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE email = ?").bind(body.email).first<User & { password_hash: string; password_salt: string }>();
         if (!user) return json({ error: "Invalid email or password" }, 401);
-        const hash = await hashPassword(body.password, user.password_salt);
-        if (hash !== user.password_hash) return json({ error: "Invalid email or password" }, 401);
+        if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) return json({ error: "Invalid email or password" }, 401);
+        if (!user.password_hash.startsWith("pbkdf2$")) { const salt = generateSalt(); await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.password, salt), salt, user.id).run(); }
         const token = generateToken(); const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, user.id, expires, new Date().toISOString()).run();
         const { password_hash, password_salt, ...userWithoutPw } = user;
@@ -109,19 +118,36 @@ export default {
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
     if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch { return json({ error: "Update failed" }, 500); } }
 
+    if (url.pathname === "/api/me/password" && request.method === "PUT") {
+      try {
+        const body = await request.json() as { current_password?: string; new_password?: string };
+        if (!body.current_password || !body.new_password) return json({ error: "Current and new password required" }, 400);
+        if (body.new_password.length < MIN_PASSWORD_LENGTH) return json({ error: "New password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
+        const creds = await env.DB.prepare("SELECT password_hash, password_salt FROM users WHERE id = ?").bind(user!.id).first<{ password_hash: string; password_salt: string }>();
+        // 403 rather than 401 so the dashboard doesn't treat a wrong password as an expired session.
+        if (!creds || !(await verifyPassword(body.current_password, creds.password_salt, creds.password_hash))) return json({ error: "Current password is incorrect" }, 403);
+        const salt = generateSalt();
+        await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.new_password, salt), salt, user!.id).run();
+        // Sign out every other session for this account.
+        const token = request.headers.get("Authorization")!.slice(7);
+        await env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?").bind(user!.id, token).run();
+        return json({ success: true });
+      } catch { return json({ error: "Password change failed" }, 500); }
+    }
+
     // Properties API
     if (url.pathname === "/api/properties" && request.method === "GET") { const results = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC").bind(user!.id).all(); return json(results.results); }
     if (url.pathname === "/api/properties" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); if (count && count.count >= user!.property_limit) return json({ error: "Property limit reached for your plan. Upgrade to add more." }, 403); const result = await env.DB.prepare("INSERT INTO properties (user_id, address, city, state, zip, rent_amount, tenant_name, tenant_email, tenant_phone, lease_start, lease_end, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(user!.id, body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", new Date().toISOString()).run(); return json({ success: true, id: result.meta.last_row_id }); } catch { return json({ error: "Failed to create property" }, 500); } }
     const propMatch = url.pathname.match(/^\/api\/properties\/(\d+)$/);
-    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { await env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).run(); await env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId).run(); await env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId).run(); return json({ success: true }); } }
+    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { if (!(await ownsProperty(env, user!.id, propId))) return json({ error: "Not found" }, 404); await env.DB.batch([env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspections WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id)]); return json({ success: true }); } }
 
     // Transactions API
     if (url.pathname === "/api/transactions" && request.method === "GET") { const results = await env.DB.prepare("SELECT t.*, p.address as property_address FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? ORDER BY t.date DESC").bind(user!.id).all(); return json(results.results); }
-    if (url.pathname === "/api/transactions" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("INSERT INTO transactions (property_id, type, amount, description, date, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(body.property_id, body.type, body.amount, body.description || "", body.date, new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create transaction" }, 500); } }
+    if (url.pathname === "/api/transactions" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404); await env.DB.prepare("INSERT INTO transactions (property_id, type, amount, description, date, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(body.property_id, body.type, body.amount, body.description || "", body.date, new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create transaction" }, 500); } }
 
     // Maintenance API
     if (url.pathname === "/api/maintenance" && request.method === "GET") { const results = await env.DB.prepare("SELECT m.*, p.address as property_address FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? ORDER BY m.created_at DESC").bind(user!.id).all(); return json(results.results); }
-    if (url.pathname === "/api/maintenance" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("INSERT INTO maintenance_requests (property_id, tenant_name, description, priority, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)").bind(body.property_id, body.tenant_name || "", body.description, body.priority || "normal", new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create request" }, 500); } } }
+    if (url.pathname === "/api/maintenance" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404); await env.DB.prepare("INSERT INTO maintenance_requests (property_id, tenant_name, description, priority, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)").bind(body.property_id, body.tenant_name || "", body.description, body.priority || "normal", new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create request" }, 500); } }
     const maintMatch = url.pathname.match(/^\/api\/maintenance\/(\d+)$/);
     if (maintMatch && request.method === "PUT") { const maintId = parseInt(maintMatch[1]); try { const body = await request.json() as { status?: string }; await env.DB.prepare("UPDATE maintenance_requests SET status = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.status || "resolved", maintId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } }
 
@@ -135,6 +161,8 @@ export default {
     if (url.pathname === "/api/inspections" && request.method === "POST") {
       try {
         const body = await request.json() as { property_id: number; inspector_name?: string; inspection_date: string; photos: { room_area: string; photo_data: string }[] };
+        if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404);
+        if (!Array.isArray(body.photos) || body.photos.length === 0) return json({ error: "At least one photo is required" }, 400);
         const inspResult = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at) VALUES (?, ?, ?, '', '', 'in_progress', ?)").bind(body.property_id, body.inspector_name || "", body.inspection_date, new Date().toISOString()).run();
         const inspectionId = inspResult.meta.last_row_id;
         const photoResults = []; let repairCount = 0;
@@ -142,7 +170,7 @@ export default {
           const visionMessages = [{ role: "system", content: "You are a professional home inspector. Analyze this property photo and provide: 1) What you see (condition), 2) Whether repair or replacement is needed, 3) Specific recommendations. Be concise but thorough. Format as JSON: {\"condition\":\"\",\"repair_needed\":true/false,\"recommendation\":\"\"}" }, { role: "user", content: "Analyze this photo of the " + photo.room_area + ". What is the condition? Does it need repair or replacement? Provide specific recommendations." }];
           let aiAnalysis = ""; let aiCondition = "unknown"; let aiRecommendation = ""; let aiRepairNeeded = 0;
           try {
-            const aiResponse = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", { messages: visionMessages, image: photo.photo_data });
+            const aiResponse = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", { messages: visionMessages, image: dataUrlToBytes(photo.photo_data) });
             aiAnalysis = (aiResponse as { response?: string }).response || "";
             const jsonMatch = aiAnalysis.match(/\{[\s\S]*\}/);
             if (jsonMatch) { try { const parsed = JSON.parse(jsonMatch[0]); aiCondition = parsed.condition || "unknown"; aiRepairNeeded = parsed.repair_needed ? 1 : 0; aiRecommendation = parsed.recommendation || ""; } catch { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; } } else { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; }
