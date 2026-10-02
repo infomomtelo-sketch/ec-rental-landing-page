@@ -39,6 +39,9 @@ async function verifyPassword(password: string, salt: string, stored: string): P
 function timingSafeEqual(a: string, b: string): boolean { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; }
 function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRandomValues(arr); return toHex(arr); }
 const MIN_PASSWORD_LENGTH = 8;
+function normalizeEmail(email: string): string { return String(email).trim().toLowerCase(); }
+// Logs the real error (visible in `wrangler tail`) and gives the visitor a message that says what to do.
+function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
 async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
 function dataUrlToBytes(dataUrl: string): number[] { const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl; const bin = atob(base64); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
 async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
@@ -85,14 +88,20 @@ export default {
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
       try {
         const body = await request.json() as SubscribeRequest;
-        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan || !body.password) return json({ success: false, error: "Missing required fields" }, 400);
+        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan || !body.password) return json({ success: false, error: "Please fill in all required fields." }, 400);
         if (body.password.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
+        if (!(body.plan in PLAN_LIMITS)) return json({ success: false, error: "Please choose a plan." }, 400);
+        const email = normalizeEmail(body.email);
+        const existing = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(email).first();
+        if (existing) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409);
         const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
-        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, body.phone, body.propertyCount, planNames[body.plan] || body.plan, body.message || "", new Date().toISOString()).run();
-        const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const propertyLimit = PLAN_LIMITS[body.plan] || 5;
-        await env.DB.prepare("INSERT OR IGNORE INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", body.email, passwordHash, salt, body.plan, propertyLimit, "landlord", new Date().toISOString()).run();
-        return json({ success: true, message: "Signup received" });
-      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+        const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const now = new Date().toISOString();
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, passwordHash, salt, body.plan, PLAN_LIMITS[body.plan], "landlord", now),
+          env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, body.phone, body.propertyCount, planNames[body.plan], body.message || "", now),
+        ]);
+        return json({ success: true, message: "Account created" });
+      } catch (err) { return dbErrorResponse("subscribe", err); }
     }
 
     // Login API
@@ -100,7 +109,7 @@ export default {
       try {
         const body = await request.json() as LoginRequest;
         if (!body.email || !body.password) return json({ error: "Email and password required" }, 400);
-        const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE email = ?").bind(body.email).first<User & { password_hash: string; password_salt: string }>();
+        const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE lower(email) = ?").bind(normalizeEmail(body.email)).first<User & { password_hash: string; password_salt: string }>();
         if (!user) return json({ error: "Invalid email or password" }, 401);
         if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) return json({ error: "Invalid email or password" }, 401);
         if (!user.password_hash.startsWith("pbkdf2$")) { const salt = generateSalt(); await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.password, salt), salt, user.id).run(); }
@@ -108,7 +117,7 @@ export default {
         await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, user.id, expires, new Date().toISOString()).run();
         const { password_hash, password_salt, ...userWithoutPw } = user;
         return json({ token, user: userWithoutPw });
-      } catch { return json({ error: "Something went wrong." }, 500); }
+      } catch (err) { return dbErrorResponse("login", err); }
     }
 
     const user = await getUserFromRequest(request, env);
