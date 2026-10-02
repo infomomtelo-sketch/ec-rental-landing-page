@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rental Application — EC Rental Property Management</title>
+  <meta name="robots" content="noindex" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap narrow">
+    <a href="/listings" class="back" id="backLink">← Back to listing</a>
+    <h1>Rental application</h1>
+    <div id="homeSummary" class="home-summary muted">Loading home details...</div>
+    <form id="appForm" class="app-form" novalidate>
+      <fieldset><legend>About you</legend>
+        <div class="row"><label>First name *<input name="first_name" required autocomplete="given-name" /></label><label>Last name *<input name="last_name" required autocomplete="family-name" /></label></div>
+        <div class="row"><label>Email *<input name="email" type="email" required autocomplete="email" /></label><label>Phone *<input name="phone" type="tel" required autocomplete="tel" /></label></div>
+        <div class="row"><label>Desired move-in date<input name="move_in_date" type="date" /></label><label>Total people who will live here *<input name="occupants" type="number" min="1" max="29" required /></label></div>
+      </fieldset>
+      <fieldset><legend>Where you live now</legend>
+        <label>Current address *<input name="current_address" required autocomplete="street-address" /></label>
+        <div class="row"><label>Current monthly rent<input name="current_rent" inputmode="numeric" placeholder="$" /></label><label>How long at this address<input name="time_at_address" placeholder="e.g. 2 years" /></label></div>
+        <div class="row"><label>Current landlord or manager<input name="current_landlord_name" /></label><label>Their phone<input name="current_landlord_phone" type="tel" /></label></div>
+        <label>Reason for moving<input name="reason_for_moving" /></label>
+      </fieldset>
+      <fieldset><legend>Income</legend>
+        <div class="row"><label>Employer<input name="employer" autocomplete="organization" /></label><label>Job title<input name="job_title" /></label></div>
+        <div class="row"><label>Employer phone<input name="employer_phone" type="tel" /></label><label>How long employed<input name="employment_length" /></label></div>
+        <div class="row"><label>Monthly income before taxes<input name="monthly_income" inputmode="numeric" placeholder="$" /></label><label>Other income<input name="other_income" placeholder="e.g. housing voucher, benefits, self-employment" /></label></div>
+        <p class="small muted">Income from all lawful sources counts, including housing vouchers and public assistance.</p>
+      </fieldset>
+      <fieldset><legend>Anything else</legend>
+        <div class="row"><label>Pets (type and number)<input name="pets" placeholder="None" /></label><label>Vehicles<input name="vehicles" placeholder="e.g. 2019 Honda Civic" /></label></div>
+        <label>Anything you'd like us to know<textarea name="additional_info" rows="3"></textarea></label>
+      </fieldset>
+      <fieldset><legend>Sign and submit</legend>
+        <p class="small">We don't ask for your Social Security number here. If we move forward, we'll send you a secure link from our screening partner to complete a credit and background check, and we'll tell you about any screening fee before you pay it.</p>
+        <label class="check"><input type="checkbox" name="consent" required /> I certify the information above is true and complete, and I authorize EC Rental Property Management LLC and its screening partner to verify it, including contacting my employer and current landlord.</label>
+        <label>Type your full name to sign *<input name="signature_name" required autocomplete="name" /></label>
+        <p class="small muted">By submitting you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
+      </fieldset>
+      <p id="formMsg" class="small"></p>
+      <button type="submit" class="primary-btn">Submit application</button>
+    </form>
+    <div id="doneView" class="done" hidden><h2>Application received</h2><p>Your reference number is <strong id="refNo"></strong>. We'll review it and contact you by email or phone with next steps.</p><p><a href="/listings">Browse more rentals</a></p></div>
+  </main>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script src="/js/listing-common.js"></script>
+  <script>
+    (function() {
+      var E = window.ECR, id = new URLSearchParams(location.search).get('listing');
+      var form = document.getElementById('appForm'), msg = document.getElementById('formMsg'), summary = document.getElementById('homeSummary');
+      if (!/^\d+$/.test(id || '')) { summary.textContent = 'Choose a home from our rentals page to apply.'; form.hidden = true; return; }
+      document.getElementById('backLink').href = '/listing?id=' + id;
+      fetch('/api/public/listings/' + id).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Not found'); return d; }); }).then(function(l) {
+        summary.innerHTML = '<strong>' + E.esc(E.address(l)) + '</strong><br>' + E.money(l.rent) + '/mo · ' + l.bedrooms + ' bd · ' + E.baths(l) + ' ba' + (l.application_fee ? ' · Screening fee ' + E.money(l.application_fee) + ', charged only if we proceed to screening' : '');
+      }).catch(function(err) { summary.textContent = err.message; form.hidden = true; });
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type=submit]'); msg.className = 'small'; msg.textContent = '';
+        var data = {}; new FormData(form).forEach(function(v, k) { data[k] = v; }); data.consent = form.elements.consent.checked;
+        btn.disabled = true; btn.textContent = 'Submitting...';
+        fetch('/api/public/listings/' + id + '/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            btn.disabled = false; btn.textContent = 'Submit application';
+            if (d.success) { form.hidden = true; document.getElementById('refNo').textContent = d.reference; document.getElementById('doneView').hidden = false; window.scrollTo(0, 0); }
+            else { msg.className = 'small err'; msg.textContent = d.error || 'Something went wrong. Please try again.'; }
+          })
+          .catch(function() { btn.disabled = false; btn.textContent = 'Submit application'; msg.className = 'small err'; msg.textContent = 'Could not reach the server. Please try again.'; });
+      });
+    })();
+  </script>
+</body>
+</html>

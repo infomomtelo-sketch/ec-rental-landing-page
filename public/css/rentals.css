@@ -50,3 +50,21 @@ h2 { color: var(--primary); font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
 .ok { color: #166534; } .err { color: #991b1b; }
 .footer { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; color: var(--gray); font-size: 0.8rem; border-top: 1px solid #e5e7eb; }
 @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } .contact { position: static; } h1 { font-size: 1.5rem; } }
+.narrow { max-width: 760px; }
+.home-summary { background: var(--white); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0 1.5rem; box-shadow: var(--shadow); color: var(--dark); }
+.app-form fieldset { border: none; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.app-form legend { font-weight: 800; color: var(--primary); font-size: 1.05rem; padding-top: 1.25rem; float: left; width: 100%; }
+.app-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 600; flex: 1; min-width: 0; }
+.app-form input, .app-form textarea { padding: 0.65rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-weight: 400; width: 100%; }
+.app-form .row { display: flex; gap: 0.75rem; }
+.app-form .check { flex-direction: row; align-items: flex-start; font-weight: 400; gap: 0.6rem; }
+.app-form .check input { width: auto; margin-top: 0.3rem; }
+.primary-btn, .apply-btn { display: inline-block; background: var(--primary); color: var(--white); border: none; padding: 0.85rem 1.5rem; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; text-align: center; }
+.primary-btn:disabled { opacity: 0.6; }
+.apply-btn { width: 100%; margin-bottom: 0.25rem; background: var(--accent); color: var(--dark); }
+.done { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; }
+.footer-links { margin-top: 0.5rem; }
+.legal h2 { margin-top: 1.75rem; }
+.legal p, .legal li { margin-bottom: 0.6rem; }
+.legal ul { padding-left: 1.25rem; }
+@media (max-width: 600px) { .app-form .row { flex-direction: column; } }

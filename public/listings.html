@@ -8,14 +8,14 @@
   <link rel="stylesheet" href="/css/rentals.css" />
 </head>
 <body>
-  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings" class="active">Rentals</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings" class="active">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
   <main class="wrap">
     <h1>Homes for rent</h1>
     <p class="sub">Fresno, Clovis and the Central Valley</p>
     <div class="filters"><label>Min beds <select id="fBeds"><option value="0">Any</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select></label><label>Max rent <input id="fRent" type="number" min="0" step="50" placeholder="Any" /></label><label><input id="fPets" type="checkbox" /> Pets OK</label></div>
     <div id="grid" class="grid"><p class="muted">Loading rentals...</p></div>
   </main>
-  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, national origin, familial status, disability, or any other class protected by federal, California, or local law.</p></footer>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
   <script src="/js/listing-common.js"></script>
   <script>
     (function() {

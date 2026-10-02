@@ -27,6 +27,7 @@ Special actions — include these tags in your response to trigger UI elements:
 Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
+import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 
@@ -43,7 +44,7 @@ function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRand
 const MIN_PASSWORD_LENGTH = 8;
 function normalizeEmail(email: string): string { return String(email).trim().toLowerCase(); }
 // Logs the real error (visible in `wrangler tail`) and gives the visitor a message that says what to do.
-function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
+function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
 async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
 const LEAD_STATUSES = ["pending", "contacted", "closed"];
 function parseLeadDetails(message: string): Record<string, unknown> { try { const parsed = JSON.parse(message || "{}"); return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; } }
@@ -114,7 +115,7 @@ export default {
         if (!(body.plan in PLAN_LIMITS)) return json({ success: false, error: "Please choose a plan." }, 400);
         const email = normalizeEmail(body.email);
         const existing = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(email).first();
-        if (existing) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409);
+        if (existing) return json({ success: false, error: "An account with this email already exists." }, 409);
         const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
         const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const now = new Date().toISOString();
         await env.DB.batch([
@@ -184,11 +185,13 @@ export default {
 
     // Public listings, listing photos and the Zillow feed
     try { const publicRes = await handlePublicListingRoutes(request, env, url); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
+    try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
 
     const user = await getUserFromRequest(request, env);
     if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/")) return json({ error: "Unauthorized" }, 401);
 
     // Me API
+    if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
 
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
