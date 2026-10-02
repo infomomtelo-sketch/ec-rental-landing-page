@@ -11,7 +11,7 @@ Company info:
 - Locally owned property management in Fresno, CA serving the Central Valley including Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
 - Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited).
-- Contact: info@ecrentalpm.com, (559) 000-0000 (placeholder).
+- Contact: info@ecrentalpm.com, (559) 825-3038.
 - AI Home Inspections: upload photos of each area, Thelo AI analyzes condition, identifies needed repairs, and provides recommendations.
 Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
@@ -44,11 +44,24 @@ function generateSalt(): string { const arr = new Uint8Array(16); crypto.getRand
 const MIN_PASSWORD_LENGTH = 8;
 function normalizeEmail(email: string): string { return String(email).trim().toLowerCase(); }
 // Logs the real error (visible in `wrangler tail`) and gives the visitor a message that says what to do.
-function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
+function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
 async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
 const LEAD_STATUSES = ["pending", "contacted", "closed"];
 function parseLeadDetails(message: string): Record<string, unknown> { try { const parsed = JSON.parse(message || "{}"); return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; } }
 function dataUrlToBytes(dataUrl: string): number[] { const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl; const bin = atob(base64); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+async function sha256Hex(value: string): Promise<string> { return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
+function clientIp(request: Request): string { return request.headers.get("CF-Connecting-IP") || "unknown"; }
+// Returns true when every key is under its limit. A missing binding (e.g. older local setups) never blocks.
+async function underLimit(limiter: RateLimit | undefined, keys: string[]): Promise<boolean> { if (!limiter) return true; for (const key of keys) { const { success } = await limiter.limit({ key }); if (!success) return false; } return true; }
+const tooManyRequests = () => json({ error: "Too many requests. Please wait a minute and try again." }, 429);
+function escapeHtml(str: string): string { return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+async function sendEmail(env: Env, to: string, subject: string, html: string, text: string): Promise<boolean> {
+  if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY not set; email to " + to + " not sent"); return false; }
+  const res = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html, text }) });
+  if (!res.ok) console.error("Resend " + res.status + ": " + (await res.text()));
+  return res.ok;
+}
 async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
 interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
 
@@ -60,10 +73,11 @@ export default {
     // Chat API
     if (url.pathname === "/api/chat" && request.method === "POST") {
       try {
+        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as ChatRequest;
-        const userMessage = body.message?.trim();
+        const userMessage = body.message?.trim().slice(0, 2000);
         if (!userMessage) return json({ error: "Message is required" }, 400);
-        const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...(body.history || []).map((m) => ({ role: m.role, content: m.content })), { role: "user", content: userMessage }];
+        const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
         const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
         return json({ response: (aiResponse as { response?: string }).response || "I'm sorry, I couldn't generate a response right now." });
       } catch { return json({ error: "Something went wrong." }, 500); }
@@ -72,6 +86,7 @@ export default {
     // Tenant Application API (from chat)
     if (url.pathname === "/api/tenant-application" && request.method === "POST") {
       try {
+        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as Record<string, unknown>;
         if (!body.name || !body.email || !body.phone) return json({ success: false, error: "Name, email, and phone required" }, 400);
         await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", body.email, body.phone, "tenant", "tenant_application", JSON.stringify({ area: body.area, bedrooms: body.bedrooms, budget: body.budget, moveIn: body.moveIn }), "pending", new Date().toISOString()).run();
@@ -82,6 +97,7 @@ export default {
     // Maintenance Request API (from chat)
     if (url.pathname === "/api/maintenance-request" && request.method === "POST") {
       try {
+        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as Record<string, unknown>;
         if (!body.name || !body.address || !body.description) return json({ success: false, error: "Name, address, and description required" }, 400);
         await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", "", "", "maintenance", "maintenance_request", JSON.stringify({ address: body.address, description: body.description, priority: body.priority }), "pending", new Date().toISOString()).run();
@@ -92,13 +108,14 @@ export default {
     // Subscribe API
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
       try {
+        if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as SubscribeRequest;
         if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan || !body.password) return json({ success: false, error: "Please fill in all required fields." }, 400);
         if (body.password.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
         if (!(body.plan in PLAN_LIMITS)) return json({ success: false, error: "Please choose a plan." }, 400);
         const email = normalizeEmail(body.email);
         const existing = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(email).first();
-        if (existing) return json({ success: false, error: "An account with this email already exists. Sign in at /dashboard instead." }, 409);
+        if (existing) return json({ success: false, error: "An account with this email already exists." }, 409);
         const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
         const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const now = new Date().toISOString();
         await env.DB.batch([
@@ -114,6 +131,7 @@ export default {
       try {
         const body = await request.json() as LoginRequest;
         if (!body.email || !body.password) return json({ error: "Email and password required" }, 400);
+        if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request), "email:" + body.email.toLowerCase()]))) return tooManyRequests();
         const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE lower(email) = ?").bind(normalizeEmail(body.email)).first<User & { password_hash: string; password_salt: string }>();
         if (!user) return json({ error: "Invalid email or password" }, 401);
         if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) return json({ error: "Invalid email or password" }, 401);
@@ -125,12 +143,52 @@ export default {
       } catch (err) { return dbErrorResponse("login", err); }
     }
 
+    // Password reset: request a link by email
+    if (url.pathname === "/api/password-reset/request" && request.method === "POST") {
+      try {
+        const body = await request.json() as { email?: string };
+        if (!body.email) return json({ error: "Email required" }, 400);
+        if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request), "email:" + body.email.toLowerCase()]))) return tooManyRequests();
+        const account = await env.DB.prepare("SELECT id, name, email FROM users WHERE lower(email) = ?").bind(normalizeEmail(body.email)).first<{ id: number; name: string; email: string }>();
+        if (account) {
+          const token = generateToken(); const now = new Date();
+          await env.DB.prepare("INSERT INTO password_resets (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(await sha256Hex(token), account.id, new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString(), now.toISOString()).run();
+          const link = url.origin + "/dashboard?reset=" + token;
+          await sendEmail(env, account.email, "Reset your EC Rental password",
+            "<p>Hi " + escapeHtml(account.name) + ",</p><p>Someone asked to reset the password for your EC Rental account. This link works for one hour:</p><p><a href=\"" + link + "\">Reset my password</a></p><p>If you didn't ask for this, you can ignore this email.</p>",
+            "Hi " + account.name + ",\n\nSomeone asked to reset the password for your EC Rental account. This link works for one hour:\n" + link + "\n\nIf you didn't ask for this, you can ignore this email.");
+        }
+        // Same answer whether or not the account exists, so this can't be used to discover emails.
+        return json({ success: true });
+      } catch { return json({ error: "Something went wrong." }, 500); }
+    }
+
+    // Password reset: set a new password with the emailed token
+    if (url.pathname === "/api/password-reset/confirm" && request.method === "POST") {
+      try {
+        const body = await request.json() as { token?: string; new_password?: string };
+        if (!body.token || !body.new_password) return json({ error: "Token and new password required" }, 400);
+        if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
+        if (body.new_password.length < MIN_PASSWORD_LENGTH) return json({ error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
+        const tokenHash = await sha256Hex(body.token);
+        const reset = await env.DB.prepare("SELECT user_id, expires_at, used_at FROM password_resets WHERE token_hash = ?").bind(tokenHash).first<{ user_id: number; expires_at: string; used_at: string | null }>();
+        if (!reset || reset.used_at || new Date(reset.expires_at) < new Date()) return json({ error: "This reset link is invalid or has expired. Please request a new one." }, 400);
+        const salt = generateSalt();
+        await env.DB.batch([
+          env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.new_password, salt), salt, reset.user_id),
+          env.DB.prepare("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL").bind(new Date().toISOString(), reset.user_id),
+          env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(reset.user_id),
+        ]);
+        return json({ success: true });
+      } catch { return json({ error: "Something went wrong." }, 500); }
+    }
+
     // Public listings, listing photos and the Zillow feed
     try { const publicRes = await handlePublicListingRoutes(request, env, url); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
 
     const user = await getUserFromRequest(request, env);
-    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request") return json({ error: "Unauthorized" }, 401);
+    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/")) return json({ error: "Unauthorized" }, 401);
 
     // Me API
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
@@ -221,4 +279,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; }

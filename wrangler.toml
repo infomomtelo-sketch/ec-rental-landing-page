@@ -21,3 +21,19 @@ database_id = "80e01fdc-9511-4868-9b82-e803290e7700"
 [[r2_buckets]]
 binding = "PHOTOS"
 bucket_name = "ec-rental-photos"
+
+[vars]
+# Must be an address on a domain verified in Resend. RESEND_API_KEY is a secret: npx wrangler secret put RESEND_API_KEY
+EMAIL_FROM = "EC Rental <info@ecrentalpm.com>"
+
+# Per-IP/per-email limits for login, signup and password reset.
+[[ratelimits]]
+name = "AUTH_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# Per-IP limit for the AI chat and the chat's application/maintenance forms.
+[[ratelimits]]
+name = "CHAT_LIMITER"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
