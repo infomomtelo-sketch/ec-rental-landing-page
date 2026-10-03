@@ -3,6 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2026-09-25"
 compatibility_flags = ["nodejs_compat"]
 
+# Serve the site on ecrentalpm.com (Cloudflare creates the DNS records and certificate on deploy).
+# The workers.dev address keeps working too.
+workers_dev = true
+routes = [
+  { pattern = "ecrentalpm.com", custom_domain = true },
+  { pattern = "www.ecrentalpm.com", custom_domain = true },
+]
+
 [ai]
 binding = "AI"
 
