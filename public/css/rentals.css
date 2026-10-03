@@ -68,3 +68,11 @@ h2 { color: var(--primary); font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
 .legal p, .legal li { margin-bottom: 0.6rem; }
 .legal ul { padding-left: 1.25rem; }
 @media (max-width: 600px) { .app-form .row { flex-direction: column; } }
+.home-summary h3 { color: var(--primary); margin-bottom: 0.5rem; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.facts div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; overflow-wrap: anywhere; }
+.mini { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.mini th, .mini td { text-align: left; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
+.req { padding: 0.6rem 0; border-bottom: 1px solid #eee; overflow-wrap: anywhere; }
+.req-form { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.app-form select { padding: 0.65rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-weight: 400; width: 100%; background: var(--white); }

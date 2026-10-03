@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tenant Portal — EC Rental Property Management</title>
+  <meta name="robots" content="noindex" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="#" id="signOut" style="display:none">Sign Out</a></div></nav></header>
+  <main class="wrap narrow">
+    <p id="loading" class="muted">Loading...</p>
+
+    <section id="acceptView" style="display:none">
+      <h1>Set up your tenant account</h1>
+      <div id="inviteSummary" class="home-summary"></div>
+      <form id="acceptForm" class="app-form">
+        <fieldset>
+          <label id="nameField">Your full name *<input name="name" autocomplete="name" /></label>
+          <label>Email<input id="inviteEmail" disabled /></label>
+          <label><span id="passwordLabel">Create a password * (min. 8 characters)</span><input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
+          <p class="small muted">By continuing you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
+          <button type="submit" class="primary-btn">Open my tenant portal</button>
+          <p id="acceptMsg" class="small"></p>
+        </fieldset>
+      </form>
+    </section>
+
+    <section id="signInView" style="display:none">
+      <h1>Tenant sign in</h1>
+      <p class="muted">Renting from an EC Rental landlord? Sign in with the email your landlord invited.</p>
+      <form id="signInForm" class="app-form">
+        <fieldset>
+          <label>Email<input name="email" type="email" required autocomplete="email" /></label>
+          <label>Password<input name="password" type="password" required autocomplete="current-password" /></label>
+          <button type="submit" class="primary-btn">Sign in</button>
+          <p id="signInMsg" class="small"></p>
+          <p class="small"><a href="/dashboard">Forgot password?</a> · No account yet? Ask your landlord to send you an invite.</p>
+        </fieldset>
+      </form>
+    </section>
+
+    <section id="homeView" style="display:none">
+      <h1 id="hello">Your home</h1>
+      <div id="homes"></div>
+    </section>
+  </main>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script>
+    (function() {
+      var params = new URLSearchParams(location.search), invite = params.get('invite');
+      function token() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
+      function setToken(t) { try { t ? localStorage.setItem('ec_token', t) : localStorage.removeItem('ec_token'); } catch (e) {} }
+      function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+      function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+      function day(s) { if (!s) return '—'; var d = new Date(s.length === 10 ? s + 'T12:00:00' : s); return isNaN(d) ? esc(s) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+      function call(path, method, body) {
+        var headers = { 'Content-Type': 'application/json' }; if (token()) headers.Authorization = 'Bearer ' + token();
+        return fetch('/api' + path, { method: method || 'GET', headers: headers, body: body ? JSON.stringify(body) : undefined }).then(function(r) {
+          return r.json().catch(function() { return {}; }).then(function(d) { if (!r.ok) { var e = new Error(d.error || 'Something went wrong. Please try again.'); e.status = r.status; throw e; } return d; });
+        });
+      }
+      function show(id) { ['loading', 'acceptView', 'signInView', 'homeView'].forEach(function(v) { document.getElementById(v).style.display = v === id ? 'block' : 'none'; }); document.getElementById('signOut').style.display = id === 'homeView' ? 'inline' : 'none'; }
+      function msg(el, text, bad) { el.textContent = text; el.className = 'small' + (bad ? ' err' : ''); }
+
+      var STATUS = { open: 'Open', 'in-progress': 'In progress', in_progress: 'In progress', completed: 'Completed', closed: 'Closed' };
+      function renderHome(h) {
+        var lease = h.lease_start || h.lease_end ? day(h.lease_start) + ' to ' + day(h.lease_end) : 'Ask your landlord for your lease dates';
+        var pay = h.payments.length ? '<table class="mini"><thead><tr><th>Date</th><th>Amount</th></tr></thead><tbody>' + h.payments.map(function(p) { return '<tr><td>' + day(p.date) + '</td><td>' + money(p.amount) + '</td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted small">No rent payments recorded yet.</p>';
+        var reqs = h.requests.length ? h.requests.map(function(r) { return '<div class="req"><div><strong>' + esc(STATUS[r.status] || r.status) + '</strong> · <span class="muted small">' + day(r.created_at) + ' · ' + esc(r.priority) + ' priority</span></div><div>' + esc(r.description) + '</div></div>'; }).join('') : '<p class="muted small">No requests yet.</p>';
+        return '<div class="home-summary"><h2 style="margin-bottom:0.25rem">' + esc(h.address) + '</h2><p class="muted">' + esc([h.city, h.state].filter(Boolean).join(', ')) + ' ' + esc(h.zip || '') + '</p>' +
+          '<div class="facts"><div><span class="muted small">Monthly rent</span><strong>' + money(h.rent) + '</strong></div><div><span class="muted small">Lease</span><strong>' + lease + '</strong></div><div><span class="muted small">Landlord</span><strong>' + esc(h.landlord.name) + '</strong><a class="small" href="mailto:' + esc(h.landlord.email) + '">' + esc(h.landlord.email) + '</a></div></div></div>' +
+          '<div class="home-summary"><h3>Rent payments received</h3><p class="muted small">Payments your landlord has recorded. Ask your landlord if one is missing.</p>' + pay + '</div>' +
+          '<div class="home-summary"><h3>Maintenance requests</h3>' + reqs +
+          '<form class="app-form req-form" data-tenancy="' + h.tenancy_id + '"><label>What needs fixing? *<textarea name="description" rows="3" required placeholder="Describe the problem and where it is"></textarea></label><label>How urgent?<select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent (no heat, water leak, no power)</option></select></label><button type="submit" class="primary-btn">Send request</button><p class="small req-msg"></p><p class="small muted">For emergencies like fire, gas leaks or flooding, call 911 or your utility first.</p></form></div>';
+      }
+      function loadHome() {
+        show('loading');
+        call('/tenant/home').then(function(d) {
+          document.getElementById('hello').textContent = 'Hi, ' + d.user.name.split(' ')[0];
+          document.getElementById('homes').innerHTML = d.homes.length ? d.homes.map(renderHome).join('') : '<div class="home-summary">Your landlord has ended your portal access for this home. Contact them if that looks wrong.</div>';
+          show('homeView');
+        }).catch(function(e) {
+          if (e.status === 403) { location.href = '/dashboard'; return; }
+          setToken(null); show('signInView');
+        });
+      }
+
+      document.getElementById('homes').addEventListener('submit', function(e) {
+        var f = e.target; if (!f.classList.contains('req-form')) return; e.preventDefault();
+        var out = f.querySelector('.req-msg'), btn = f.querySelector('button'); btn.disabled = true;
+        call('/tenant/maintenance', 'POST', { tenancy_id: Number(f.getAttribute('data-tenancy')), description: f.description.value, priority: f.priority.value })
+          .then(function() { loadHome(); })
+          .catch(function(err) { btn.disabled = false; msg(out, err.message, true); });
+      });
+
+      document.getElementById('signInForm').addEventListener('submit', function(e) {
+        e.preventDefault(); var f = e.target, out = document.getElementById('signInMsg'); msg(out, '');
+        call('/login', 'POST', { email: f.email.value, password: f.password.value }).then(function(d) {
+          setToken(d.token);
+          if (d.user.role !== 'tenant') { location.href = '/dashboard'; return; }
+          loadHome();
+        }).catch(function(err) { msg(out, err.message, true); });
+      });
+
+      document.getElementById('signOut').addEventListener('click', function(e) { e.preventDefault(); setToken(null); show('signInView'); });
+
+      if (invite) {
+        fetch('/api/tenant-invite?token=' + encodeURIComponent(invite)).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error); return d; }); }).then(function(d) {
+          document.getElementById('inviteSummary').innerHTML = '<strong>' + esc(d.landlord) + '</strong> invited you to the tenant portal for <strong>' + esc(d.address) + '</strong>.';
+          document.getElementById('inviteEmail').value = d.email;
+          if (d.has_account) { document.getElementById('nameField').style.display = 'none'; document.getElementById('passwordLabel').textContent = 'Your existing password *'; document.querySelector('#acceptForm [name=password]').setAttribute('autocomplete', 'current-password'); }
+          show('acceptView');
+        }).catch(function(err) { show('signInView'); msg(document.getElementById('signInMsg'), err.message || 'This invite link is invalid or has expired.', true); });
+        document.getElementById('acceptForm').addEventListener('submit', function(e) {
+          e.preventDefault(); var f = e.target, out = document.getElementById('acceptMsg'), btn = f.querySelector('button'); btn.disabled = true; msg(out, '');
+          call('/tenant-invite/accept', 'POST', { token: invite, name: f.name.value, password: f.password.value }).then(function(d) {
+            setToken(d.token); history.replaceState(null, '', '/tenant'); loadHome();
+          }).catch(function(err) { btn.disabled = false; msg(out, err.message, true); });
+        });
+      } else if (token()) { loadHome(); } else { show('signInView'); }
+    })();
+  </script>
+</body>
+</html>
