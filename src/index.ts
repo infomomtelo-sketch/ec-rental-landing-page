@@ -29,6 +29,8 @@ Always give a real answer first, then include the tag. Never just say "contact u
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
+import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
+import { handleMapRoute } from "./geo";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
@@ -192,6 +194,7 @@ export default {
 
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
+    try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
@@ -202,10 +205,12 @@ export default {
 
     // Tenants only reach their portal; every other API route is for landlords.
     if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
+    if (user && url.pathname.startsWith("/api/tenant/documents")) { try { const res = await handleTenantDocumentRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tenant-documents", err); } }
     if (user && url.pathname.startsWith("/api/tenant/")) { try { const res = await handleTenantPortalRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenant-portal", err); } }
     if (user && url.pathname.startsWith("/api/tenancies")) { try { const res = await handleTenancyRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenancies", err); } }
 
     // Me API
+    if (user && url.pathname.startsWith("/api/documents")) { try { const res = await handleDocumentRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("documents", err); } }
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
     if (user && url.pathname === "/api/listings/leads") { try { const res = await handleLandlordLeadRoute(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listing-leads", err); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }

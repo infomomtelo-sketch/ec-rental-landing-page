@@ -1,0 +1,36 @@
+/* Printable landlord documents (public/js/doc-templates.js). Used in the dashboard preview, /document and the tenant portal. */
+.ecdoc { font-family: Georgia, "Times New Roman", serif; color: #111; background: #fff; font-size: 11.5pt; line-height: 1.5; max-width: 8.5in; margin: 0 auto; padding: 0.6in 0.7in; box-sizing: border-box; overflow-wrap: anywhere; }
+.ecdoc h1 { font-size: 17pt; text-align: center; margin: 0 0 0.3em; letter-spacing: 0.02em; text-transform: uppercase; }
+.ecdoc h1.left { text-align: left; margin: 0; }
+.ecdoc h2 { font-size: 13pt; margin: 1.2em 0 0.4em; text-transform: uppercase; }
+.ecdoc h3 { font-size: 11.5pt; margin: 1em 0 0.25em; }
+.ecdoc p { margin: 0 0 0.6em; }
+.ecdoc .center { text-align: center; }
+.ecdoc .small { font-size: 9.5pt; }
+.ecdoc .big { font-size: 13pt; margin: 1em 0; }
+.ecdoc .blank { display: inline-block; border-bottom: 1px solid #333; height: 1.1em; vertical-align: bottom; max-width: 100%; }
+.ecdoc .box { border: 1px solid #999; padding: 0.5em 0.7em; }
+.ecdoc table { width: 100%; border-collapse: collapse; margin: 0.6em 0 1em; }
+.ecdoc th, .ecdoc td { border: 1px solid #999; padding: 0.35em 0.6em; text-align: left; vertical-align: top; }
+.ecdoc .items thead th, .ecdoc .kv th { background: #f2f2f2; }
+.ecdoc .kv th { width: 34%; }
+.ecdoc .num { text-align: right; white-space: nowrap; }
+.ecdoc tfoot th { background: #f2f2f2; }
+.ecdoc .doc-head { display: flex; justify-content: space-between; gap: 1em; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 0.6em; margin-bottom: 1em; flex-wrap: wrap; }
+.ecdoc .doc-head .right { text-align: right; font-size: 10pt; }
+.ecdoc .doc-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(10em, 1fr)); gap: 0.8em; margin-bottom: 1em; }
+.ecdoc .lbl { display: block; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
+.ecdoc .fills { display: grid; grid-template-columns: repeat(auto-fit, minmax(15em, 1fr)); gap: 0.4em 1.2em; }
+.ecdoc .fill .blank { display: block; width: 100%; min-width: 0 !important; height: 1.5em; }
+.ecdoc .sigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(14em, 1fr)); gap: 1.2em 2em; margin: 1.6em 0 1em; break-inside: avoid; }
+.ecdoc .sig-line { border-bottom: 1px solid #111; height: 2.2em; }
+.ecdoc .sig-line.short { width: 55%; height: 1.8em; }
+.ecdoc .sig-cap { font-size: 9pt; color: #333; }
+.ecdoc .pagebreak { break-before: page; height: 0; }
+@media screen { .ecdoc .pagebreak { border-top: 1px dashed #bbb; margin: 1.5em 0; } }
+@media (max-width: 600px) { .ecdoc { padding: 0.35in 0.3in; font-size: 11pt; } }
+@media print {
+  @page { size: letter; margin: 0.5in; }
+  .ecdoc { padding: 0; max-width: none; }
+  .ecdoc h3 { break-after: avoid; }
+}
