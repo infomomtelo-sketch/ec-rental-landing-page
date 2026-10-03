@@ -75,7 +75,7 @@ async function getUserFromRequest(request: Request, env: Env): Promise<User | nu
 interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
@@ -163,9 +163,10 @@ export default {
           const token = generateToken(); const now = new Date();
           await env.DB.prepare("INSERT INTO password_resets (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(await sha256Hex(token), account.id, new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString(), now.toISOString()).run();
           const link = url.origin + "/dashboard?reset=" + token;
-          await sendEmail(env, account.email, "Reset your EC Rental password",
+          // Sent in the background so response time does not reveal whether the account exists.
+          ctx.waitUntil(sendEmail(env, account.email, "Reset your EC Rental password",
             "<p>Hi " + escapeHtml(account.name) + ",</p><p>Someone asked to reset the password for your EC Rental account. This link works for one hour:</p><p><a href=\"" + link + "\">Reset my password</a></p><p>If you didn't ask for this, you can ignore this email.</p>",
-            "Hi " + account.name + ",\n\nSomeone asked to reset the password for your EC Rental account. This link works for one hour:\n" + link + "\n\nIf you didn't ask for this, you can ignore this email.");
+            "Hi " + account.name + ",\n\nSomeone asked to reset the password for your EC Rental account. This link works for one hour:\n" + link + "\n\nIf you didn't ask for this, you can ignore this email.").catch((err) => console.error("Reset email failed: " + err)));
         }
         // Same answer whether or not the account exists, so this can't be used to discover emails.
         return json({ success: true });
