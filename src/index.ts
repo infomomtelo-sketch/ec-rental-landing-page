@@ -297,7 +297,7 @@ export default {
     if (inspMatch && request.method === "GET") { const inspId = parseInt(inspMatch[1]); const inspection = await env.DB.prepare("SELECT i.*, p.address as property_address FROM inspections i JOIN properties p ON i.property_id = p.id WHERE i.id = ? AND p.user_id = ?").bind(inspId, user!.id).first(); if (!inspection) return json({ error: "Not found" }, 404); const photos = await env.DB.prepare("SELECT * FROM inspection_photos WHERE inspection_id = ? ORDER BY created_at ASC").bind(inspId).all(); return json({ inspection, photos: photos.results }); }
 
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
-    if (!env.ASSETS) return new Response("Static pages aren't available in this preview. Open https://ec-rental-landing-page.infomomtelo.workers.dev instead.", { status: 503, headers: { "Content-Type": "text/plain" } });
+    if (!env.ASSETS) return new Response("Static pages aren't available in this preview. Open https://ecrentalpm.com instead.", { status: 503, headers: { "Content-Type": "text/plain" } });
     return env.ASSETS.fetch(request);
   },
 };
