@@ -3,6 +3,8 @@
  * and a Zillow Rentals feed (hotPadsItems v2.1 format, single-unit listings).
  */
 
+import { saveListingLead, type Notify } from "./leads";
+
 export interface ListingsEnv { DB: D1Database; PHOTOS?: R2Bucket; }
 interface ListingUser { id: number; name: string; company: string; email: string; }
 
@@ -161,7 +163,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
 }
 
 /** Public routes: /api/public/listings, /photos/*, /feeds/zillow.xml. Returns null when not matched. */
-export async function handlePublicListingRoutes(request: Request, env: ListingsEnv, url: URL): Promise<Response | null> {
+export async function handlePublicListingRoutes(request: Request, env: ListingsEnv, url: URL, notify?: Notify): Promise<Response | null> {
   const path = url.pathname;
   const origin = url.origin;
 
@@ -183,14 +185,13 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   const inquiry = path.match(/^\/api\/public\/listings\/(\d+)\/inquiry$/);
   if (inquiry && request.method === "POST") {
     const id = parseInt(inquiry[1]);
-    const l = await env.DB.prepare("SELECT id, street, unit, city, bedrooms, rent FROM listings WHERE id = ? AND status = 'active'").bind(id).first<{ id: number; street: string; unit: string; city: string; bedrooms: number; rent: number }>();
+    const l = await env.DB.prepare("SELECT id, street, unit, city, bedrooms, rent, contact_email FROM listings WHERE id = ? AND status = 'active'").bind(id).first<{ id: number; street: string; unit: string; city: string; bedrooms: number; rent: number; contact_email: string }>();
     if (!l) return json({ success: false, error: "This listing is no longer available." }, 404);
     const body = await request.json() as Record<string, unknown>;
     const name = str(body.name, 100), email = str(body.email, 200), phone = str(body.phone, 30), message = str(body.message, 2000), moveIn = str(body.moveIn, 20);
     if (!name || !/^\S+@\S+\.\S+$/.test(email) || !phone) return json({ success: false, error: "Please enter your name, email and phone." }, 400);
-    await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      // Saved as a tenant_application so it appears with the other tenant leads on the admin Leads page.
-      .bind(name, "", email, phone, "tenant", "tenant_application", JSON.stringify({ source: "listing", listingId: l.id, area: [l.street, l.unit, l.city].filter(Boolean).join(", "), bedrooms: l.bedrooms, budget: "$" + Math.round(l.rent) + "/mo listing", moveIn, message }), "pending", new Date().toISOString()).run();
+    // Saved as a tenant_application so it shows on the landlord's Listings page and the admin Leads page.
+    await saveListingLead(env, l, { source: "listing", name, email, phone, moveIn, message }, notify, origin);
     return json({ success: true });
   }
 
@@ -226,7 +227,7 @@ export function buildZillowFeed(origin: string, listings: ListingRow[], photos: 
     p.push(`<listing id="ECR${l.id}" type="RENTAL" companyId="${ZILLOW_COMPANY_ID}" propertyType="${x(l.property_type)}">`);
     p.push(el("name", l.title));
     p.push(el("unit", l.unit));
-    p.push(`<street hide="false">${x(l.street)}</street>`, el("city", l.city), el("state", l.state), el("zip", l.zip));
+    p.push(`<street hide="false">${x(l.street)}</street>`, el("city", l.city), el("state", l.state), el("zip", l.zip), el("country", "US"));
     p.push(el("lastUpdated", l.updated_at));
     p.push(el("contactName", l.contact_name), el("contactEmail", l.contact_email), el("contactPhone", l.contact_phone));
     const description = [l.description, l.amenities ? `Amenities: ${l.amenities}` : "", laundryText(l.laundry)].filter(Boolean).join("\n\n");
@@ -243,7 +244,7 @@ export function buildZillowFeed(origin: string, listings: ListingRow[], photos: 
     if (l.deposit > 0) fees.push(fee(l.deposit, "securityDeposit", "moveIn", "refundable"));
     if (l.application_fee > 0) fees.push(fee(l.application_fee, "applicationFee", "atApplication", "nonRefundable"));
     if (fees.length) p.push(`<fees>${fees.join("")}</fees>`);
-    for (const ph of photos[l.id] || []) p.push(ph.caption ? `<listingPhoto source="${x(photoUrl(origin, ph.r2_key))}">${el("caption", ph.caption)}</listingPhoto>` : `<listingPhoto source="${x(photoUrl(origin, ph.r2_key))}" />`);
+    for (const ph of photos[l.id] || []) p.push(ph.caption ? `<listingPhoto source="${x(photoUrl(origin, ph.r2_key))}">${el("caption", ph.caption.slice(0, 60))}</listingPhoto>` : `<listingPhoto source="${x(photoUrl(origin, ph.r2_key))}" />`);
     p.push(el("price", Math.round(l.rent)), el("pricingFrequency", "MONTH"));
     p.push(el("numBedrooms", l.bedrooms), el("numFullBaths", l.full_baths));
     if (l.half_baths) p.push(el("numHalfBaths", l.half_baths));

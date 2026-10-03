@@ -37,6 +37,20 @@
     }).catch(function(err) { body.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
   }
 
+  var leadsBody = document.getElementById('listingLeadsBody');
+  var LEAD_TYPES = { question: 'Question', tourRequest: 'Tour request', applicationRequest: 'Application request' };
+  function loadLeads() {
+    if (!leadsBody || !token()) return;
+    api('/listings/leads').then(function(list) {
+      if (!list.length) { leadsBody.innerHTML = '<tr><td colspan="6" class="empty-state">No inquiries yet. Questions from your listing pages and from Zillow show up here and are emailed to the listing contact.</td></tr>'; return; }
+      leadsBody.innerHTML = list.map(function(l) {
+        var from = (l.source === 'zillow' ? '<span class="badge badge-green">Zillow</span>' : '<span class="badge badge-gray">Website</span>') + (LEAD_TYPES[l.leadType] ? '<br><small style="color:var(--gray)">' + LEAD_TYPES[l.leadType] + '</small>' : '');
+        var contact = '<strong>' + esc(l.name) + '</strong><br><a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a>' + (l.phone ? '<br><a href="tel:' + esc(String(l.phone).replace(/[^\d+]/g, '')) + '">' + esc(l.phone) + '</a>' : '');
+        return '<tr><td>' + new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td>' + from + '</td><td>' + contact + '</td><td>' + esc(l.home) + '</td><td>' + esc(l.moveIn || '—') + '</td><td style="max-width:260px;white-space:normal">' + esc(l.message) + '</td></tr>';
+      }).join('');
+    }).catch(function(err) { leadsBody.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
+  }
+
   function fillProperties(selected) {
     var sel = form.elements.property_id;
     api('/properties').then(function(props) {
@@ -128,6 +142,7 @@
     if (del && confirm('Delete this listing and its photos?')) api('/listings/' + del, 'DELETE').then(load);
   });
   var nav = document.querySelector('[data-page="listings"]');
-  if (nav) nav.addEventListener('click', load);
+  if (nav) nav.addEventListener('click', function() { load(); loadLeads(); });
   load();
+  loadLeads();
 })();
