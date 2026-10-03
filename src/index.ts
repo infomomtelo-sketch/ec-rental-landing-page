@@ -3,7 +3,7 @@
  * Powered by Thelo AI (branded), running on Cloudflare Workers AI.
  */
 interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; }
-interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password: string; message?: string; }
+interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
 const SYSTEM_PROMPT = `You are the EC Rental Property Management LLC assistant in Fresno, California. You are "Powered by Thelo AI."
@@ -31,6 +31,7 @@ import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
+import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
@@ -71,6 +72,8 @@ function tenantHelpers(env: Env): TenantHelpers {
     sendEmail: (to, subject, html, text) => sendEmail(env, to, subject, html, text),
     allowAuthAttempt: (request, keys) => underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request), ...keys]) };
 }
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+async function createSession(env: Env, userId: number): Promise<string> { const token = generateToken(); await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, userId, new Date(Date.now() + SESSION_TTL_MS).toISOString(), new Date().toISOString()).run(); return token; }
 async function getUserFromRequest(request: Request, env: Env): Promise<User | null> { const auth = request.headers.get("Authorization"); if (!auth || !auth.startsWith("Bearer ")) return null; const token = auth.slice(7); const session = await env.DB.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").bind(token).first<{ user_id: number; expires_at: string }>(); if (!session) return null; if (new Date(session.expires_at) < new Date()) return null; const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(session.user_id).first<User>(); return user || null; }
 interface User { id: number; name: string; company: string; email: string; plan: string; property_limit: number; role: string; }
 
@@ -119,18 +122,23 @@ export default {
       try {
         if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as SubscribeRequest;
-        if (!body.name || !body.email || !body.phone || !body.propertyCount || !body.plan || !body.password) return json({ success: false, error: "Please fill in all required fields." }, 400);
-        if (body.password.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
+        const viaGoogle = !!body.google_ticket;
+        if (!body.name || (!viaGoogle && !body.email) || !body.phone || !body.propertyCount || !body.plan || (!viaGoogle && !body.password)) return json({ success: false, error: "Please fill in all required fields." }, 400);
+        if (!viaGoogle && body.password!.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
         if (!(body.plan in PLAN_LIMITS)) return json({ success: false, error: "Please choose a plan." }, 400);
-        const email = normalizeEmail(body.email);
+        // A Google sign up uses the email Google verified and gets a random password; "Forgot password?" can set one later.
+        const googleEmail = viaGoogle ? await redeemSignupTicket(env, body.google_ticket!, sha256Hex) : null;
+        if (viaGoogle && !googleEmail) return json({ success: false, error: "Your Google sign-up expired. Please click Continue with Google again." }, 400);
+        const email = googleEmail || normalizeEmail(body.email);
         const existing = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(email).first();
         if (existing) return json({ success: false, error: "An account with this email already exists." }, 409);
         const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
-        const salt = generateSalt(); const passwordHash = await hashPassword(body.password, salt); const now = new Date().toISOString();
-        await env.DB.batch([
+        const salt = generateSalt(); const passwordHash = await hashPassword(body.password || generateToken(), salt); const now = new Date().toISOString();
+        const results = await env.DB.batch([
           env.DB.prepare("INSERT INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, passwordHash, salt, body.plan, PLAN_LIMITS[body.plan], "landlord", now),
           env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, body.phone, body.propertyCount, planNames[body.plan], body.message || "", now),
         ]);
+        if (viaGoogle) return json({ success: true, message: "Account created", token: await createSession(env, Number(results[0].meta.last_row_id)) });
         return json({ success: true, message: "Account created" });
       } catch (err) { return dbErrorResponse("subscribe", err); }
     }
@@ -145,12 +153,15 @@ export default {
         if (!user) return json({ error: "Invalid email or password" }, 401);
         if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) return json({ error: "Invalid email or password" }, 401);
         if (!user.password_hash.startsWith("pbkdf2$")) { const salt = generateSalt(); await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.password, salt), salt, user.id).run(); }
-        const token = generateToken(); const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-        await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, user.id, expires, new Date().toISOString()).run();
+        const token = await createSession(env, user.id);
         const { password_hash, password_salt, ...userWithoutPw } = user;
         return json({ token, user: userWithoutPw });
       } catch (err) { return dbErrorResponse("login", err); }
     }
+
+    // Continue with Google
+    const googleResponse = await handleGoogleRoutes(request, env, url, { generateToken, sha256Hex, createSession: (userId) => createSession(env, userId), allowAttempt: (req) => underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(req)]) });
+    if (googleResponse) return googleResponse;
 
     // Password reset: request a link by email
     if (url.pathname === "/api/password-reset/request" && request.method === "POST") {
@@ -301,4 +312,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; }

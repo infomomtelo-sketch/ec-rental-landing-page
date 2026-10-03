@@ -32,6 +32,7 @@
       <p class="muted">Renting from an EC Rental landlord? Sign in with the email your landlord invited.</p>
       <form id="signInForm" class="app-form">
         <fieldset>
+          <div data-google-signin="tenant" style="display:none"></div>
           <label>Email<input name="email" type="email" required autocomplete="email" /></label>
           <label>Password<input name="password" type="password" required autocomplete="current-password" /></label>
           <button type="submit" class="primary-btn">Sign in</button>
@@ -47,9 +48,11 @@
     </section>
   </main>
   <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script src="/js/google-signin.js"></script>
   <script>
     (function() {
       var params = new URLSearchParams(location.search), invite = params.get('invite');
+      var google = ECGoogle.readHash(); if (google.token) { try { localStorage.setItem('ec_token', google.token); } catch (e) {} }
       function token() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
       function setToken(t) { try { t ? localStorage.setItem('ec_token', t) : localStorage.removeItem('ec_token'); } catch (e) {} }
       function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -128,7 +131,8 @@
             setToken(d.token); history.replaceState(null, '', '/tenant'); loadHome();
           }).catch(function(err) { btn.disabled = false; msg(out, err.message, true); });
         });
-      } else if (token()) { loadHome(); } else { show('signInView'); }
+      } else if (google.error) { show('signInView'); msg(document.getElementById('signInMsg'), google.error, true); } else if (token()) { loadHome(); } else { show('signInView'); }
+      ECGoogle.initButtons('tenant');
     })();
   </script>
 </body>
