@@ -64,6 +64,13 @@
       function show(id) { ['loading', 'acceptView', 'signInView', 'homeView'].forEach(function(v) { document.getElementById(v).style.display = v === id ? 'block' : 'none'; }); document.getElementById('signOut').style.display = id === 'homeView' ? 'inline' : 'none'; }
       function msg(el, text, bad) { el.textContent = text; el.className = 'small' + (bad ? ' err' : ''); }
 
+      var docs = [];
+      var DOC_TYPES = { lease: 'Rental agreement', notice_pay_or_quit: 'Notice', invoice: 'Invoice', receipt: 'Receipt', application: 'Application', notice_of_entry: 'Notice of entry' };
+      function renderDocs(h) {
+        var mine = docs.filter(function(x) { return x.tenancy_id === h.tenancy_id; });
+        if (!mine.length) return '';
+        return '<div class="home-summary"><h3>Documents</h3><p class="muted small">Documents your landlord shared with you.</p>' + mine.map(function(x) { return '<div class="req"><div><a href="/document?id=' + x.id + '"><strong>' + esc(x.title) + '</strong></a></div><div class="muted small">' + esc(DOC_TYPES[x.doc_type] || 'Document') + ' · shared ' + day(x.shared_at) + '</div></div>'; }).join('') + '</div>';
+      }
       var STATUS = { open: 'Open', 'in-progress': 'In progress', in_progress: 'In progress', completed: 'Completed', closed: 'Closed' };
       function renderHome(h) {
         var lease = h.lease_start || h.lease_end ? day(h.lease_start) + ' to ' + day(h.lease_end) : 'Ask your landlord for your lease dates';
@@ -71,13 +78,15 @@
         var reqs = h.requests.length ? h.requests.map(function(r) { return '<div class="req"><div><strong>' + esc(STATUS[r.status] || r.status) + '</strong> · <span class="muted small">' + day(r.created_at) + ' · ' + esc(r.priority) + ' priority</span></div><div>' + esc(r.description) + '</div></div>'; }).join('') : '<p class="muted small">No requests yet.</p>';
         return '<div class="home-summary"><h2 style="margin-bottom:0.25rem">' + esc(h.address) + '</h2><p class="muted">' + esc([h.city, h.state].filter(Boolean).join(', ')) + ' ' + esc(h.zip || '') + '</p>' +
           '<div class="facts"><div><span class="muted small">Monthly rent</span><strong>' + money(h.rent) + '</strong></div><div><span class="muted small">Lease</span><strong>' + lease + '</strong></div><div><span class="muted small">Landlord</span><strong>' + esc(h.landlord.name) + '</strong><a class="small" href="mailto:' + esc(h.landlord.email) + '">' + esc(h.landlord.email) + '</a></div></div></div>' +
+          renderDocs(h) +
           '<div class="home-summary"><h3>Rent payments received</h3><p class="muted small">Payments your landlord has recorded. Ask your landlord if one is missing.</p>' + pay + '</div>' +
           '<div class="home-summary"><h3>Maintenance requests</h3>' + reqs +
           '<form class="app-form req-form" data-tenancy="' + h.tenancy_id + '"><label>What needs fixing? *<textarea name="description" rows="3" required placeholder="Describe the problem and where it is"></textarea></label><label>How urgent?<select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent (no heat, water leak, no power)</option></select></label><button type="submit" class="primary-btn">Send request</button><p class="small req-msg"></p><p class="small muted">For emergencies like fire, gas leaks or flooding, call 911 or your utility first.</p></form></div>';
       }
       function loadHome() {
         show('loading');
-        call('/tenant/home').then(function(d) {
+        Promise.all([call('/tenant/home'), call('/tenant/documents').catch(function() { return []; })]).then(function(r) {
+          var d = r[0]; docs = Array.isArray(r[1]) ? r[1] : [];
           document.getElementById('hello').textContent = 'Hi, ' + d.user.name.split(' ')[0];
           document.getElementById('homes').innerHTML = d.homes.length ? d.homes.map(renderHome).join('') : '<div class="home-summary">Your landlord has ended your portal access for this home. Contact them if that looks wrong.</div>';
           show('homeView');

@@ -19,3 +19,11 @@ CREATE TABLE IF NOT EXISTS tenancies (id INTEGER PRIMARY KEY AUTOINCREMENT, prop
 CREATE INDEX IF NOT EXISTS idx_tenancies_landlord ON tenancies(landlord_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tenancies_tenant ON tenancies(tenant_user_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tenancies_invite ON tenancies(invite_token_hash);
+
+-- Landlord documents (leases, notices, invoices, receipts). data is the filled-in template as JSON.
+CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, property_id INTEGER, tenancy_id INTEGER, doc_type TEXT NOT NULL, title TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', shared_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS idx_documents_user ON documents(user_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_documents_tenancy ON documents(tenancy_id);
+
+-- Cached map coordinates for listings (lat/lng NULL when the address couldn't be found).
+CREATE TABLE IF NOT EXISTS listing_geo (listing_id INTEGER PRIMARY KEY, address TEXT NOT NULL, lat REAL, lng REAL, updated_at TEXT NOT NULL);

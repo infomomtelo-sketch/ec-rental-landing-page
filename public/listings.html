@@ -6,6 +6,7 @@
   <title>Homes for Rent in Fresno — EC Rental Property Management</title>
   <meta name="description" content="Available rental homes in Fresno and Clovis from EC Rental Property Management LLC." />
   <link rel="stylesheet" href="/css/rentals.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
 </head>
 <body>
   <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings" class="active">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
@@ -13,22 +14,50 @@
     <h1>Homes for rent</h1>
     <p class="sub">Fresno, Clovis and the Central Valley</p>
     <div class="filters"><label>Min beds <select id="fBeds"><option value="0">Any</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select></label><label>Max rent <input id="fRent" type="number" min="0" step="50" placeholder="Any" /></label><label><input id="fPets" type="checkbox" /> Pets OK</label></div>
+    <div id="mapWrap" class="map-wrap" hidden><div id="map" class="map" role="region" aria-label="Map of rentals"></div></div>
     <div id="grid" class="grid"><p class="muted">Loading rentals...</p></div>
   </main>
   <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
   <script src="/js/listing-common.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <script>
     (function() {
       var all = [], grid = document.getElementById('grid'), E = window.ECR;
       function render() {
         var beds = +document.getElementById('fBeds').value, max = +document.getElementById('fRent').value || Infinity, pets = document.getElementById('fPets').checked;
         var list = all.filter(function(l) { return l.bedrooms >= beds && l.rent <= max && (!pets || l.cats_allowed || l.small_dogs_allowed || l.large_dogs_allowed); });
+        drawPins(list);
         if (!list.length) { grid.innerHTML = '<p class="muted">' + (all.length ? 'No rentals match those filters.' : 'No rentals are available right now. Check back soon.') + '</p>'; return; }
         grid.innerHTML = list.map(function(l) {
           var img = l.photos && l.photos[0] ? '<img src="' + E.esc(l.photos[0].url) + '" alt="Photo of ' + E.esc(l.street) + '" loading="lazy" />' : '<div class="noimg">No photo yet</div>';
           return '<a class="card" href="/listing?id=' + l.id + '">' + img + '<div class="card-body"><div class="price">' + E.money(l.rent) + '<span>/mo</span></div><div class="facts">' + l.bedrooms + ' bd · ' + E.baths(l) + ' ba' + (l.square_feet ? ' · ' + l.square_feet.toLocaleString() + ' sq ft' : '') + '</div><div class="addr">' + E.esc(E.address(l)) + '</div><div class="avail">' + E.available(l) + '</div></div></a>';
         }).join('');
       }
+      // Map of rentals: pins come from /api/public/listings/map once each address has been located.
+      var map = null, layer = null, points = {};
+      function drawPins(list) {
+        if (!map) return;
+        layer.clearLayers();
+        var bounds = [];
+        list.forEach(function(l) {
+          var pt = points[l.id]; if (!pt) return;
+          var icon = L.divIcon({ className: 'price-pin', html: '<span>' + E.money(l.rent) + '</span>', iconSize: null });
+          var img = l.photos && l.photos[0] ? '<img src="' + E.esc(l.photos[0].url) + '" alt="" />' : '';
+          L.marker([pt.lat, pt.lng], { icon: icon, title: E.address(l), keyboard: true }).addTo(layer).bindPopup('<a class="pin-card" href="/listing?id=' + l.id + '">' + img + '<strong>' + E.money(l.rent) + '/mo</strong><span>' + l.bedrooms + ' bd · ' + E.baths(l) + ' ba</span><span>' + E.esc(E.address(l)) + '</span></a><a class="small" href="' + E.googleMapsUrl(l) + '" target="_blank" rel="noopener">Open in Google Maps</a>');
+          bounds.push([pt.lat, pt.lng]);
+        });
+        document.getElementById('mapWrap').hidden = !bounds.length;
+        if (bounds.length) { map.invalidateSize(); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 }); }
+      }
+      fetch('/api/public/listings/map').then(function(r) { return r.ok ? r.json() : []; }).then(function(pins) {
+        if (!window.L || !Array.isArray(pins) || !pins.length) return;
+        pins.forEach(function(p) { points[p.id] = p; });
+        document.getElementById('mapWrap').hidden = false;
+        map = L.map('map', { scrollWheelZoom: false }).setView([36.7378, -119.7871], 11);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+        layer = L.layerGroup().addTo(map);
+        render();
+      }).catch(function() {});
       ['fBeds', 'fRent', 'fPets'].forEach(function(id) { document.getElementById(id).addEventListener('input', render); });
       fetch('/api/public/listings').then(function(r) { return r.json(); }).then(function(d) { all = Array.isArray(d) ? d : []; render(); }).catch(function() { grid.innerHTML = '<p class="muted">Could not load rentals. Please refresh.</p>'; });
     })();
