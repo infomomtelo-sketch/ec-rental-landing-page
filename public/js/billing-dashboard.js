@@ -13,6 +13,9 @@
   }
   function el(tag, attrs, text) { var e = document.createElement(tag); for (var k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
   function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; } }
+  // Whole days until the trial ends, counting today's remainder as a day (so it reads 14 on signup day).
+  function daysLeft(iso) { var ms = new Date(iso).getTime() - Date.now(); return isNaN(ms) ? null : Math.max(0, Math.ceil(ms / 86400000)); }
+  function trialText(b) { var d = daysLeft(b.trialEnd); return d === null ? 'Free trial' : d === 0 ? 'Free trial, ends today' : 'Free trial, ' + d + (d === 1 ? ' day' : ' days') + ' left'; }
   var GOOD = ['active', 'trialing'];
   var STATUS_TEXT = { active: 'Active', trialing: 'Free trial', past_due: 'Payment failed', unpaid: 'Unpaid', canceled: 'Canceled', incomplete: 'Waiting for payment', incomplete_expired: 'Checkout expired', paused: 'Paused', none: 'Not started' };
 
@@ -46,7 +49,7 @@
     if (b.exempt) { c.appendChild(el('p', { style: 'color:var(--gray)' }, 'Admin account: no subscription needed.')); return; }
     var good = GOOD.indexOf(b.status) !== -1;
     var line = 'Status: ' + (STATUS_TEXT[b.status] || b.status);
-    if (b.status === 'trialing' && b.trialEnd) line += ', first charge on ' + fmtDate(b.trialEnd);
+    if (b.status === 'trialing' && b.trialEnd) line = 'Status: ' + trialText(b) + ' (first charge on ' + fmtDate(b.trialEnd) + ')';
     else if (good && b.periodEnd) line += b.cancelAtPeriodEnd ? ', ends on ' + fmtDate(b.periodEnd) : ', renews on ' + fmtDate(b.periodEnd);
     c.appendChild(el('p', { style: 'margin-bottom:1rem;color:var(--gray)' }, line));
     var grid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.75rem;margin-bottom:1rem' });
@@ -81,7 +84,7 @@
       card(b); banner(b);
       var plan = b.plans.filter(function (p) { return p.id === b.plan; })[0];
       var label = document.getElementById('userPlan');
-      if (plan && label && !b.exempt) label.textContent = plan.name + ' · ' + (STATUS_TEXT[b.status] || b.status);
+      if (plan && label && !b.exempt) label.textContent = plan.name + ' · ' + (b.status === 'trialing' && b.trialEnd ? trialText(b) : (STATUS_TEXT[b.status] || b.status));
     }).catch(function () {});
   }
 
