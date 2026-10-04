@@ -28,6 +28,7 @@ Always give a real answer first, then include the tag. Never just say "contact u
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
+import { handleAiAssistRoutes } from "./ai-assist";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
@@ -224,6 +225,7 @@ export default {
     // Me API
     if (user && url.pathname.startsWith("/api/documents")) { try { const res = await handleDocumentRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("documents", err); } }
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
+    if (user && url.pathname.startsWith("/api/ai/")) { try { const res = await handleAiAssistRoutes(request, env, url, user, () => underLimit(env.CHAT_LIMITER, ["user:" + user.id])); if (res) return res; } catch (err) { return dbErrorResponse("ai-assist", err); } }
     if (user && url.pathname === "/api/listings/leads") { try { const res = await handleLandlordLeadRoute(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listing-leads", err); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
 

@@ -43,13 +43,34 @@
   function loadLeads() {
     if (!leadsBody || !token()) return;
     api('/listings/leads').then(function(list) {
-      if (!list.length) { leadsBody.innerHTML = '<tr><td colspan="6" class="empty-state">No inquiries yet. Questions from your listing pages and from Zillow show up here and are emailed to the listing contact.</td></tr>'; return; }
+      if (!list.length) { leadsBody.innerHTML = '<tr><td colspan="7" class="empty-state">No inquiries yet. Questions from your listing pages and from Zillow show up here and are emailed to the listing contact.</td></tr>'; return; }
       leadsBody.innerHTML = list.map(function(l) {
         var from = (l.source === 'zillow' ? '<span class="badge badge-green">Zillow</span>' : '<span class="badge badge-gray">Website</span>') + (LEAD_TYPES[l.leadType] ? '<br><small style="color:var(--gray)">' + LEAD_TYPES[l.leadType] + '</small>' : '');
         var contact = '<strong>' + esc(l.name) + '</strong><br><a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a>' + (l.phone ? '<br><a href="tel:' + esc(String(l.phone).replace(/[^\d+]/g, '')) + '">' + esc(l.phone) + '</a>' : '');
-        return '<tr><td>' + new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td>' + from + '</td><td>' + contact + '</td><td>' + esc(l.home) + '</td><td>' + esc(l.moveIn || '—') + '</td><td style="max-width:260px;white-space:normal">' + esc(l.message) + '</td></tr>';
+        return '<tr><td>' + new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td>' + from + '</td><td>' + contact + '</td><td>' + esc(l.home) + '</td><td>' + esc(l.moveIn || '—') + '</td><td style="max-width:260px;white-space:normal">' + esc(l.message) + '</td><td><button class="btn btn-sm btn-secondary" data-ai-reply="' + l.id + '" data-email="' + esc(l.email) + '" data-name="' + esc(l.name) + '">✨ Draft reply</button></td></tr>';
       }).join('');
-    }).catch(function(err) { leadsBody.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
+    }).catch(function(err) { leadsBody.innerHTML = '<tr><td colspan="7" class="empty-state">' + esc(err.message) + '</td></tr>'; });
+  }
+
+  // AI-drafted reply to a renter inquiry. The landlord edits it, then sends from their own email.
+  var replyBox = document.getElementById('leadReplyBox'), replyText = document.getElementById('leadReplyText'), replySend = document.getElementById('leadReplySend');
+  var replyTo = { email: '', subject: '' };
+  function updateMailto() { replySend.href = 'mailto:' + encodeURIComponent(replyTo.email) + '?subject=' + encodeURIComponent(replyTo.subject) + '&body=' + encodeURIComponent(replyText.value); }
+  if (leadsBody && replyBox) {
+    leadsBody.addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-ai-reply]');
+      if (!btn) return;
+      replyTo = { email: btn.getAttribute('data-email'), subject: '' };
+      document.getElementById('leadReplyTo').textContent = btn.getAttribute('data-name') || replyTo.email;
+      replyText.value = 'Writing a reply...'; replyText.disabled = true; replyBox.style.display = 'block';
+      replyBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      api('/ai/inquiry-reply', 'POST', { leadId: Number(btn.getAttribute('data-ai-reply')) }).then(function(r) {
+        replyText.value = r.reply; replyTo.subject = r.subject;
+      }).catch(function(err) { replyText.value = err.message; }).then(function() { replyText.disabled = false; updateMailto(); });
+    });
+    replyText.addEventListener('input', updateMailto);
+    document.getElementById('leadReplyCopy').addEventListener('click', function() { try { navigator.clipboard.writeText(replyText.value); this.textContent = 'Copied'; var b = this; setTimeout(function() { b.textContent = 'Copy'; }, 1500); } catch (err) { replyText.select(); } });
+    document.getElementById('leadReplyClose').addEventListener('click', function() { replyBox.style.display = 'none'; });
   }
 
   function fillProperties(selected) {
@@ -62,7 +83,7 @@
 
   function open(listing) {
     current = listing || null;
-    form.reset(); showMsg('');
+    form.reset(); showMsg(''); if (aiMsg) aiMsg.textContent = '';
     document.getElementById('listingModalTitle').textContent = listing ? 'Edit Listing' : 'New Listing';
     fillProperties(listing && listing.property_id);
     if (listing) {
@@ -133,6 +154,34 @@
     var id = e.target.getAttribute('data-delete-photo');
     if (!id || !current) return;
     api('/listings/' + current.id + '/photos/' + id, 'DELETE').then(refreshCurrent).catch(function(err) { photoStatus.textContent = err.message; });
+  });
+
+  // Writes the description from the details filled in above (and any notes already in the box).
+  var aiBtn = document.getElementById('listingAiBtn'), aiMsg = document.getElementById('listingAiMsg');
+  if (aiBtn) aiBtn.addEventListener('click', function() {
+    var data = {};
+    Array.prototype.forEach.call(form.elements, function(el) { if (el.name) data[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+    aiBtn.disabled = true; aiMsg.style.color = 'var(--gray)'; aiMsg.textContent = 'Writing...';
+    api('/ai/listing-description', 'POST', data).then(function(r) {
+      form.elements.description.value = r.description;
+      aiMsg.textContent = 'Written by AI from your details. Check it, edit anything, then Save Listing.';
+    }).catch(function(err) { aiMsg.style.color = '#991b1b'; aiMsg.textContent = err.message; }).then(function() { aiBtn.disabled = false; });
+  });
+
+  // Rewrite / Fix spelling & grammar for the description or the inquiry reply.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ai-polish]'), function(btn) {
+    btn.addEventListener('click', function() {
+      var isReply = btn.getAttribute('data-ai-target') === 'reply';
+      var box = isReply ? replyText : form.elements.description;
+      var note = isReply ? null : aiMsg;
+      var label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Working...';
+      if (note) { note.style.color = 'var(--gray)'; note.textContent = ''; }
+      api('/ai/polish', 'POST', { text: box.value, mode: btn.getAttribute('data-ai-polish'), kind: isReply ? 'reply' : 'description' }).then(function(r) {
+        box.value = r.text;
+        if (isReply) updateMailto(); else if (note) note.textContent = 'Updated by AI. Check it before saving.';
+      }).catch(function(err) { if (note) { note.style.color = '#991b1b'; note.textContent = err.message; } else alert(err.message); }).then(function() { btn.disabled = false; btn.textContent = label; });
+    });
   });
 
   form.addEventListener('submit', function(e) {
