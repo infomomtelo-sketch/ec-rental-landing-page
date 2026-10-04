@@ -29,7 +29,8 @@
       if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon">📣</div>No listings yet. Click "+ New Listing" to advertise a vacancy.</td></tr>'; return; }
       body.innerHTML = list.map(function(l) {
         var badge = l.status === 'active' ? 'badge-green' : l.status === 'rented' ? 'badge-gray' : 'badge-yellow';
-        var zillow = l.syndicate_zillow ? (l.status === 'active' ? '<span class="badge badge-green">In feed</span>' : '<span class="badge badge-gray">On (not active)</span>') : '<span class="badge badge-gray">Off</span>';
+        var issues = l.zillow_issues || [];
+        var zillow = !l.syndicate_zillow ? '<span class="badge badge-gray">Zillow off</span>' : !issues.length ? '<span class="badge badge-green">On Zillow feed</span>' : '<span class="badge badge-yellow" title="' + esc(issues.join('; ')) + '">Not on Zillow yet</span><br><small style="color:var(--gray)">' + esc(issues[0]) + (issues.length > 1 ? ' +' + (issues.length - 1) + ' more' : '') + '</small>';
         var addr = esc(l.street) + (l.unit ? ' #' + esc(l.unit) : '') + '<br><small style="color:var(--gray)">' + esc(l.city) + ', ' + esc(l.state) + '</small>';
         var view = l.status === 'active' ? ' <a class="btn btn-sm btn-secondary" href="/listing?id=' + l.id + '" target="_blank" rel="noopener">View</a>' : '';
         return '<tr><td>' + addr + '</td><td>' + money(l.rent) + '/mo</td><td>' + l.bedrooms + ' bd / ' + l.full_baths + (l.half_baths ? '.5' : '') + ' ba</td><td>' + (l.photos || []).length + '</td><td><span class="badge ' + badge + '">' + esc(l.status) + '</span> ' + zillow + '</td><td><button class="btn btn-sm" data-edit-listing="' + l.id + '">Edit</button>' + view + ' <button class="btn btn-sm btn-danger" data-delete-listing="' + l.id + '">Delete</button></td></tr>';
@@ -77,7 +78,20 @@
     modal.classList.add('open');
   }
 
+  // Shows what still keeps a saved listing out of the Zillow feed.
+  var zillowCheck = document.getElementById('listingZillowCheck');
+  function renderZillowCheck() {
+    if (!zillowCheck) return;
+    if (!current) { zillowCheck.style.display = 'none'; return; }
+    var issues = current.zillow_issues || [];
+    zillowCheck.style.display = 'block';
+    zillowCheck.style.background = issues.length ? '#fef9c3' : '#dcfce7';
+    zillowCheck.style.color = issues.length ? '#854d0e' : '#166534';
+    zillowCheck.innerHTML = issues.length ? '<strong>Not on Zillow yet.</strong> To get it there:<ul style="margin:0.3rem 0 0 1.2rem">' + issues.map(function(i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>' : '<strong>Ready.</strong> This listing is in the Zillow feed.';
+  }
+
   function renderPhotos() {
+    renderZillowCheck();
     if (!current) { photoSection.style.display = 'none'; return; }
     photoSection.style.display = 'block';
     var photos = current.photos || [];
