@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Tello — EC Rental's AI assistant</title>
+  <meta name="description" content="Ask Tello anything about renting in Fresno and Clovis: available homes, showings, applying, or managing your rental with EC Rental Property Management." />
+  <link rel="canonical" href="https://ecrentalpm.com/tello" />
+  <link rel="icon" href="/tello-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/tello-apple-touch-icon.png" />
+  <link rel="manifest" href="/tello.webmanifest" />
+  <meta name="theme-color" content="#123a30" />
+  <meta name="apple-mobile-web-app-title" content="Tello" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Ask Tello — EC Rental's AI assistant" />
+  <meta property="og:description" content="Find a Fresno rental, set up a showing, or get help managing your property. Ask Tello, any time." />
+  <meta property="og:url" content="https://ecrentalpm.com/tello" />
+  <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <style>
+    :root { --deep: #123a30; --green: #1a5632; --gold: #e8a23d; --cream: #f9f5ed; --ink: #1a1a1a; --gray: #6b7280; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; }
+    header { background: var(--deep); color: var(--cream); padding: calc(0.8rem + env(safe-area-inset-top)) 1rem 0.8rem; display: flex; align-items: center; gap: 0.75rem; }
+    header img { width: 40px; height: 40px; border-radius: 11px; flex: none; }
+    header h1 { font-size: 1.1rem; line-height: 1.2; }
+    header p { font-size: 0.8rem; opacity: 0.8; }
+    header a { margin-left: auto; color: var(--gold); font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    main { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; max-width: 760px; width: 100%; margin: 0 auto; }
+    .hello { text-align: center; padding: 1.5rem 0.5rem 0.5rem; }
+    .hello img { width: 84px; height: 84px; border-radius: 22px; box-shadow: 0 10px 30px rgba(18,58,48,0.25); }
+    .hello h2 { font-size: 1.6rem; color: var(--deep); margin-top: 0.9rem; }
+    .hello p { color: var(--gray); margin-top: 0.4rem; }
+    .modes { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+    .modes button { border: 2px solid var(--deep); background: #fff; color: var(--deep); border-radius: 999px; padding: 0.55rem 1.1rem; font: inherit; font-weight: 700; cursor: pointer; }
+    .modes button[aria-pressed="true"] { background: var(--deep); color: var(--cream); }
+    .m { max-width: 85%; padding: 0.7rem 0.95rem; border-radius: 16px; line-height: 1.45; font-size: 0.97rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .me { align-self: flex-end; background: var(--green); color: #fff; border-bottom-right-radius: 4px; }
+    .bot { align-self: flex-start; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.06); border-bottom-left-radius: 4px; }
+    .err { align-self: flex-start; color: #991b1b; font-size: 0.9rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    .chips button, .chips a { background: #fff; border: 1px solid #d6d3c9; color: var(--deep); border-radius: 999px; padding: 0.45rem 0.85rem; font: inherit; font-size: 0.88rem; cursor: pointer; text-decoration: none; }
+    .chips a.home { border-color: var(--gold); font-weight: 600; }
+    .typing { align-self: flex-start; color: var(--gray); font-size: 0.9rem; }
+    form { display: flex; gap: 0.5rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #e7e3d8; max-width: 760px; width: 100%; margin: 0 auto; }
+    form input { flex: 1; min-width: 0; border: 1px solid #d6d3c9; border-radius: 999px; padding: 0.75rem 1rem; font: inherit; font-size: 16px; }
+    form button { background: var(--deep); color: var(--cream); border: none; border-radius: 999px; padding: 0 1.2rem; font: inherit; font-weight: 700; cursor: pointer; }
+    form button:disabled { opacity: 0.5; }
+    .note { text-align: center; font-size: 0.75rem; color: var(--gray); padding: 0 1rem 0.5rem; background: #fff; }
+  </style>
+</head>
+<body>
+  <header><img src="/tello-icon.svg" alt="" /><div><h1>Tello</h1><p>EC Rental's AI assistant</p></div><a href="/">ecrentalpm.com</a></header>
+  <main id="log">
+    <div class="hello">
+      <img src="/tello-icon.svg" alt="Tello" />
+      <h2>Hi, I'm Tello.</h2>
+      <p>Ask me anything about renting in Fresno and Clovis, or about managing your rental with EC Rental.</p>
+      <div class="modes" role="group" aria-label="I am"><button type="button" data-mode="rent" aria-pressed="true">I'm looking to rent</button><button type="button" data-mode="own" aria-pressed="false">I'm a landlord</button></div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </main>
+  <form id="ask"><input id="q" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off" /><button type="submit" id="send">Send</button></form>
+  <p class="note">Tello is AI and can make mistakes. EC Rental confirms every detail. Equal Housing Opportunity.</p>
+  <script>
+    (function() {
+      var log = document.getElementById('log'), chips = document.getElementById('chips'), form = document.getElementById('ask'), q = document.getElementById('q'), send = document.getElementById('send');
+      var mode = 'rent', history = [], busy = false;
+      var SUGGEST = {
+        rent: ["What's available now?", 'Anything under $1,500?', 'Which homes allow pets?', 'How do I apply?'],
+        own: ['What does EC Rental do for landlords?', 'How do your AI inspections work?', 'What are your plans and prices?', 'What should my rental rent for?']
+      };
+      function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; d.textContent = text; log.appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d; }
+      function showChips() {
+        chips.innerHTML = '';
+        SUGGEST[mode].forEach(function(s) { var b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.onclick = function() { ask(s); }; chips.appendChild(b); });
+        log.appendChild(chips);
+      }
+      document.querySelectorAll('[data-mode]').forEach(function(b) {
+        b.addEventListener('click', function() {
+          mode = b.getAttribute('data-mode'); history = [];
+          document.querySelectorAll('[data-mode]').forEach(function(x) { x.setAttribute('aria-pressed', String(x === b)); });
+          showChips(); q.focus();
+        });
+      });
+      function ask(text) {
+        text = String(text || '').trim(); if (!text || busy) return;
+        busy = true; send.disabled = true; chips.remove(); add('me', text); q.value = '';
+        var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Tello is typing...'; log.appendChild(t);
+        var req = mode === 'rent'
+          ? fetch('/api/public/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) })
+          : fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) });
+        req.then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Tello is busy right now. Please try again.'); return d; }); })
+          .then(function(d) {
+            var reply = d.reply || d.response || '';
+            add('bot', reply);
+            history.push({ role: 'user', content: text }, { role: 'assistant', content: reply }); history = history.slice(-8);
+            var extra = document.createElement('div'); extra.className = 'chips';
+            (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.className = 'home'; a.href = '/listing?id=' + l.id; a.textContent = '🏠 ' + l.label; extra.appendChild(a); });
+            if (mode === 'own' && /rent for|price|pricing my|what should/i.test(text)) { var r = document.createElement('a'); r.className = 'home'; r.href = '/rent-review'; r.textContent = 'Get a free rent review'; extra.appendChild(r); }
+            if (extra.children.length) { log.appendChild(extra); extra.scrollIntoView({ block: 'end', behavior: 'smooth' }); }
+          })
+          .catch(function(err) { var e = document.createElement('div'); e.className = 'err'; e.textContent = err.message; log.appendChild(e); })
+          .then(function() { t.remove(); busy = false; send.disabled = false; });
+      }
+      form.addEventListener('submit', function(e) { e.preventDefault(); ask(q.value); });
+      var start = new URLSearchParams(location.search).get('mode');
+      if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
+    })();
+  </script>
+</body>
+</html>
