@@ -8,12 +8,12 @@
 
 export interface AiAssistEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 
-const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+export const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 export const MAINTENANCE_PRIORITIES = ["emergency", "high", "normal", "low"];
 
 // Fair housing: describe the home, never the kind of person wanted.
-const FAIR_HOUSING = "Follow US and California fair housing law: describe only the home, its features and location. Never mention or imply a preference about race, color, religion, sex, gender, sexual orientation, familial status (no 'perfect for couples', 'no kids', 'ideal for singles'), disability, national origin, age, marital status, or source of income (never 'no Section 8'). Don't describe the neighborhood's people.";
+export const FAIR_HOUSING = "Follow US and California fair housing law: describe only the home, its features and location. Never mention or imply a preference about race, color, religion, sex, gender, sexual orientation, familial status (no 'perfect for couples', 'no kids', 'ideal for singles'), disability, national origin, age, marital status, or source of income (never 'no Section 8'). Don't describe the neighborhood's people.";
 
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 function str(v: unknown, max = 500): string { return v === undefined || v === null ? "" : String(v).trim().slice(0, max); }
@@ -48,9 +48,9 @@ export function listingFacts(b: Record<string, unknown>): string[] {
   return facts;
 }
 
-function aiText(out: unknown): string { return String((out as { response?: unknown })?.response ?? "").trim(); }
+export function aiText(out: unknown): string { return String((out as { response?: unknown })?.response ?? "").trim(); }
 // Models sometimes wrap the answer in quotes or a "Here is..." lead-in; keep only the text.
-function clean(text: string): string { return text.replace(/^(here('s| is)[^\n]*:\s*)/i, "").replace(/^["']|["']$/g, "").trim(); }
+export function clean(text: string): string { return text.replace(/^(here('s| is)[^\n]*:\s*)/i, "").replace(/^["']|["']$/g, "").trim(); }
 
 export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, url: URL, user: { id: number; name: string; company: string }, allow: () => Promise<boolean>): Promise<Response | null> {
   if (!url.pathname.startsWith("/api/ai/") || request.method !== "POST") return null;

@@ -136,8 +136,8 @@
     });
   }
 
-  photoInput.addEventListener('change', function() {
-    var files = Array.prototype.slice.call(photoInput.files || []);
+  function uploadPhotos(list) {
+    var files = Array.prototype.slice.call(list || []).filter(function(f) { return /^image\//.test(f.type); });
     if (!files.length || !current) return;
     var done = 0, failed = [];
     photoStatus.textContent = 'Uploading 0 of ' + files.length + '...';
@@ -148,7 +148,14 @@
       photoStatus.textContent = failed.length ? 'Some photos failed: ' + failed[0] : 'Photos uploaded.';
       return refreshCurrent();
     });
-  });
+  }
+  photoInput.addEventListener('change', function() { uploadPhotos(photoInput.files); });
+  var photoDrop = document.getElementById('listingPhotoDrop');
+  if (photoDrop) {
+    ['dragenter', 'dragover'].forEach(function(t) { photoDrop.addEventListener(t, function(e) { e.preventDefault(); photoDrop.style.borderColor = 'var(--primary)'; photoDrop.style.background = '#f0fdf4'; }); });
+    ['dragleave', 'drop'].forEach(function(t) { photoDrop.addEventListener(t, function(e) { e.preventDefault(); photoDrop.style.borderColor = '#d1d5db'; photoDrop.style.background = ''; }); });
+    photoDrop.addEventListener('drop', function(e) { uploadPhotos(e.dataTransfer && e.dataTransfer.files); });
+  }
 
   photoGrid.addEventListener('click', function(e) {
     var id = e.target.getAttribute('data-delete-photo');
