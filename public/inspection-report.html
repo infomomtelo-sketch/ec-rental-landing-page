@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Inspection Report — EC Rental Property Management</title>
+  <style>
+    :root { --primary: #1a5632; --gray: #6b7280; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; line-height: 1.5; background: #f3f4f6; }
+    .page { max-width: 860px; margin: 1.5rem auto; background: #fff; padding: 2rem; border-radius: 10px; }
+    .bar { max-width: 860px; margin: 1rem auto 0; display: flex; gap: 0.5rem; justify-content: flex-end; padding: 0 1rem; }
+    .bar button { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 600; cursor: pointer; }
+    header { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 2px solid var(--primary); padding-bottom: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    h1 { font-size: 1.4rem; color: var(--primary); }
+    h2 { font-size: 1.05rem; color: var(--primary); margin: 1.25rem 0 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem; }
+    .muted { color: var(--gray); font-size: 0.9rem; }
+    .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem 1rem; font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .meta b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray); font-weight: 600; }
+    .badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+    .good, .Good, .wear { background: #dcfce7; color: #166534; } .fair, .Fair, .unclear { background: #fef9c3; color: #854d0e; }
+    .poor, .damaged, .Needs, .damage { background: #fee2e2; color: #991b1b; } .none { background: #f3f4f6; color: var(--gray); }
+    .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+    .item { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; break-inside: avoid; }
+    .item img { width: 100%; height: 170px; object-fit: cover; display: block; background: #e5e7eb; }
+    .item div { padding: 0.5rem 0.6rem; font-size: 0.85rem; }
+    .repair { color: #991b1b; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; font-size: 0.85rem; }
+    .sig { border-top: 1px solid #1a1a1a; padding-top: 0.3rem; margin-top: 2.5rem; }
+    .note { font-size: 0.78rem; color: var(--gray); margin-top: 0.5rem; }
+    @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; padding: 0; border-radius: 0; max-width: none; } h2 { break-after: avoid; } }
+    @media (max-width: 600px) { .page { padding: 1rem; margin: 0.5rem; } .sigs { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+  <main class="page" id="report"><p class="muted">Loading...</p></main>
+  <script>
+    (function() {
+      var root = document.getElementById('report');
+      var id = new URLSearchParams(location.search).get('id');
+      var token = null; try { token = localStorage.getItem('ec_token'); } catch (e) {}
+      function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+      if (!/^\d+$/.test(id || '')) { root.innerHTML = '<p>Report not found.</p>'; return; }
+      if (!token) { root.innerHTML = '<p>Please <a href="/dashboard">sign in</a> first, then open the report again.</p>'; return; }
+      var auth = { headers: { 'Authorization': 'Bearer ' + token } };
+      var TYPES = { move_in: 'Move-in', move_out: 'Move-out', routine: 'Routine', annual: 'Annual' };
+      fetch('/api/inspections/' + id, auth).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Not found'); return d; }); }).then(function(d) {
+        var i = d.inspection, rooms = {}, order = [];
+        d.items.forEach(function(it) { if (!rooms[it.room_area]) { rooms[it.room_area] = []; order.push(it.room_area); } rooms[it.room_area].push(it); });
+        var type = TYPES[i.type] || 'Property';
+        document.title = type + ' inspection · ' + i.property_address + ' · ' + i.inspection_date;
+        var html = '<header><div><h1>' + esc(type) + ' Inspection Report</h1><p class="muted">EC Rental Property Management LLC · Fresno, California</p></div><div class="muted" style="text-align:right">Report #' + i.id + '<br>' + esc(i.inspection_date) + '</div></header>';
+        html += '<div class="meta"><div><b>Property</b>' + esc(i.property_address) + '</div><div><b>Inspection date</b>' + esc(i.inspection_date) + '</div><div><b>Inspector</b>' + esc(i.inspector_name || '—') + '</div><div><b>Overall condition</b>' + (i.status === 'completed' ? '<span class="badge ' + esc(String(i.overall_condition).split(' ')[0]) + '">' + esc(i.overall_condition) + '</span>' : 'In progress') + '</div>' + (d.compare_inspection ? '<div><b>Compared with</b>Move-in on ' + esc(d.compare_inspection.inspection_date) + '</div>' : '') + '</div>';
+        if (i.summary) html += '<h2>Summary</h2><p style="font-size:0.92rem">' + esc(i.summary) + '</p>';
+        var repairs = d.items.filter(function(it) { return it.repair_needed; });
+        if (repairs.length) html += '<h2>Repairs needed (' + repairs.length + ')</h2><table><thead><tr><th>Room</th><th>Repair</th><th>Condition</th></tr></thead><tbody>' + repairs.map(function(it) { return '<tr><td>' + esc(it.room_area) + '</td><td>' + esc(it.repair_item || it.notes) + '</td><td><span class="badge ' + esc(it.condition || 'none') + '">' + esc(it.condition || 'not rated') + '</span></td></tr>'; }).join('') + '</tbody></table>';
+        order.forEach(function(room) {
+          html += '<h2>' + esc(room) + '</h2><div class="items">' + rooms[room].map(function(it) {
+            return '<div class="item"><img data-img="' + it.id + '" alt="' + esc(room) + '" /><div><span class="badge ' + esc(it.condition || 'none') + '">' + esc(it.condition || 'not rated') + '</span>' + (it.notes ? '<p style="margin-top:0.3rem">' + esc(it.notes) + '</p>' : '') + (it.repair_needed ? '<p class="repair">Repair: ' + esc(it.repair_item || 'needed') + '</p>' : '') + '</div></div>';
+          }).join('') + '</div>';
+        });
+        if (d.photos && d.photos.length) html += '<h2>Area notes</h2><table><thead><tr><th>Area</th><th>Condition</th><th>Recommendation</th></tr></thead><tbody>' + d.photos.map(function(p) { return '<tr><td>' + esc(p.room_area) + '</td><td>' + esc(p.ai_condition) + '</td><td>' + esc(p.ai_recommendation) + '</td></tr>'; }).join('') + '</tbody></table>';
+        if (i.type === 'move_out' && d.comparison && d.comparison.length) {
+          var cls = { 'wear and tear': 'wear', 'possible damage': 'damage', 'unclear': 'unclear' };
+          html += '<h2>Changes since move-in</h2><table><thead><tr><th>Room</th><th>Change</th><th>Looks like</th><th>Why</th></tr></thead><tbody>' + d.comparison.map(function(c) { return '<tr><td>' + esc(c.room) + '</td><td>' + esc(c.change) + '</td><td><span class="badge ' + (cls[c.assessment] || 'none') + '">' + esc(c.assessment) + '</span></td><td>' + esc(c.note) + '</td></tr>'; }).join('') + '</tbody></table><p class="note">Draft prepared with AI for the landlord\'s review. Ordinary wear and tear is not deducted from the security deposit; any deductions are itemized separately as required by California Civil Code 1950.5.</p>';
+        }
+        html += '<p class="note">Condition notes were drafted with AI from the photos and reviewed by the inspector.</p>';
+        html += '<div class="sigs"><div><div class="sig">Landlord / agent signature and date</div></div><div><div class="sig">Tenant signature and date</div></div></div>';
+        root.innerHTML = html;
+        root.querySelectorAll('[data-img]').forEach(function(img) {
+          fetch('/api/inspections/' + id + '/items/' + img.getAttribute('data-img') + '/image', auth).then(function(r) { if (!r.ok) throw new Error(); return r.blob(); }).then(function(b) { img.src = URL.createObjectURL(b); }).catch(function() {});
+        });
+      }).catch(function(err) { root.innerHTML = '<p>' + esc(err.message) + ' <a href="/dashboard">Back to dashboard</a></p>'; });
+    })();
+  </script>
+</body>
+</html>
