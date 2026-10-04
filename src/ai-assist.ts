@@ -221,7 +221,7 @@ async function photoFeatures(env: AiAssistEnv, userId: number, listingId: number
 }
 
 /** Rents of similar listings on EC Rental: same bedrooms, same ZIP (or the city when the ZIP has too few). */
-async function rentComps(env: AiAssistEnv, q: { id: number; beds: number; zip: string; city: string }): Promise<{ rents: number[]; area: string }> {
+export async function rentComps(env: AiAssistEnv, q: { id: number; beds: number; zip: string; city: string }): Promise<{ rents: number[]; area: string }> {
   const base = "SELECT rent FROM listings WHERE status IN ('active', 'rented') AND bedrooms = ? AND id != ? AND rent > 0";
   if (q.zip) {
     const r = await env.DB.prepare(base + " AND zip = ? LIMIT 200").bind(q.beds, q.id, q.zip).all<{ rent: number }>();
