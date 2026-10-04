@@ -14,6 +14,11 @@ function json(data: unknown, status = 200): Response { return new Response(JSON.
 interface ListingFactsRow { id: number; title: string; street: string; unit: string; city: string; state: string; zip: string; property_type: string; rent: number; bedrooms: number; full_baths: number; half_baths: number; square_feet: number; deposit: number; application_fee: number; date_available: string; lease_term: string; laundry: string; parking_type: string; cats_allowed: number; small_dogs_allowed: number; large_dogs_allowed: number; furnished: number; smoking_allowed: number; amenities: string; description: string; contact_phone: string; }
 
 function address(l: ListingFactsRow): string { return `${l.street}${l.unit ? " #" + l.unit : ""}, ${l.city}, ${l.state} ${l.zip}`; }
+// "now" once the date has passed, otherwise "Oct 10, 2026", so the AI never quotes a past date.
+function available(d: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d || "") || d <= new Date().toISOString().slice(0, 10)) return "now";
+  return new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 function phone(p: string): string { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p; }
 
 const RULES = [
@@ -43,7 +48,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
       "You are the EC Rental assistant on the web page for one rental home, answering renters' questions about it for EC Rental Property Management in Fresno, California.",
       "Facts about this home:",
       `- Address: ${address(l)}`,
-      ...listingFacts(l as unknown as Record<string, unknown>).map((f) => "- " + f),
+      ...listingFacts({ ...l, date_available: available(l.date_available) } as unknown as Record<string, unknown>).map((f) => "- " + f),
       ...(l.application_fee > 0 ? [`- Application fee: $${Math.round(l.application_fee)}`] : []),
       `- Smoking: ${l.smoking_allowed ? "allowed" : "not allowed"}`,
       ...(l.contact_phone ? [`- Phone for this home: ${phone(l.contact_phone)}`] : []),
@@ -56,7 +61,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
     found = rows.results;
     const lines = rows.results.map((l) => {
       const pets = [l.cats_allowed && "cats", l.small_dogs_allowed && "small dogs", l.large_dogs_allowed && "large dogs"].filter(Boolean).join(", ") || "no pets";
-      return `- Listing ${l.id}: ${l.bedrooms ? l.bedrooms + " bd" : "studio"} / ${l.full_baths}${l.half_baths ? ".5" : ""} ba ${({ HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" } as Record<string, string>)[l.property_type] || "home"}, ${address(l)}, $${Math.round(l.rent)}/mo, ${l.square_feet ? l.square_feet + " sq ft, " : ""}${pets}${l.furnished ? ", furnished" : ""}${l.date_available ? ", available " + l.date_available : ", available now"}`;
+      return `- Listing ${l.id}: ${l.bedrooms ? l.bedrooms + " bd" : "studio"} / ${l.full_baths}${l.half_baths ? ".5" : ""} ba ${({ HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" } as Record<string, string>)[l.property_type] || "home"}, ${address(l)}, $${Math.round(l.rent)}/mo, ${l.square_feet ? l.square_feet + " sq ft, " : ""}${pets}${l.furnished ? ", furnished" : ""}, available ${available(l.date_available)}`;
     });
     system = [
       "You are the EC Rental assistant on the rentals search page of EC Rental Property Management in Fresno, California. Help renters find a home among the listings below.",
