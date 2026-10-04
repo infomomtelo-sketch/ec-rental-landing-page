@@ -34,7 +34,7 @@ export function listingFacts(b: Record<string, unknown>): string[] {
   if (city) facts.push(`Location: ${city}${str(b.state, 2) ? ", " + str(b.state, 2).toUpperCase() : ""}${str(b.zip, 10) ? " " + str(b.zip, 10) : ""}`);
   if (num(b.rent)) facts.push(`Rent: $${Math.round(num(b.rent))} per month`);
   if (num(b.deposit)) facts.push(`Security deposit: $${Math.round(num(b.deposit))}`);
-  if (str(b.date_available)) facts.push(`Available: ${str(b.date_available, 10)}`);
+  if (str(b.date_available)) facts.push(`Available: ${str(b.date_available, 20)}`);
   if (str(b.lease_term)) facts.push(`Lease: ${str(b.lease_term) === "monthly" ? "month to month" : str(b.lease_term) === "contactForDetails" ? "contact for details" : str(b.lease_term, 20)}`);
   if (PARKING[str(b.parking_type)]) facts.push(`Parking: ${PARKING[str(b.parking_type)]}`);
   if (LAUNDRY[str(b.laundry)]) facts.push(`Laundry: ${LAUNDRY[str(b.laundry)]}`);

@@ -29,3 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_tenancy ON documents(tenancy_id);
 
 -- Cached map coordinates for listings (lat/lng NULL when the address couldn't be found).
 CREATE TABLE IF NOT EXISTS listing_geo (listing_id INTEGER PRIMARY KEY, address TEXT NOT NULL, lat REAL, lng REAL, updated_at TEXT NOT NULL);
+-- Inspections v2: inspection type, the move-in it's compared with, and saved photos (R2) with AI notes per photo.
+CREATE TABLE IF NOT EXISTS inspection_details (inspection_id INTEGER PRIMARY KEY, type TEXT DEFAULT 'routine', compare_to INTEGER, comparison TEXT DEFAULT '', FOREIGN KEY (inspection_id) REFERENCES inspections(id));
+CREATE TABLE IF NOT EXISTS inspection_items (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, room_area TEXT NOT NULL, r2_key TEXT NOT NULL, condition TEXT DEFAULT '', notes TEXT DEFAULT '', repair_needed INTEGER DEFAULT 0, repair_item TEXT DEFAULT '', maintenance_id INTEGER, created_at TEXT NOT NULL, FOREIGN KEY (inspection_id) REFERENCES inspections(id));
+CREATE INDEX IF NOT EXISTS idx_inspection_items_inspection ON inspection_items(inspection_id);

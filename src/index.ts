@@ -12,7 +12,7 @@ Company info:
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
 - Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited).
 - Contact: info@ecrentalpm.com, (559) 825-3038.
-- AI Home Inspections: upload photos of each area, Thelo AI analyzes condition, identifies needed repairs, and provides recommendations.
+- AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report.
 Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
 - Never use more than 40 words unless absolutely necessary.
@@ -30,6 +30,7 @@ import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
+import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
@@ -55,7 +56,6 @@ function dbErrorResponse(route: string, err: unknown): Response { const msg = er
 async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
 const LEAD_STATUSES = ["pending", "contacted", "closed"];
 function parseLeadDetails(message: string): Record<string, unknown> { try { const parsed = JSON.parse(message || "{}"); return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; } }
-function dataUrlToBytes(dataUrl: string): number[] { const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl; const bin = atob(base64); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
 async function sha256Hex(value: string): Promise<string> { return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 function clientIp(request: Request): string { return request.headers.get("CF-Connecting-IP") || "unknown"; }
 // Returns true when every key is under its limit. A missing binding (e.g. older local setups) never blocks.
@@ -255,7 +255,7 @@ export default {
     if (url.pathname === "/api/properties" && request.method === "GET") { const results = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC").bind(user!.id).all(); return json(results.results); }
     if (url.pathname === "/api/properties" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); if (count && count.count >= user!.property_limit) return json({ error: "Property limit reached for your plan. Upgrade to add more." }, 403); const result = await env.DB.prepare("INSERT INTO properties (user_id, address, city, state, zip, rent_amount, tenant_name, tenant_email, tenant_phone, lease_start, lease_end, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(user!.id, body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", new Date().toISOString()).run(); return json({ success: true, id: result.meta.last_row_id }); } catch { return json({ error: "Failed to create property" }, 500); } }
     const propMatch = url.pathname.match(/^\/api\/properties\/(\d+)$/);
-    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { if (!(await ownsProperty(env, user!.id, propId))) return json({ error: "Not found" }, 404); await env.DB.batch([env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspections WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id)]); return json({ success: true }); } }
+    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { if (!(await ownsProperty(env, user!.id, propId))) return json({ error: "Not found" }, 404); const inspKeys = (await env.DB.prepare("SELECT t.r2_key FROM inspection_items t JOIN inspections i ON t.inspection_id = i.id WHERE i.property_id = ?").bind(propId).all<{ r2_key: string }>()).results.map((r) => r.r2_key); if (env.PHOTOS && inspKeys.length) await env.PHOTOS.delete(inspKeys); await env.DB.batch([env.DB.prepare("DELETE FROM inspection_items WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspection_details WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspections WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id)]); return json({ success: true }); } }
 
     // Transactions API
     if (url.pathname === "/api/transactions" && request.method === "GET") { const results = await env.DB.prepare("SELECT t.*, p.address as property_address FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? ORDER BY t.date DESC").bind(user!.id).all(); return json(results.results); }
@@ -279,37 +279,8 @@ export default {
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
     if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
-    // === Inspection API ===
-    if (url.pathname === "/api/inspections" && request.method === "POST") {
-      try {
-        const body = await request.json() as { property_id: number; inspector_name?: string; inspection_date: string; photos: { room_area: string; photo_data: string }[] };
-        if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404);
-        if (!Array.isArray(body.photos) || body.photos.length === 0) return json({ error: "At least one photo is required" }, 400);
-        const inspResult = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at) VALUES (?, ?, ?, '', '', 'in_progress', ?)").bind(body.property_id, body.inspector_name || "", body.inspection_date, new Date().toISOString()).run();
-        const inspectionId = inspResult.meta.last_row_id;
-        const photoResults = []; let repairCount = 0;
-        for (const photo of body.photos) {
-          const visionMessages = [{ role: "system", content: "You are a professional home inspector. Analyze this property photo and provide: 1) What you see (condition), 2) Whether repair or replacement is needed, 3) Specific recommendations. Be concise but thorough. Format as JSON: {\"condition\":\"\",\"repair_needed\":true/false,\"recommendation\":\"\"}" }, { role: "user", content: "Analyze this photo of the " + photo.room_area + ". What is the condition? Does it need repair or replacement? Provide specific recommendations." }];
-          let aiAnalysis = ""; let aiCondition = "unknown"; let aiRecommendation = ""; let aiRepairNeeded = 0;
-          try {
-            const aiResponse = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", { messages: visionMessages, image: dataUrlToBytes(photo.photo_data) });
-            aiAnalysis = (aiResponse as { response?: string }).response || "";
-            const jsonMatch = aiAnalysis.match(/\{[\s\S]*\}/);
-            if (jsonMatch) { try { const parsed = JSON.parse(jsonMatch[0]); aiCondition = parsed.condition || "unknown"; aiRepairNeeded = parsed.repair_needed ? 1 : 0; aiRecommendation = parsed.recommendation || ""; } catch { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; } } else { aiCondition = aiAnalysis.substring(0, 200); aiRecommendation = aiAnalysis; }
-          } catch { aiAnalysis = "Analysis unavailable"; aiCondition = "unknown"; aiRecommendation = "Unable to analyze photo"; }
-          if (aiRepairNeeded) repairCount++;
-          const photoResult = await env.DB.prepare("INSERT INTO inspection_photos (inspection_id, room_area, photo_data, ai_analysis, ai_condition, ai_recommendation, ai_repair_needed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(inspectionId, photo.room_area, "", aiAnalysis, aiCondition, aiRecommendation, aiRepairNeeded, new Date().toISOString()).run();
-          photoResults.push({ id: photoResult.meta.last_row_id, room_area: photo.room_area, condition: aiCondition, repair_needed: aiRepairNeeded === 1, recommendation: aiRecommendation });
-        }
-        const overallCondition = repairCount === 0 ? "Good" : repairCount <= 2 ? "Fair" : "Needs Attention";
-        const summary = "Inspected " + body.photos.length + " areas. " + repairCount + " need repair. Overall: " + overallCondition + ".";
-        await env.DB.prepare("UPDATE inspections SET overall_condition = ?, summary = ?, status = 'completed' WHERE id = ?").bind(overallCondition, summary, inspectionId).run();
-        return json({ success: true, inspection_id: inspectionId, overall_condition: overallCondition, repair_count: repairCount, photos: photoResults });
-      } catch { return json({ error: "Failed to create inspection" }, 500); }
-    }
-    if (url.pathname === "/api/inspections" && request.method === "GET") { const results = await env.DB.prepare("SELECT i.*, p.address as property_address FROM inspections i JOIN properties p ON i.property_id = p.id WHERE p.user_id = ? ORDER BY i.created_at DESC").bind(user!.id).all(); return json(results.results); }
-    const inspMatch = url.pathname.match(/^\/api\/inspections\/(\d+)$/);
-    if (inspMatch && request.method === "GET") { const inspId = parseInt(inspMatch[1]); const inspection = await env.DB.prepare("SELECT i.*, p.address as property_address FROM inspections i JOIN properties p ON i.property_id = p.id WHERE i.id = ? AND p.user_id = ?").bind(inspId, user!.id).first(); if (!inspection) return json({ error: "Not found" }, 404); const photos = await env.DB.prepare("SELECT * FROM inspection_photos WHERE inspection_id = ? ORDER BY created_at ASC").bind(inspId).all(); return json({ inspection, photos: photos.results }); }
+    // === Inspection API (src/inspections.ts) ===
+    if (url.pathname.startsWith("/api/inspections")) { try { const res = await handleInspectionRoutes(request, env, url, user!); if (res) return res; } catch (err) { return dbErrorResponse("inspections", err); } }
 
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
     if (!env.ASSETS) return new Response("Static pages aren't available in this preview. Open https://ecrentalpm.com instead.", { status: 503, headers: { "Content-Type": "text/plain" } });
