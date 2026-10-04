@@ -34,6 +34,7 @@ import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
+import { handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
@@ -208,6 +209,7 @@ export default {
 
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
+    if (env.ASSETS) { try { const seoRes = await handleSeoRoutes(request, env, url); if (seoRes) return seoRes; } catch (err) { console.error("[seo]", err); } }
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
