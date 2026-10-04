@@ -1,6 +1,6 @@
 /**
  * EC Rental Property Management LLC — Worker
- * Powered by Thelo AI (branded), running on Cloudflare Workers AI.
+ * Powered by Tello (branded), running on Cloudflare Workers AI.
  */
 interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; context?: string; }
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
