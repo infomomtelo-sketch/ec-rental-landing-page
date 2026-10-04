@@ -5,7 +5,7 @@
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface ReqEnv { DB: D1Database; }
 interface ReqUser { id: number; name: string; email: string; }
-const NOTIFY_TO = "info@ecrentalpm.com";
+const NOTIFY_TO = ["info@ecrentalpm.com", "eli@ecrentalpm.com"];
 const TYPES: Record<string, string> = { move_in: "Move-in", move_out: "Move-out", routine: "Routine", annual: "Annual" };
 
 function str(v: unknown, max: number): string { return String(v ?? "").trim().slice(0, max); }
@@ -46,11 +46,11 @@ export async function handleInspectionRequests(request: Request, env: ReqEnv, ur
       free ? "Launch bonus: FREE (first request on this account)" : "Not their first request: quote your usual price",
       `Plan status: ${details.billing_status}${free && details.billing_status !== "active" ? " (bonus applies once their first payment goes through)" : ""}`,
     ];
-    try {
-      await notify(NOTIFY_TO, `In-person inspection request: ${prop.address}`,
-        `<p>A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.</p><p>${lines.map(esc).join("<br>")}</p>`,
-        "A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.\n\n" + lines.join("\n"));
-    } catch (err) { console.error("[inspection-request] email", err); }
+    const html = `<p>A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.</p><p>${lines.map(esc).join("<br>")}</p>`;
+    const text = "A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.\n\n" + lines.join("\n");
+    for (const to of NOTIFY_TO) {
+      try { await notify(to, `In-person inspection request: ${prop.address}`, html, text); } catch (err) { console.error("[inspection-request] email", err); }
+    }
   }
   return json({ success: true, free });
 }
