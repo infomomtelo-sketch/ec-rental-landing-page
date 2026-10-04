@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Rent Review for Fresno Landlords — EC Rental</title>
+  <meta name="description" content="What should your Fresno or Clovis rental rent for? Get a free rent review from EC Rental Property Management, a locally owned Fresno property manager." />
+  <link rel="canonical" href="https://ecrentalpm.com/rent-review" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Free Rent Review for Fresno Landlords — EC Rental" />
+  <meta property="og:description" content="What should your rental rent for? Get a free rent review from a local Fresno property manager." />
+  <meta property="og:url" content="https://ecrentalpm.com/rent-review" />
+  <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+  <style>
+    .lead { font-size: 1.1rem; margin: 0.75rem 0 1.25rem; }
+    .perks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin: 1rem 0 1.5rem; }
+    .perks div { background: var(--white); border-radius: var(--radius); padding: 0.9rem 1rem; box-shadow: var(--shadow); font-size: 0.92rem; }
+    .perks b { display: block; color: var(--primary); }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .range { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
+    .range div { background: var(--light); border-radius: 10px; padding: 0.75rem 1rem; flex: 1; min-width: 120px; }
+    .range small { display: block; color: var(--gray); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .range b { font-size: 1.4rem; color: var(--primary); }
+  </style>
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap narrow">
+    <h1>What should your rental rent for?</h1>
+    <p class="lead">Get a free rent review for your Fresno or Clovis rental from a locally owned property manager. Tell us about the home and we'll send you a suggested rent range and tips to rent it faster.</p>
+    <div class="perks">
+      <div><b>Free, no obligation</b>You don't need to sign up for anything.</div>
+      <div><b>Local</b>Based on Fresno and Clovis rentals, not national averages.</div>
+      <div><b>Fast</b>We reply within 1 business day.</div>
+    </div>
+
+    <form id="reviewForm" class="app-form" novalidate>
+      <fieldset>
+        <legend>The property</legend>
+        <label>Street address<input name="street" required maxlength="200" autocomplete="street-address" placeholder="1234 N Example Ave" /></label>
+        <div class="row"><label>City<input name="city" maxlength="100" value="Fresno" autocomplete="address-level2" /></label><label>ZIP<input name="zip" required inputmode="numeric" maxlength="5" pattern="\d{5}" autocomplete="postal-code" placeholder="93711" /></label></div>
+        <div class="row"><label>Type<select name="property_type"><option>House</option><option>Condo</option><option>Townhouse</option><option>Duplex or multi-unit</option><option>Apartment</option></select></label><label>Bedrooms<select name="bedrooms"><option value="0">Studio</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5+</option></select></label></div>
+        <div class="row"><label>Bathrooms<select name="bathrooms"><option>1</option><option>1.5</option><option selected>2</option><option>2.5</option><option>3</option><option value="3.5">3.5+</option></select></label><label>Square feet<input name="square_feet" type="number" min="0" max="20000" inputmode="numeric" placeholder="1450" /></label></div>
+        <div class="row"><label>Right now it's<select name="status"><option>Vacant</option><option>Tenant moving out soon</option><option>Rented</option><option>Thinking of buying a rental</option></select></label><label>Current rent (if rented)<input name="current_rent" type="number" min="0" inputmode="numeric" placeholder="$" /></label></div>
+        <label>Features worth mentioning<textarea name="features" rows="2" maxlength="600" placeholder="Garage, new flooring, big backyard, near Fresno State..."></textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>Where to send your review</legend>
+        <label>Your name<input name="name" required maxlength="100" autocomplete="name" /></label>
+        <div class="row"><label>Email<input name="email" type="email" required maxlength="200" autocomplete="email" /></label><label>Phone<input name="phone" type="tel" required maxlength="30" autocomplete="tel" /></label></div>
+        <label>Anything else? (optional)<textarea name="message" rows="2" maxlength="1000"></textarea></label>
+        <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+      </fieldset>
+      <p class="muted small" style="margin-bottom:0.75rem">By sending this, you agree that EC Rental may contact you about your property. We don't sell your information. See our <a href="/privacy">privacy policy</a>.</p>
+      <button class="primary-btn" type="submit" id="reviewBtn">Get my free rent review</button>
+      <p id="reviewMsg" class="err" style="margin-top:0.75rem" hidden></p>
+    </form>
+    <div id="reviewDone" class="done" hidden></div>
+  </main>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/fresno-property-management">Property management</a> · <a href="/fresno-rental-inspections">Rental inspections</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script>
+    (function() {
+      var form = document.getElementById('reviewForm'), btn = document.getElementById('reviewBtn'), msg = document.getElementById('reviewMsg'), done = document.getElementById('reviewDone');
+      function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+      function money(n) { return '$' + Number(n).toLocaleString('en-US'); }
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var data = {}; new FormData(form).forEach(function(v, k) { data[k] = v; });
+        if (!data.street || !/^\d{5}$/.test(data.zip || '') || !data.name || !data.email || !data.phone) { msg.textContent = 'Please fill in the address, 5-digit ZIP, your name, email and phone.'; msg.hidden = false; return; }
+        btn.disabled = true; btn.textContent = 'Sending...'; msg.hidden = true;
+        fetch('/api/public/rent-review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+          .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); })
+          .then(function(d) {
+            var c = d.comps;
+            done.innerHTML = '<h2 style="margin-top:0">Thanks, ' + esc(String(data.name).split(' ')[0]) + '! Your request is in.</h2>' +
+              (c ? '<p>Here\'s what similar ' + (Number(data.bedrooms) ? esc(data.bedrooms) + '-bedroom ' : '') + 'homes on EC Rental in ' + esc(c.area) + ' rent for (' + c.count + ' listings):</p><div class="range"><div><small>Lower</small><b>' + money(c.low) + '</b></div><div><small>Typical</small><b>' + money(c.median) + '</b></div><div><small>Higher</small><b>' + money(c.high) + '</b></div></div><p class="muted small">This is a starting point from our own listings, not an appraisal. Your full review will look at your home\'s features too.</p>' : '<p>We\'re preparing your rent review now. You\'ll get a suggested rent range and tips to rent faster within 1 business day.</p>') +
+              '<p>Questions sooner? Call <a href="tel:+15598253038">(559) 825-3038</a> or email <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a>.</p><p><a class="primary-btn" href="/fresno-property-management" style="text-decoration:none">See how we manage rentals</a></p>';
+            form.hidden = true; done.hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' });
+          })
+          .catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my free rent review'; });
+      });
+    })();
+  </script>
+</body>
+</html>
