@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin — EC Rental Property Management LLC</title>
+  <link rel="icon" href="/tello-icon.svg" />
+  <style>
+    :root { --primary: #1a5632; --primary-dark: #0f3d22; --accent: #c9a227; --light: #f7f9f7; --dark: #1a1a1a; --gray: #6b7280; --white: #ffffff; --radius: 12px; --shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--dark); line-height: 1.5; background: var(--light); }
+    header { background: var(--primary-dark); color: var(--white); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    header .logo { font-weight: 800; font-size: 1.1rem; }
+    header .logo span { color: var(--accent); }
+    header a { color: rgba(255,255,255,0.75); text-decoration: none; font-size: 0.9rem; }
+    header a:hover { color: var(--white); }
+    .tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--white); border-bottom: 1px solid #e5e7eb; overflow-x: auto; }
+    .tabs button { background: none; border: none; border-bottom: 3px solid transparent; padding: 0.9rem 1rem; font-size: 0.95rem; font-weight: 600; color: var(--gray); cursor: pointer; white-space: nowrap; font-family: inherit; }
+    .tabs button.active { color: var(--primary); border-bottom-color: var(--accent); }
+    main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    h1 { font-size: 1.5rem; color: var(--primary); margin-bottom: 0.25rem; }
+    .sub { color: var(--gray); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--white); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); }
+    .stat-card .label { font-size: 0.75rem; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; }
+    .stat-card .value { font-size: 1.7rem; font-weight: 800; color: var(--primary); }
+    .stat-card .note { font-size: 0.8rem; color: var(--gray); margin-top: 0.2rem; }
+    .data-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 1.5rem; }
+    .data-card-header { padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+    .data-card-header h2 { font-size: 1.05rem; color: var(--primary); }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.7rem 1.25rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray); border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    td { padding: 0.7rem 1.25rem; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td a { color: var(--primary); }
+    td:first-child { min-width: 150px; }
+    .muted { color: var(--gray); font-size: 0.8rem; }
+    .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-gray { background: #f3f4f6; color: var(--gray); }
+    .badge-gold { background: #fdf3d0; color: #7a5b00; }
+    select, input[type="search"] { padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; background: var(--white); }
+    input[type="search"] { min-width: 220px; }
+    .empty { text-align: center; padding: 2.5rem; color: var(--gray); }
+    .page { display: none; }
+    .page.active { display: block; }
+    .gate { max-width: 420px; margin: 4rem auto; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 2rem; text-align: center; }
+    .gate h1 { margin-bottom: 0.75rem; }
+    .gate p { color: var(--gray); margin-bottom: 1.25rem; }
+    .btn { display: inline-block; background: var(--primary); color: var(--white); border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+    .btn:hover { background: var(--primary-dark); }
+    @media (max-width: 640px) { main { padding: 1rem; } .tabs { padding: 0 0.5rem; } th, td { padding: 0.6rem 0.75rem; } input[type="search"] { min-width: 0; width: 100%; } }
+  </style>
+</head>
+<body>
+  <header><div class="logo">EC<span> Rental</span> Admin</div><nav><a href="/dashboard">← Back to dashboard</a></nav></header>
+  <div id="gate" class="gate" style="display:none;"><h1 id="gateTitle">Admin</h1><p id="gateText"></p><a class="btn" id="gateBtn" href="/dashboard">Go to sign in</a></div>
+  <div id="app" style="display:none;">
+    <div class="tabs" role="tablist">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="accounts">Accounts</button>
+      <button data-tab="listings">Listings</button>
+      <button data-tab="leads">Leads</button>
+    </div>
+    <main>
+      <section class="page active" id="page-overview">
+        <h1>Site overview</h1><p class="sub" id="overviewSub">Everything across EC Rental, all accounts.</p>
+        <div class="stat-cards" id="statCards"></div>
+        <div class="data-card"><div class="data-card-header"><h2>Accounts by plan</h2></div><div class="table-scroll"><table><thead><tr><th>Plan</th><th>Accounts</th><th>Price</th><th>Plan value / mo</th></tr></thead><tbody id="planBody"></tbody></table></div></div>
+        <p class="muted">Plan value is what every account would pay at list price. "Paying in Stripe" counts subscriptions Stripe reports as active.</p>
+      </section>
+      <section class="page" id="page-accounts">
+        <h1>Landlord accounts</h1><p class="sub">Every landlord and property manager who signed up. Changing a plan changes how many properties they can add.</p>
+        <div class="data-card"><div class="data-card-header"><h2 id="accountsTitle">Accounts</h2><input type="search" id="accountSearch" placeholder="Search name, email or company" /></div>
+          <div class="table-scroll"><table><thead><tr><th>Name</th><th>Contact</th><th>Plan</th><th>Properties</th><th>Listings</th><th>Joined</th></tr></thead><tbody id="accountsBody"></tbody></table></div></div>
+      </section>
+      <section class="page" id="page-listings">
+        <h1>All listings</h1><p class="sub">Listings from every account, newest first.</p>
+        <div class="data-card"><div class="data-card-header"><h2 id="listingsTitle">Listings</h2><input type="search" id="listingSearch" placeholder="Search address or owner" /></div>
+          <div class="table-scroll"><table><thead><tr><th>Home</th><th>Owner</th><th>Rent</th><th>Status</th><th>Applications</th><th>Added</th></tr></thead><tbody id="listingsBody"></tbody></table></div></div>
+      </section>
+      <section class="page" id="page-leads">
+        <h1>Leads</h1><p class="sub">Renter inquiries, maintenance requests from the website chat, and rent review requests.</p>
+        <div class="data-card"><div class="data-card-header"><h2 id="leadsTitle">Leads</h2><select id="leadFilter"><option value="">All</option><option value="pending">New</option><option value="contacted">Contacted</option><option value="closed">Closed</option></select></div>
+          <div class="table-scroll"><table><thead><tr><th>Received</th><th>Type</th><th>From</th><th>Details</th><th>Status</th></tr></thead><tbody id="leadsBody"></tbody></table></div></div>
+      </section>
+    </main>
+  </div>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

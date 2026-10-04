@@ -54,6 +54,7 @@ import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
 import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
+import { handleAdminRoutes, isAdmin } from "./admin";
 import { handleInspectionRequests } from "./inspection-requests";
 import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook } from "./billing";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
@@ -185,6 +186,7 @@ export default {
         if (!user.password_hash.startsWith("pbkdf2$")) { const salt = generateSalt(); await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.password, salt), salt, user.id).run(); }
         const token = await createSession(env, user.id);
         const { password_hash, password_salt, ...userWithoutPw } = user;
+        if (isAdmin(env, userWithoutPw)) userWithoutPw.role = "admin";
         return json({ token, user: userWithoutPw });
       } catch (err) { return dbErrorResponse("login", err); }
     }
@@ -247,6 +249,8 @@ export default {
     try { const inviteRes = await handlePublicTenantRoutes(request, env, url, tenantHelpers(env)); if (inviteRes) return inviteRes; } catch (err) { return dbErrorResponse("tenant-invite", err); }
 
     const user = await getUserFromRequest(request, env);
+    // Emails in the ADMIN_EMAILS secret count as admins everywhere (Chat Leads, /admin).
+    if (user && isAdmin(env, user)) user.role = "admin";
     if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) return json({ error: "Unauthorized" }, 401);
 
     // Tenants only reach their portal; every other API route is for landlords.
@@ -262,6 +266,8 @@ export default {
     if (user && url.pathname === "/api/listings/leads") { try { const res = await handleLandlordLeadRoute(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listing-leads", err); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
 
+    // Site owner admin page (src/admin.ts)
+    if (user && url.pathname.startsWith("/api/admin/")) { if (user.role !== "admin") return json({ error: "Admins only" }, 403); try { const res = await handleAdminRoutes(request, env, url); if (res) return res; } catch (err) { return dbErrorResponse("admin", err); } }
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)
@@ -323,4 +329,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; ADMIN_EMAILS?: string; }
