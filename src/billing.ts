@@ -38,7 +38,7 @@ const GOOD_STATUSES = ["active", "trialing"];
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 export function billingEnabled(env: BillingEnv): boolean { return !!env.STRIPE_SECRET_KEY; }
 /** Test and live keys get separate webhook and portal settings, so switching keys just works. */
-function keyMode(env: BillingEnv): string { return env.STRIPE_SECRET_KEY!.includes("_live_") ? "live" : "test"; }
+export function keyMode(env: BillingEnv): string { return env.STRIPE_SECRET_KEY!.includes("_live_") ? "live" : "test"; }
 function trialDays(env: BillingEnv): number { const n = parseInt(env.STRIPE_TRIAL_DAYS ?? "14"); return Number.isFinite(n) && n > 0 ? Math.min(n, 90) : 0; }
 const isoFromUnix = (t: unknown) => (typeof t === "number" && t > 0 ? new Date(t * 1000).toISOString() : null);
 
@@ -54,13 +54,14 @@ function formEncode(params: Record<string, unknown>, prefix = "", out = new URLS
   return out;
 }
 
-async function stripe(env: BillingEnv, method: "GET" | "POST" | "DELETE", path: string, params: Record<string, unknown> = {}): Promise<StripeObject> {
+/** Calls the Stripe API. `account` acts on a landlord's connected Stripe account (rent payments, src/rent-payments.ts). */
+export async function stripe(env: BillingEnv, method: "GET" | "POST" | "DELETE", path: string, params: Record<string, unknown> = {}, account?: string): Promise<StripeObject> {
   const base = env.STRIPE_API_BASE || "https://api.stripe.com";
   const body = formEncode(params).toString();
   const target = method === "GET" && body ? `${base}/v1/${path}?${body}` : `${base}/v1/${path}`;
   const res = await fetch(target, {
     method,
-    headers: { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded", ...(account ? { "Stripe-Account": account } : {}) },
     body: method === "GET" ? undefined : body,
   });
   const data = await res.json().catch(() => ({})) as StripeObject;
@@ -68,11 +69,11 @@ async function stripe(env: BillingEnv, method: "GET" | "POST" | "DELETE", path: 
   return data;
 }
 
-async function getSetting(env: BillingEnv, key: string): Promise<string | null> {
+export async function getSetting(env: BillingEnv, key: string): Promise<string | null> {
   const row = await env.DB.prepare("SELECT value FROM app_settings WHERE key = ?").bind(key).first<{ value: string }>();
   return row?.value ?? null;
 }
-async function setSetting(env: BillingEnv, key: string, value: string): Promise<void> {
+export async function setSetting(env: BillingEnv, key: string, value: string): Promise<void> {
   await env.DB.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(key, value, new Date().toISOString()).run();
 }
 
@@ -193,7 +194,7 @@ async function applySubscription(env: BillingEnv, sub: StripeObject, fallbackUse
   }
 }
 
-async function verifySignature(payload: string, header: string, secret: string): Promise<boolean> {
+export async function verifySignature(payload: string, header: string, secret: string): Promise<boolean> {
   const parts = header.split(",").map((p) => p.split("="));
   const t = parts.find(([k]) => k === "t")?.[1];
   const sigs = parts.filter(([k]) => k === "v1").map(([, v]) => v);

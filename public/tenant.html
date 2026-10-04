@@ -67,7 +67,16 @@
       function show(id) { ['loading', 'acceptView', 'signInView', 'homeView'].forEach(function(v) { document.getElementById(v).style.display = v === id ? 'block' : 'none'; }); document.getElementById('signOut').style.display = id === 'homeView' ? 'inline' : 'none'; }
       function msg(el, text, bad) { el.textContent = text; el.className = 'small' + (bad ? ' err' : ''); }
 
-      var docs = [];
+      var docs = [], rent = {};
+      var PAY_STATUS = { processing: 'Processing', failed: "Didn't go through" };
+      function monthLabel(p) { var m = /^(\d{4})-(\d{2})$/.exec(p || ''); return m ? new Date(+m[1], +m[2] - 1, 15).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : ''; }
+      function monthValue(offset) { var d = new Date(); d.setDate(15); d.setMonth(d.getMonth() + offset); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+      function renderPay(h) {
+        var r = rent[h.tenancy_id]; if (!r || (!r.can_pay_online && !r.payments.length)) return '';
+        var list = r.payments.map(function(p) { return '<div class="req"><div><strong>' + esc(PAY_STATUS[p.status] || p.status) + '</strong> · <span class="muted small">' + money(p.amount_cents / 100) + (p.period ? ' for ' + esc(monthLabel(p.period)) : '') + ' · started ' + day(p.created_at) + '</span></div>' + (p.status === 'processing' ? '<div class="muted small">Bank transfers take a few business days to clear. It moves to your payment history once it does.</div>' : '') + (p.failure ? '<div class="muted small">' + esc(p.failure) + '</div>' : '') + '</div>'; }).join('');
+        var form = r.can_pay_online ? '<form class="app-form pay-form" data-tenancy="' + h.tenancy_id + '"><label>Amount *<input name="amount" type="number" min="1" max="50000" step="0.01" required value="' + (Number(r.rent) > 0 ? Number(r.rent) : '') + '" /></label><label>Rent for<select name="period">' + [-1, 0, 1].map(function(o) { var v = monthValue(o); return '<option value="' + v + '"' + (o === 0 ? ' selected' : '') + '>' + esc(monthLabel(v)) + '</option>'; }).join('') + '</select></label><button type="submit" class="primary-btn">Pay rent online</button><p class="small pay-msg"></p><p class="small muted">You pay on a secure Stripe page by bank transfer or card, and the money goes to your landlord. Stripe emails you a receipt.</p></form>' : '';
+        return '<div class="home-summary"><h3>Pay rent</h3>' + list + form + '</div>';
+      }
       var DOC_TYPES = { lease: 'Rental agreement', notice_pay_or_quit: 'Notice', invoice: 'Invoice', receipt: 'Receipt', application: 'Application', notice_of_entry: 'Notice of entry' };
       function renderDocs(h) {
         var mine = docs.filter(function(x) { return x.tenancy_id === h.tenancy_id; });
@@ -81,15 +90,16 @@
         var reqs = h.requests.length ? h.requests.map(function(r) { return '<div class="req"><div><strong>' + esc(STATUS[r.status] || r.status) + '</strong> · <span class="muted small">' + day(r.created_at) + ' · ' + esc(r.priority) + ' priority</span></div><div>' + esc(r.description) + '</div></div>'; }).join('') : '<p class="muted small">No requests yet.</p>';
         return '<div class="home-summary"><h2 style="margin-bottom:0.25rem">' + esc(h.address) + '</h2><p class="muted">' + esc([h.city, h.state].filter(Boolean).join(', ')) + ' ' + esc(h.zip || '') + '</p>' +
           '<div class="facts"><div><span class="muted small">Monthly rent</span><strong>' + money(h.rent) + '</strong></div><div><span class="muted small">Lease</span><strong>' + lease + '</strong></div><div><span class="muted small">Landlord</span><strong>' + esc(h.landlord.name) + '</strong><a class="small" href="mailto:' + esc(h.landlord.email) + '">' + esc(h.landlord.email) + '</a></div></div></div>' +
-          renderDocs(h) +
-          '<div class="home-summary"><h3>Rent payments received</h3><p class="muted small">Payments your landlord has recorded. Ask your landlord if one is missing.</p>' + pay + '</div>' +
+          renderPay(h) + renderDocs(h) +
+          '<div class="home-summary"><h3>Rent payments received</h3><p class="muted small">Rent you paid online here or your landlord recorded. Ask your landlord if one is missing.</p>' + pay + '</div>' +
           '<div class="home-summary"><h3>Maintenance requests</h3>' + reqs +
           '<form class="app-form req-form" data-tenancy="' + h.tenancy_id + '"><label>What needs fixing? *<textarea name="description" rows="3" required placeholder="Describe the problem and where it is"></textarea></label><label>How urgent?<select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent (no heat, water leak, no power)</option></select></label><button type="submit" class="primary-btn">Send request</button><p class="small req-msg"></p><p class="small muted">For emergencies like fire, gas leaks or flooding, call 911 or your utility first.</p></form></div>';
       }
       function loadHome() {
         show('loading');
-        Promise.all([call('/tenant/home'), call('/tenant/documents').catch(function() { return []; })]).then(function(r) {
+        Promise.all([call('/tenant/home'), call('/tenant/documents').catch(function() { return []; }), call('/tenant/rent').catch(function() { return []; })]).then(function(r) {
           var d = r[0]; docs = Array.isArray(r[1]) ? r[1] : [];
+          rent = {}; (Array.isArray(r[2]) ? r[2] : []).forEach(function(x) { rent[x.tenancy_id] = x; });
           document.getElementById('hello').textContent = 'Hi, ' + d.user.name.split(' ')[0];
           document.getElementById('homes').innerHTML = d.homes.length ? d.homes.map(renderHome).join('') : '<div class="home-summary">Your landlord has ended your portal access for this home. Contact them if that looks wrong.</div>';
           show('homeView');
@@ -106,6 +116,24 @@
           .then(function() { loadHome(); })
           .catch(function(err) { btn.disabled = false; msg(out, err.message, true); });
       });
+
+      document.getElementById('homes').addEventListener('submit', function(e) {
+        var f = e.target; if (!f.classList.contains('pay-form')) return; e.preventDefault();
+        var out = f.querySelector('.pay-msg'), btn = f.querySelector('button'); btn.disabled = true; btn.textContent = 'Opening secure payment page...';
+        call('/tenant/rent/checkout', 'POST', { tenancy_id: Number(f.getAttribute('data-tenancy')), amount: Number(f.amount.value), period: f.period.value })
+          .then(function(d) { location.href = d.url; })
+          .catch(function(err) { btn.disabled = false; btn.textContent = 'Pay rent online'; msg(out, err.message, true); });
+      });
+
+      // Back from Stripe: check the payment right away instead of waiting for Stripe's notice to reach us.
+      function rentReturn() {
+        var state = params.get('rent'); if (!state) return Promise.resolve();
+        history.replaceState(null, '', '/tenant');
+        if (state !== 'done' || !params.get('session_id')) return Promise.resolve();
+        return call('/tenant/rent/status?session_id=' + encodeURIComponent(params.get('session_id'))).then(function(d) {
+          alert(d.status === 'paid' ? 'Thank you! Your rent payment went through.' : d.status === 'processing' ? 'Thank you! Your bank transfer has started. It takes a few business days to clear.' : d.status === 'failed' ? "Your payment didn't go through. You can try again." : 'Thanks! Your payment is being confirmed.');
+        }).catch(function() {});
+      }
 
       document.getElementById('signInForm').addEventListener('submit', function(e) {
         e.preventDefault(); var f = e.target, out = document.getElementById('signInMsg'); msg(out, '');
@@ -131,7 +159,7 @@
             setToken(d.token); history.replaceState(null, '', '/tenant'); loadHome();
           }).catch(function(err) { btn.disabled = false; msg(out, err.message, true); });
         });
-      } else if (google.error) { show('signInView'); msg(document.getElementById('signInMsg'), google.error, true); } else if (token()) { loadHome(); } else { show('signInView'); }
+      } else if (google.error) { show('signInView'); msg(document.getElementById('signInMsg'), google.error, true); } else if (token()) { rentReturn().then(loadHome); } else { show('signInView'); }
       ECGoogle.initButtons('tenant');
     })();
   </script>
