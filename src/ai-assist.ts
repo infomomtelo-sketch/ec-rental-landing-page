@@ -1,12 +1,16 @@
 /**
- * AI writing help for landlords (Workers AI): a listing description written from the listing's
- * own details, a draft reply to a renter inquiry, and rewrite / spelling-and-grammar fixes for either. Both return text for the landlord to
- * edit; nothing is saved or sent from here.
+ * AI help for landlords (Workers AI): listing descriptions written from the listing's details and
+ * photos, draft replies to renter inquiries, rewrite / spelling-and-grammar fixes, a rent check
+ * against similar listings, application summaries and maintenance triage. Everything here returns
+ * suggestions for the landlord to review; nothing is saved, sent or decided automatically, except
+ * that the landlord can apply a suggested maintenance priority.
  */
 
-export interface AiAssistEnv { AI: Ai; DB: D1Database; }
+export interface AiAssistEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+export const MAINTENANCE_PRIORITIES = ["emergency", "high", "normal", "low"];
 
 // Fair housing: describe the home, never the kind of person wanted.
 const FAIR_HOUSING = "Follow US and California fair housing law: describe only the home, its features and location. Never mention or imply a preference about race, color, religion, sex, gender, sexual orientation, familial status (no 'perfect for couples', 'no kids', 'ideal for singles'), disability, national origin, age, marital status, or source of income (never 'no Section 8'). Don't describe the neighborhood's people.";
@@ -55,10 +59,12 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
   if (url.pathname === "/api/ai/listing-description") {
     const body = await request.json() as Record<string, unknown>;
     if (!num(body.rent) && !str(body.city)) return json({ error: "Fill in at least the city and rent first, so the AI has something to describe." }, 400);
+    const seen = await photoFeatures(env, user.id, Math.floor(num(body.id)));
     const prompt = [
       "Write the description for a rental listing that will appear on our website and on Zillow.",
       "Use only these facts. Don't invent features, distances, schools, landmarks or upgrades that aren't listed:",
       ...listingFacts(body).map((f) => "- " + f),
+      ...(seen.length ? ["- Seen in the listing photos (mention only if consistent with the facts above): " + seen.join("; ")] : []),
       "",
       "Write 110 to 170 words in 2 or 3 short paragraphs of plain text: no headings, bullet points, emojis, markdown or exclamation-mark overload. Lead with what makes the home appealing, then the practical details (rent, availability, lease, pets, parking, laundry). End with one sentence inviting renters to request a showing or apply online. Don't repeat the street address.",
     ].join("\n");
@@ -66,7 +72,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
       const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write clear, honest, appealing rental listing descriptions for EC Rental Property Management in Fresno, California. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 500 } as never);
       const description = clean(aiText(out)).slice(0, 5000);
       if (!description) return json({ error: "The AI didn't return a description. Please try again." }, 502);
-      return json({ description });
+      return json({ description, photos_used: seen.length });
     } catch (err) { console.error("[ai] listing-description", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
   }
 
@@ -120,5 +126,107 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
     } catch (err) { console.error("[ai] polish", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
   }
 
+  // Rent check: compares the rent with similar listings on EC Rental (same ZIP or city, same bedrooms).
+  if (url.pathname === "/api/ai/rent-check") {
+    const body = await request.json() as Record<string, unknown>;
+    const rent = num(body.rent), beds = Math.floor(num(body.bedrooms)), zip = str(body.zip, 10), city = str(body.city, 100);
+    if (!rent || (!zip && !city)) return json({ error: "Fill in the rent, bedrooms and ZIP or city first." }, 400);
+    const comps = await rentComps(env, { id: Math.floor(num(body.id)), beds, zip, city });
+    const sqft = num(body.square_feet);
+    if (comps.rents.length < 3) {
+      return json({ count: comps.rents.length, area: comps.area, message: `There aren't enough similar ${beds ? beds + "-bedroom " : ""}listings on EC Rental yet to compare (found ${comps.rents.length}, need 3). Check a few nearby ${beds ? beds + "-bedroom " : ""}rentals on Zillow for ${zip || city} before you set the price.` });
+    }
+    const sorted = [...comps.rents].sort((a, b) => a - b);
+    const q = (p: number) => { const i = p * (sorted.length - 1), lo = Math.floor(i); return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (i - lo); };
+    const low = q(0.25), median = q(0.5), high = q(0.75);
+    const diff = Math.round(((rent - median) / median) * 100);
+    const position = diff > 10 ? "above" : diff < -10 ? "below" : "in line with";
+    const facts = [`Your rent: $${Math.round(rent)}/month`, `Similar listings (${sorted.length}, ${comps.area}): typical range $${Math.round(low)} to $${Math.round(high)}, median $${Math.round(median)}`, `Difference from median: ${diff > 0 ? "+" : ""}${diff}%`, ...(sqft ? [`Your price per square foot: $${(rent / sqft).toFixed(2)}`] : []), ...listingFacts(body).filter((f) => !f.startsWith("Rent:") && !f.startsWith("Landlord's notes") && !f.startsWith("Headline"))];
+    let advice = "";
+    try {
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a Fresno, California landlord price a rental. Use only the numbers given; never invent market data. 2 or 3 short sentences, plain text." }, { role: "user", content: facts.join("\n") + `\n\nThe rent is ${position} similar listings. Say whether it looks reasonable, and which of the home's listed features could justify a higher or lower price.` }], max_tokens: 200 } as never);
+      advice = clean(aiText(out)).slice(0, 800);
+    } catch (err) { console.error("[ai] rent-check", err instanceof Error ? err.message : err); }
+    return json({ count: sorted.length, area: comps.area, low: Math.round(low), median: Math.round(median), high: Math.round(high), diff_percent: diff, position, advice });
+  }
+
+  // Application summary: income-to-rent and what to verify. Never a decision.
+  if (url.pathname === "/api/ai/application-summary") {
+    const body = await request.json() as Record<string, unknown>;
+    const id = Math.floor(num(body.applicationId));
+    const a = id ? await env.DB.prepare("SELECT a.*, l.rent, l.cats_allowed, l.small_dogs_allowed, l.large_dogs_allowed FROM applications a JOIN listings l ON a.listing_id = l.id WHERE a.id = ? AND a.landlord_user_id = ?").bind(id, user.id).first<Record<string, unknown>>() : null;
+    if (!a) return json({ error: "Application not found." }, 404);
+    const income = num(a.monthly_income), rent = num(a.rent);
+    const ratio = income && rent ? Math.round((income / rent) * 10) / 10 : 0;
+    const missing = ([["employer", "employer"], ["employer_phone", "employer phone"], ["employment_length", "time at job"], ["current_landlord_name", "current landlord"], ["current_landlord_phone", "current landlord phone"], ["time_at_address", "time at current address"], ["monthly_income", "monthly income"]] as const).filter(([k]) => !str(a[k])|| str(a[k]) === "0").map(([, label]) => label);
+    // Names, current address and household details stay out of the prompt so they can't sway the summary.
+    const facts = [
+      `Monthly rent of the home: $${Math.round(rent)}`,
+      income ? `Stated monthly income: $${Math.round(income)} (${ratio}x rent)` : "Monthly income: not given",
+      str(a.other_income) ? `Other income: ${str(a.other_income, 300)}` : "",
+      str(a.employer) ? `Employer: ${str(a.employer, 100)}${str(a.job_title) ? ", " + str(a.job_title, 100) : ""}${str(a.employment_length) ? ", for " + str(a.employment_length, 50) : ""}` : "",
+      num(a.current_rent) ? `Current rent: $${Math.round(num(a.current_rent))}` : "",
+      str(a.time_at_address) ? `Time at current address: ${str(a.time_at_address, 50)}` : "",
+      str(a.reason_for_moving) ? `Reason for moving: ${str(a.reason_for_moving, 300)}` : "",
+      str(a.move_in_date) ? `Requested move-in: ${str(a.move_in_date, 20)}` : "",
+      str(a.pets) ? `Pets: ${str(a.pets, 200)} (listing allows: ${[a.cats_allowed && "cats", a.small_dogs_allowed && "small dogs", a.large_dogs_allowed && "large dogs"].filter(Boolean).join(", ") || "no pets"})` : "",
+      str(a.vehicles) ? `Vehicles: ${str(a.vehicles, 200)}` : "",
+      missing.length ? `Left blank: ${missing.join(", ")}` : "",
+    ].filter(Boolean);
+    let summary = "";
+    try {
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a landlord review a rental application consistently. Summarize only the facts given in 3 to 5 short bullet lines starting with '- ', then a line 'To verify:' with 2 to 4 bullet lines of things to check (pay stubs, landlord reference, etc.). Never recommend approving or denying, never score the person, and never mention or infer race, religion, national origin, sex, familial status, disability, age or source of income. Plain text." }, { role: "user", content: facts.join("\n") }], max_tokens: 350 } as never);
+      summary = clean(aiText(out)).slice(0, 2000);
+    } catch (err) { console.error("[ai] application-summary", err instanceof Error ? err.message : err); }
+    return json({ ratio, missing, summary });
+  }
+
+  // Maintenance triage: suggested priority, category, next steps and a reply to the tenant.
+  if (url.pathname === "/api/ai/maintenance-triage") {
+    const body = await request.json() as Record<string, unknown>;
+    const id = Math.floor(num(body.requestId));
+    const m = id ? await env.DB.prepare("SELECT m.id, m.description, m.priority, m.tenant_name, p.address FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE m.id = ? AND p.user_id = ?").bind(id, user.id).first<{ id: number; description: string; priority: string; tenant_name: string; address: string }>() : null;
+    if (!m) return json({ error: "Request not found." }, 404);
+    const prompt = `A tenant at ${str(m.address, 200)} reported: """${str(m.description, 2000)}"""\n\nReturn only JSON: {"priority":"emergency|high|normal|low","category":"plumbing|electrical|heating/cooling|appliance|pest|structural|safety|other","why":"one sentence","next_steps":["2 to 4 short steps for the landlord"],"tenant_reply":"a short, kind message to the tenant (under 80 words) saying it's received and what happens next, with any safety step they should take now"}\nEmergency means risk to people or serious damage now (gas smell, flooding, no heat in freezing weather, fire or electrical hazard, sewage backup, broken lock on an outside door). California requires habitable conditions, so heat, hot water, plumbing and electrical outages are at least high.`;
+    try {
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You triage rental maintenance requests for a Fresno, California property manager. Be practical and safety-first. Output valid JSON only." }, { role: "user", content: prompt }], max_tokens: 500 } as never);
+      const raw = aiText(out);
+      const match = raw.match(/\{[\s\S]*\}/);
+      let t: Record<string, unknown> = {};
+      try { t = match ? JSON.parse(match[0]) : {}; } catch { t = {}; }
+      const priority = MAINTENANCE_PRIORITIES.includes(str(t.priority)) ? str(t.priority) : "";
+      if (!priority) return json({ error: "The AI couldn't triage this one. Please try again." }, 502);
+      const steps = Array.isArray(t.next_steps) ? t.next_steps.map((x) => str(x, 200)).filter(Boolean).slice(0, 5) : [];
+      return json({ priority, current_priority: m.priority, category: str(t.category, 40), why: str(t.why, 300), next_steps: steps, tenant_reply: str(t.tenant_reply, 1000) });
+    } catch (err) { console.error("[ai] maintenance-triage", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
+  }
+
   return json({ error: "Not found" }, 404);
+}
+
+/** Short lists of what the vision model sees in up to 3 of the listing's photos. Empty when there are none or it fails. */
+async function photoFeatures(env: AiAssistEnv, userId: number, listingId: number): Promise<string[]> {
+  if (!listingId || !env.PHOTOS) return [];
+  const photos = await env.DB.prepare("SELECT p.r2_key FROM listing_photos p JOIN listings l ON p.listing_id = l.id WHERE l.id = ? AND l.user_id = ? ORDER BY p.sort_order, p.id LIMIT 3").bind(listingId, userId).all<{ r2_key: string }>();
+  const results = await Promise.all(photos.results.map(async (p) => {
+    try {
+      const obj = await env.PHOTOS!.get(p.r2_key);
+      if (!obj) return "";
+      const image = [...new Uint8Array(await obj.arrayBuffer())];
+      const out = await env.AI.run(VISION_MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "user", content: "This is a photo from a rental listing. List the home features you can clearly see (room type, flooring, counters, appliances, cabinets, windows and light, yard or patio, condition). Short comma-separated phrases, at most 20 words. Don't mention people or guess at anything you can't see." }], image, max_tokens: 80 } as never);
+      return clean(aiText(out)).replace(/\s+/g, " ").slice(0, 200);
+    } catch (err) { console.error("[ai] photo", err instanceof Error ? err.message : err); return ""; }
+  }));
+  return results.filter(Boolean);
+}
+
+/** Rents of similar listings on EC Rental: same bedrooms, same ZIP (or the city when the ZIP has too few). */
+async function rentComps(env: AiAssistEnv, q: { id: number; beds: number; zip: string; city: string }): Promise<{ rents: number[]; area: string }> {
+  const base = "SELECT rent FROM listings WHERE status IN ('active', 'rented') AND bedrooms = ? AND id != ? AND rent > 0";
+  if (q.zip) {
+    const r = await env.DB.prepare(base + " AND zip = ? LIMIT 200").bind(q.beds, q.id, q.zip).all<{ rent: number }>();
+    if (r.results.length >= 3 || !q.city) return { rents: r.results.map((x) => x.rent), area: "ZIP " + q.zip };
+  }
+  const r = await env.DB.prepare(base + " AND lower(city) = lower(?) LIMIT 200").bind(q.beds, q.id, q.city).all<{ rent: number }>();
+  return { rents: r.results.map((x) => x.rent), area: q.city };
 }

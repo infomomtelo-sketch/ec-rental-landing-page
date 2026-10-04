@@ -83,7 +83,7 @@
 
   function open(listing) {
     current = listing || null;
-    form.reset(); showMsg(''); if (aiMsg) aiMsg.textContent = '';
+    form.reset(); showMsg(''); if (aiMsg) aiMsg.textContent = ''; if (rentResult) rentResult.style.display = 'none';
     document.getElementById('listingModalTitle').textContent = listing ? 'Edit Listing' : 'New Listing';
     fillProperties(listing && listing.property_id);
     if (listing) {
@@ -161,11 +161,25 @@
   if (aiBtn) aiBtn.addEventListener('click', function() {
     var data = {};
     Array.prototype.forEach.call(form.elements, function(el) { if (el.name) data[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
-    aiBtn.disabled = true; aiMsg.style.color = 'var(--gray)'; aiMsg.textContent = 'Writing...';
+    if (current) data.id = current.id;
+    aiBtn.disabled = true; aiMsg.style.color = 'var(--gray)'; aiMsg.textContent = current && (current.photos || []).length ? 'Looking at your photos and writing...' : 'Writing...';
     api('/ai/listing-description', 'POST', data).then(function(r) {
       form.elements.description.value = r.description;
-      aiMsg.textContent = 'Written by AI from your details. Check it, edit anything, then Save Listing.';
+      aiMsg.textContent = 'Written by AI from your details' + (r.photos_used ? ' and ' + r.photos_used + ' photo' + (r.photos_used > 1 ? 's' : '') : '') + '. Check it, edit anything, then Save Listing.';
     }).catch(function(err) { aiMsg.style.color = '#991b1b'; aiMsg.textContent = err.message; }).then(function() { aiBtn.disabled = false; });
+  });
+
+  // Compares the rent with similar listings on EC Rental.
+  var rentBtn = document.getElementById('listingRentBtn'), rentResult = document.getElementById('listingRentResult');
+  if (rentBtn) rentBtn.addEventListener('click', function() {
+    var data = {};
+    Array.prototype.forEach.call(form.elements, function(el) { if (el.name) data[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+    if (current) data.id = current.id;
+    rentBtn.disabled = true; rentResult.style.display = 'block'; rentResult.textContent = 'Comparing...';
+    api('/ai/rent-check', 'POST', data).then(function(r) {
+      if (r.message) { rentResult.textContent = r.message; return; }
+      rentResult.innerHTML = '<strong>' + r.count + ' similar listings in ' + esc(r.area) + ':</strong> typical ' + money(r.low) + ' to ' + money(r.high) + ', median ' + money(r.median) + '. Yours is ' + esc(r.position) + ' (' + (r.diff_percent > 0 ? '+' : '') + r.diff_percent + '%).' + (r.advice ? '<br>' + esc(r.advice) : '');
+    }).catch(function(err) { rentResult.textContent = err.message; }).then(function() { rentBtn.disabled = false; });
   });
 
   // Rewrite / Fix spelling & grammar for the description or the inquiry reply.
