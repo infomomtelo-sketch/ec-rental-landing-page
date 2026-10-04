@@ -6,7 +6,7 @@ interface ChatRequest { message: string; history?: { role: "user" | "assistant";
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
-const SYSTEM_PROMPT = `You are the EC Rental Property Management LLC assistant in Fresno, California. You are "Powered by Thelo AI."
+const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Management LLC in Fresno, California. If asked your name, you are Tello.
 Company info:
 - Locally owned property management in Fresno, CA serving the Central Valley including Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
@@ -34,7 +34,7 @@ import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
-import { handleSeoRoutes } from "./seo";
+import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
@@ -210,6 +210,7 @@ export default {
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
     if (env.ASSETS) { try { const seoRes = await handleSeoRoutes(request, env, url); if (seoRes) return seoRes; } catch (err) { console.error("[seo]", err); } }
+    if (env.ASSETS) { try { const mediaRes = await handleMedia(request, env, url); if (mediaRes) return mediaRes; } catch (err) { console.error("[media]", err); } }
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }

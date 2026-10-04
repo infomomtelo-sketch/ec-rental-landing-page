@@ -101,3 +101,21 @@ export async function handleSeoRoutes(request: Request, env: SeoEnv, url: URL): 
   headers.set("Cache-Control", "public, max-age=300");
   return new Response(out.body, { status: out.status, headers });
 }
+
+/** Videos under /media/ with byte-range support, which iPhone Safari needs before it will play a video. */
+export async function handleMedia(request: Request, env: { ASSETS: Fetcher }, url: URL): Promise<Response | null> {
+  if (!url.pathname.startsWith("/media/") || (request.method !== "GET" && request.method !== "HEAD")) return null;
+  const res = await env.ASSETS.fetch(new Request(url.toString(), { method: "GET" }));
+  if (!res.ok) return res;
+  const type = res.headers.get("Content-Type") || "application/octet-stream";
+  const body = await res.arrayBuffer();
+  const size = body.byteLength;
+  const headers = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "public, max-age=86400" };
+  const m = (request.headers.get("Range") || "").match(/^bytes=(\d*)-(\d*)$/);
+  if (!m || (m[1] === "" && m[2] === "")) return new Response(request.method === "HEAD" ? null : body, { headers: { ...headers, "Content-Length": String(size) } });
+  let start: number, end: number;
+  if (m[1] === "") { start = Math.max(0, size - parseInt(m[2])); end = size - 1; }
+  else { start = parseInt(m[1]); end = m[2] === "" ? size - 1 : Math.min(parseInt(m[2]), size - 1); }
+  if (start >= size || start > end) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
+  return new Response(request.method === "HEAD" ? null : body.slice(start, end + 1), { status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1) } });
+}

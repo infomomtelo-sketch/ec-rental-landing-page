@@ -22,10 +22,10 @@
 
   var toggle = document.createElement('button');
   toggle.className = 'rc-toggle'; toggle.type = 'button';
-  toggle.textContent = listingId ? '💬 Ask about this home' : '💬 Ask us anything';
+  toggle.textContent = listingId ? 'Ask Tello about this home' : 'Ask Tello anything';
   var box = document.createElement('div');
-  box.className = 'rc-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Chat with EC Rental');
-  box.innerHTML = '<div class="rc-head"><div><strong>EC Rental Assistant</strong><small>AI answers from the listing details</small></div><button class="rc-x" type="button" aria-label="Close chat">✕</button></div>' +
+  box.className = 'rc-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Chat with Tello, EC Rental AI');
+  box.innerHTML = '<div class="rc-head"><div style="display:flex;gap:0.6rem;align-items:center"><img src="/tello-icon.svg" alt="" width="34" height="34" style="border-radius:9px;flex:none" /><div><strong>Tello · EC Rental AI</strong><small>' + (listingId ? 'Answers from this listing\'s details' : 'Answers about our available rentals') + '</small></div></div><button class="rc-x" type="button" aria-label="Close chat">✕</button></div>' +
     '<div class="rc-msgs"></div><form class="rc-in"><input maxlength="1000" placeholder="Type your question..." aria-label="Your question" /><button type="submit">Send</button></form>' +
     '<p class="rc-note">AI can make mistakes. The landlord confirms all details.</p>';
   document.body.appendChild(toggle); document.body.appendChild(box);

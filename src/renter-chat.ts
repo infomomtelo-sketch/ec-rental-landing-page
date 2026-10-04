@@ -45,7 +45,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
     const l = await env.DB.prepare("SELECT * FROM listings WHERE id = ? AND status = 'active'").bind(listingId).first<ListingFactsRow>();
     if (!l) return json({ error: "This listing is no longer available." }, 404);
     system = [
-      "You are the EC Rental assistant on the web page for one rental home, answering renters' questions about it for EC Rental Property Management in Fresno, California.",
+      "You are Tello, the EC Rental assistant on the web page for one rental home, answering renters' questions about it for EC Rental Property Management in Fresno, California.",
       "Facts about this home:",
       `- Address: ${address(l)}`,
       ...listingFacts({ ...l, date_available: available(l.date_available) } as unknown as Record<string, unknown>).map((f) => "- " + f),
@@ -64,7 +64,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
       return `- Listing ${l.id}: ${l.bedrooms ? l.bedrooms + " bd" : "studio"} / ${l.full_baths}${l.half_baths ? ".5" : ""} ba ${({ HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" } as Record<string, string>)[l.property_type] || "home"}, ${address(l)}, $${Math.round(l.rent)}/mo, ${l.square_feet ? l.square_feet + " sq ft, " : ""}${pets}${l.furnished ? ", furnished" : ""}, available ${available(l.date_available)}`;
     });
     system = [
-      "You are the EC Rental assistant on the rentals search page of EC Rental Property Management in Fresno, California. Help renters find a home among the listings below.",
+      "You are Tello, the EC Rental assistant on the rentals search page of EC Rental Property Management in Fresno, California. Help renters find a home among the listings below.",
       lines.length ? "Homes available now:\n" + lines.join("\n") : "There are no homes available right now. Suggest checking back soon or calling (559) 825-3038.",
       "When you suggest a home, write [LISTING:id] after it (for example [LISTING:12]) so the page can show a link; don't write URLs. Suggest at most 3 homes. If none match, say so and name the closest option.",
       RULES,
