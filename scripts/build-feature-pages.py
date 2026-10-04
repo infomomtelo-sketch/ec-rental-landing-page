@@ -356,8 +356,8 @@ def page(slug, p):
     </div></section>
 
     <section class="band" style="padding-top:0"><div class="wrap">
-      <div class="ctaband"><h2>Run your Fresno rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it.</p>
-      <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Get started</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
+      <div class="ctaband"><h2>Run your Fresno rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Every plan starts with a 14-day free trial.</p>
+      <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
       <div class="kicker" style="margin-top:56px">Explore more</div>
       <div class="more">{more}</div>
     </div></section>
@@ -383,7 +383,7 @@ def index():
         <span class="eyebrow">{TELLO} The EC Rental platform</span>
         <h1>Everything your rentals need. <span class="grad">Tello built in.</span></h1>
         <p class="lede" style="margin:0 auto">Eight tools that work together, from the first listing to tax season, for Fresno and Clovis landlords and the renters they serve.</p>
-        <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Get started →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
+        <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
       </div>
     </div></section>
     <section class="band alt"><div class="wrap"><div class="grid">{cards}</div></div></section>
