@@ -29,6 +29,7 @@ Always give a real answer first, then include the tag. Never just say "contact u
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
+import { handleRenterChat } from "./renter-chat";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleMapRoute } from "./geo";
@@ -208,6 +209,7 @@ export default {
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
+    try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
