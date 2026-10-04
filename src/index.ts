@@ -34,13 +34,13 @@ Dashboard pages (left menu):
 - Properties: "+ Add Property", then Edit or Delete on each row.
 - Listings: "+ New Listing". In the listing form, "Write with AI" drafts the description (it can read the photos), "Check my rent" compares rent with similar EC Rental listings, and photos can be dragged in or picked several at once. Each listing has Edit, View, Share (ready-made post for Facebook, Marketplace and texts) and Delete. Listings can be switched on for the Zillow feed. Renter Inquiries are below the listings, with "Draft reply".
 - Applications: rental applications from active listings, with Review and "AI summary".
-- Tenants: invite a tenant by email to their tenant portal (lease, rent payments, maintenance requests).
+- Tenants: invite a tenant by email to their tenant portal (lease, rent payments, maintenance requests). Once online rent payments are set up in Settings, tenants see a "Pay rent online" button there.
 - Documents: "+ New Document" for leases, notices, invoices and receipts, then "Print or save PDF".
 - Transactions: "+ Add Transaction" for rent, expenses and owner payments.
 - Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
 - Tax Reports: per-property totals and "Export CSV".
 - Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report. "Book in-person inspection" asks a certified home inspector to visit (Fresno and Clovis); the first one on an account is a free launch bonus once the plan is paid.
-- Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling.
+- Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling. The "Online rent payments" card connects the landlord's own Stripe account ("Set up payouts with Stripe") so tenants can pay rent by bank transfer or card; money goes straight to the landlord's Stripe account and bank, Stripe's fees come out of each payment, and paid rent is added to Transactions by itself.
 In this mode, never include [SHOW_...] tags.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
@@ -57,6 +57,7 @@ import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handleAdminRoutes, isAdmin } from "./admin";
 import { handleInspectionRequests } from "./inspection-requests";
 import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook } from "./billing";
+import { handleConnectWebhook, handleLandlordRentPayments, handleTenantRentPayments } from "./rent-payments";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
@@ -174,6 +175,9 @@ export default {
     // Stripe calls this when a subscription starts, changes or ends (src/billing.ts).
     if (url.pathname === "/api/stripe/webhook" && request.method === "POST") { try { return await handleStripeWebhook(request, env); } catch (err) { console.error("[stripe-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
 
+    // Stripe calls this when a tenant's rent payment or a landlord's payout account changes (src/rent-payments.ts).
+    if (url.pathname === "/api/stripe/connect-webhook" && request.method === "POST") { try { return await handleConnectWebhook(request, env, url, (to, subject, html, text) => sendEmail(env, to, subject, html, text)); } catch (err) { console.error("[stripe-connect-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
+
     // Login API
     if (url.pathname === "/api/login" && request.method === "POST") {
       try {
@@ -256,6 +260,7 @@ export default {
     // Tenants only reach their portal; every other API route is for landlords.
     if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
     if (user && url.pathname.startsWith("/api/tenant/documents")) { try { const res = await handleTenantDocumentRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tenant-documents", err); } }
+    if (user && (url.pathname === "/api/tenant/rent" || url.pathname.startsWith("/api/tenant/rent/"))) { try { const res = await handleTenantRentPayments(request, env, url, user, (to, subject, html, text) => sendEmail(env, to, subject, html, text)); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Online payments are having trouble right now. Please try again in a minute." }, 502); } }
     if (user && url.pathname.startsWith("/api/tenant/")) { try { const res = await handleTenantPortalRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenant-portal", err); } }
     if (user && url.pathname.startsWith("/api/tenancies")) { try { const res = await handleTenancyRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenancies", err); } }
 
@@ -271,6 +276,7 @@ export default {
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)
+    if (user && (url.pathname === "/api/rent-payments" || url.pathname.startsWith("/api/rent-payments/"))) { try { const res = await handleLandlordRentPayments(request, env, url, user); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Stripe is having trouble right now. Please try again in a minute." }, 502); } }
     if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
 
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
@@ -313,7 +319,7 @@ export default {
     if (url.pathname === "/api/reports" && request.method === "GET") { const properties = await env.DB.prepare("SELECT id, address FROM properties WHERE user_id = ?").bind(user!.id).all<{ id: number; address: string }>(); const reports = []; for (const prop of properties.results) { const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'rent'").bind(prop.id).first<{ total: number }>(); const expenseResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'expense'").bind(prop.id).first<{ total: number }>(); const feeResult = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE property_id = ? AND type = 'fee'").bind(prop.id).first<{ total: number }>(); const rent = rentResult?.total || 0; const expenses = expenseResult?.total || 0; const fees = feeResult?.total || 0; reports.push({ address: prop.address, rent_collected: rent, expenses: expenses, mgmt_fee: fees, paid_to_owner: rent - expenses - fees }); } return json(reports); }
 
     // Dashboard Overview API
-    if (url.pathname === "/api/dashboard/overview" && request.method === "GET") { const props = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC LIMIT 5").bind(user!.id).all(); const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); const occupied = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ? AND status = 'occupied'").bind(user!.id).first<{ count: number }>(); const now = new Date(); const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString(); const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(t.amount), 0) as total FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? AND t.type = 'rent' AND t.date >= ?").bind(user!.id, monthStart).first<{ total: number }>(); const maintResult = await env.DB.prepare("SELECT COUNT(*) as count FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? AND m.status = 'open'").bind(user!.id).first<{ count: number }>(); return json({ totalProperties: count?.count || 0, propertyLimit: user!.property_limit, occupied: occupied?.count || 0, vacant: (count?.count || 0) - (occupied?.count || 0), monthlyRent: rentResult?.total || 0, openMaintenance: maintResult?.count || 0, properties: props.results }); }
+    if (url.pathname === "/api/dashboard/overview" && request.method === "GET") { const props = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC LIMIT 5").bind(user!.id).all(); const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); const occupied = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ? AND status = 'occupied'").bind(user!.id).first<{ count: number }>(); const now = new Date(); const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(t.amount), 0) as total FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? AND t.type = 'rent' AND t.date >= ?").bind(user!.id, monthStart).first<{ total: number }>(); const maintResult = await env.DB.prepare("SELECT COUNT(*) as count FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? AND m.status = 'open'").bind(user!.id).first<{ count: number }>(); return json({ totalProperties: count?.count || 0, propertyLimit: user!.property_limit, occupied: occupied?.count || 0, vacant: (count?.count || 0) - (occupied?.count || 0), monthlyRent: rentResult?.total || 0, openMaintenance: maintResult?.count || 0, properties: props.results }); }
 
     // Chat Leads API (admin only): tenant applications and maintenance requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
@@ -329,4 +335,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; ADMIN_EMAILS?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }

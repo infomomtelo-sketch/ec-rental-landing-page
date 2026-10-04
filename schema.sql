@@ -39,3 +39,11 @@ CREATE TABLE IF NOT EXISTS billing (user_id INTEGER PRIMARY KEY, customer_id TEX
 CREATE INDEX IF NOT EXISTS idx_billing_customer ON billing(customer_id);
 -- Small site-wide settings the Worker saves for itself (e.g. the Stripe webhook signing secret it created).
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
+-- Online rent payments (src/rent-payments.ts): each landlord's own Stripe account (one per test/live key), and each
+-- tenant payment through Stripe Checkout. A paid payment is also written to transactions as rent.
+CREATE TABLE IF NOT EXISTS payout_accounts (user_id INTEGER NOT NULL, mode TEXT NOT NULL, account_id TEXT NOT NULL, charges_enabled INTEGER DEFAULT 0, payouts_enabled INTEGER DEFAULT 0, details_submitted INTEGER DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, mode), FOREIGN KEY (user_id) REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS idx_payout_accounts_account ON payout_accounts(account_id);
+CREATE TABLE IF NOT EXISTS rent_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, tenancy_id INTEGER NOT NULL, property_id INTEGER NOT NULL, landlord_user_id INTEGER NOT NULL, tenant_user_id INTEGER NOT NULL, account_id TEXT NOT NULL, amount_cents INTEGER NOT NULL, period TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'started', method TEXT DEFAULT '', session_id TEXT, payment_intent TEXT, transaction_id INTEGER, failure TEXT DEFAULT '', created_at TEXT NOT NULL, paid_at TEXT, updated_at TEXT NOT NULL, FOREIGN KEY (tenancy_id) REFERENCES tenancies(id));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rent_payments_session ON rent_payments(session_id);
+CREATE INDEX IF NOT EXISTS idx_rent_payments_landlord ON rent_payments(landlord_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_rent_payments_tenancy ON rent_payments(tenancy_id, status);
