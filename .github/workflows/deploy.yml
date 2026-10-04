@@ -45,5 +45,23 @@ jobs:
           else
             echo "Google keys not set in GitHub; leaving the Worker's Google settings as they are."
           fi
+      # Paid plans. Only STRIPE_SECRET_KEY is needed (EC Rental's own Stripe account); the site creates the
+      # prices, webhook and billing portal in Stripe by itself. STRIPE_WEBHOOK_SECRET is optional.
+      - name: Copy Stripe keys to the Worker
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          if [ -n "$STRIPE_SECRET_KEY" ]; then
+            node -e '
+              const out = { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY };
+              if (process.env.STRIPE_WEBHOOK_SECRET) out.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+              process.stdout.write(JSON.stringify(out));
+            ' > stripe.json
+            npx wrangler secret bulk stripe.json
+            rm stripe.json
+          else
+            echo "STRIPE_SECRET_KEY not set in GitHub; paid sign-up stays off."
+          fi
       - name: Deploy
         run: npx wrangler deploy
