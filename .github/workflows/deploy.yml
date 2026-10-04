@@ -33,13 +33,14 @@ jobs:
       # schema.sql only uses CREATE ... IF NOT EXISTS, so running it on every deploy is safe.
       - name: Update the database tables
         run: npm run db:init
+      # Keys are trimmed because a pasted secret often carries a stray space or newline, which Google rejects as an unknown client.
       - name: Copy Google sign-in keys to the Worker
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
           if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
-            node -e 'process.stdout.write(JSON.stringify({ GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET }))' > secrets.json
+            node -e 'process.stdout.write(JSON.stringify({ GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID.trim(), GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET.trim() }))' > secrets.json
             npx wrangler secret bulk secrets.json
             rm secrets.json
           else
@@ -54,8 +55,8 @@ jobs:
         run: |
           if [ -n "$STRIPE_SECRET_KEY" ]; then
             node -e '
-              const out = { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY };
-              if (process.env.STRIPE_WEBHOOK_SECRET) out.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+              const out = { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY.trim() };
+              if (process.env.STRIPE_WEBHOOK_SECRET) out.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET.trim();
               process.stdout.write(JSON.stringify(out));
             ' > stripe.json
             npx wrangler secret bulk stripe.json
