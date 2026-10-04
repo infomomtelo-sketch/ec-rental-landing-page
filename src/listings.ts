@@ -1,6 +1,6 @@
 /**
  * Rental listings: landlord CRUD, photo storage in R2, public listing API,
- * and a Zillow Rentals feed (hotPadsItems v2.1 format, single-unit listings).
+ * and a Zillow Rentals feed (hotPadsItems v2.1 format, single-unit listings) that only carries listings Zillow will accept.
  */
 
 import { saveListingLead, type Notify } from "./leads";
@@ -76,6 +76,18 @@ async function photosFor(env: ListingsEnv, listingIds: number[]): Promise<Record
 function photoUrl(origin: string, key: string): string { return `${origin}/photos/${key}`; }
 function withPhotos(origin: string, l: ListingRow, photos: PhotoRow[] = []) { return { ...l, photos: photos.map((p) => ({ id: p.id, url: photoUrl(origin, p.r2_key), caption: p.caption })) }; }
 
+/** What still keeps a listing out of the Zillow feed. Zillow rejects listings without photos, and the rest are needed for renters to act on it. */
+export function zillowIssues(l: ListingRow, photoCount: number): string[] {
+  const issues: string[] = [];
+  if (!l.syndicate_zillow) issues.push("Zillow is switched off");
+  if (l.status !== "active") issues.push("Status isn't Active");
+  if (photoCount < 1) issues.push("Add at least 1 photo");
+  if (l.description.trim().length < 50) issues.push("Write a description (50+ characters)");
+  if (!l.date_available) issues.push("Set the date available");
+  return issues;
+}
+function withZillow(origin: string, l: ListingRow, photos: PhotoRow[] = []) { return { ...withPhotos(origin, l, photos), zillow_issues: zillowIssues(l, photos.length) }; }
+
 /** Public-safe shape: no owner ids, no draft fields. */
 function publicListing(origin: string, l: ListingRow, photos: PhotoRow[] = []) {
   const { user_id, property_id, syndicate_zillow, created_at, ...rest } = withPhotos(origin, l, photos);
@@ -91,7 +103,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
   if (path === "/api/listings" && request.method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM listings WHERE user_id = ? ORDER BY updated_at DESC").bind(user.id).all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
-    return json(rows.results.map((l) => withPhotos(origin, l, photos[l.id])));
+    return json(rows.results.map((l) => withZillow(origin, l, photos[l.id])));
   }
 
   if (path === "/api/listings" && request.method === "POST") {
@@ -109,7 +121,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
     const id = parseInt(one[1]);
     const listing = await env.DB.prepare("SELECT * FROM listings WHERE id = ? AND user_id = ?").bind(id, user.id).first<ListingRow>();
     if (!listing) return json({ error: "Not found" }, 404);
-    if (request.method === "GET") { const photos = await photosFor(env, [id]); return json(withPhotos(origin, listing, photos[id])); }
+    if (request.method === "GET") { const photos = await photosFor(env, [id]); return json(withZillow(origin, listing, photos[id])); }
     if (request.method === "PUT") {
       const parsed = parseListing(await request.json() as Record<string, unknown>);
       if ("error" in parsed) return json({ error: parsed.error }, 400);
@@ -207,7 +219,8 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   if (path === "/feeds/zillow.xml" && request.method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM listings WHERE status = 'active' AND syndicate_zillow = 1 ORDER BY id").all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
-    return new Response(buildZillowFeed(origin, rows.results, photos), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });
+    const ready = rows.results.filter((l) => zillowIssues(l, (photos[l.id] || []).length).length === 0);
+    return new Response(buildZillowFeed(origin, ready, photos), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });
   }
 
   return null;
