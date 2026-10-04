@@ -1,6 +1,7 @@
 # Deploys the site to Cloudflare whenever main changes, so nobody has to run wrangler by hand.
 # Needs one repository secret: CLOUDFLARE_API_TOKEN (Settings > Secrets and variables > Actions).
-# Optional secrets GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are copied to the Worker when set.
+# Optional secrets GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, and ADMIN_EMAILS (comma-separated emails
+# that may open /admin), are copied to the Worker when set.
 name: Deploy
 
 on:
@@ -33,17 +34,23 @@ jobs:
       # schema.sql only uses CREATE ... IF NOT EXISTS, so running it on every deploy is safe.
       - name: Update the database tables
         run: npm run db:init
-      - name: Copy Google sign-in keys to the Worker
+      - name: Copy Google sign-in keys and admin emails to the Worker
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
         run: |
-          if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
-            node -e 'process.stdout.write(JSON.stringify({ GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET }))' > secrets.json
+          node -e '
+            const out = {};
+            if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) { out.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID; out.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET; }
+            if (process.env.ADMIN_EMAILS) out.ADMIN_EMAILS = process.env.ADMIN_EMAILS;
+            process.stdout.write(JSON.stringify(out));
+          ' > secrets.json
+          if [ "$(cat secrets.json)" != "{}" ]; then
             npx wrangler secret bulk secrets.json
-            rm secrets.json
           else
-            echo "Google keys not set in GitHub; leaving the Worker's Google settings as they are."
+            echo "No Google keys or admin emails set in GitHub; leaving the Worker's settings as they are."
           fi
+          rm secrets.json
       - name: Deploy
         run: npx wrangler deploy
