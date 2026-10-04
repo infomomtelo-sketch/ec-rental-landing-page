@@ -33,3 +33,9 @@ CREATE TABLE IF NOT EXISTS listing_geo (listing_id INTEGER PRIMARY KEY, address 
 CREATE TABLE IF NOT EXISTS inspection_details (inspection_id INTEGER PRIMARY KEY, type TEXT DEFAULT 'routine', compare_to INTEGER, comparison TEXT DEFAULT '', FOREIGN KEY (inspection_id) REFERENCES inspections(id));
 CREATE TABLE IF NOT EXISTS inspection_items (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, room_area TEXT NOT NULL, r2_key TEXT NOT NULL, condition TEXT DEFAULT '', notes TEXT DEFAULT '', repair_needed INTEGER DEFAULT 0, repair_item TEXT DEFAULT '', maintenance_id INTEGER, created_at TEXT NOT NULL, FOREIGN KEY (inspection_id) REFERENCES inspections(id));
 CREATE INDEX IF NOT EXISTS idx_inspection_items_inspection ON inspection_items(inspection_id);
+
+-- Stripe billing (src/billing.ts): one row per landlord account, kept in step by the Stripe webhook.
+CREATE TABLE IF NOT EXISTS billing (user_id INTEGER PRIMARY KEY, customer_id TEXT, subscription_id TEXT, status TEXT NOT NULL DEFAULT 'none', plan TEXT, trial_end TEXT, period_end TEXT, cancel_at_period_end INTEGER DEFAULT 0, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS idx_billing_customer ON billing(customer_id);
+-- Small site-wide settings the Worker saves for itself (e.g. the Stripe webhook signing secret it created).
+CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
