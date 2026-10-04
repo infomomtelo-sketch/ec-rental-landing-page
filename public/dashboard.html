@@ -77,6 +77,7 @@
     .status-select { padding: 0.3rem 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.8rem; font-family: inherit; background: var(--white); }
     .table-scroll { overflow-x: auto; }
     .data-table a { color: var(--primary); }
+    .data-table a.btn { text-decoration: none; }
     @media (max-width: 768px) { .sidebar { transform: translateX(-100%); transition: transform 0.3s; } .sidebar.open { transform: translateX(0); } .main { margin-left: 0; padding: 1rem; } .mobile-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 101; background: var(--primary); color: var(--white); border: none; border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 1.2rem; cursor: pointer; } .form-row { flex-direction: column; } }
     .doc-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
     .doc-type { text-align: left; background: var(--white); border: 1px solid #d1d5db; border-radius: 10px; padding: 0.9rem 1rem; cursor: pointer; font: inherit; color: var(--dark); }
@@ -101,6 +102,37 @@
     .doc-preview { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; border: 1px solid #d1d5db; border-radius: 10px; background: #e5e7eb; }
     .doc-preview-label { position: sticky; top: 0; background: #e5e7eb; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray); padding: 0.4rem 0.8rem; z-index: 1; }
     .doc-preview .ecdoc { margin: 0 0.6rem 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.15); font-size: 10pt; padding: 0.4in 0.45in; }
+
+    .tello-fab { position: fixed; right: 1rem; bottom: 1rem; z-index: 120; display: flex; align-items: center; gap: 0.5rem; background: #123a30; color: #f9f5ed; border: none; border-radius: 999px; padding: 0.55rem 1rem 0.55rem 0.55rem; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+    .tello-fab img { width: 32px; height: 32px; border-radius: 9px; }
+    .tello-panel { position: fixed; right: 1rem; bottom: 4.5rem; z-index: 121; width: 380px; max-width: calc(100vw - 2rem); height: 600px; max-height: calc(100vh - 6rem); background: #f9f5ed; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; }
+    .tello-panel[hidden], .tello-fab[hidden] { display: none; }
+    .main { padding-bottom: 5rem; }
+    .tello-panel-head { display: flex; align-items: center; gap: 0.5rem; background: #123a30; color: #f9f5ed; padding: 0.6rem 0.8rem; font-weight: 700; }
+    .tello-panel-head img { width: 26px; height: 26px; border-radius: 7px; }
+    .tello-panel-head button { margin-left: auto; background: none; border: none; color: #f9f5ed; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+    .tello-panel iframe { flex: 1; width: 100%; border: 0; }
+    @media (max-width: 768px) {
+      .main { padding-top: 4.25rem; }
+      .main-header { flex-direction: column; align-items: stretch; gap: 0.75rem; margin-bottom: 1.25rem; }
+      .main-header h1 { font-size: 1.4rem; }
+      .data-card { overflow: visible; }
+      .table-scroll { overflow-x: visible; }
+      .data-table thead { display: none; }
+      .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+      .data-table tr { padding: 0.85rem 1rem; border-bottom: 1px solid #e5e7eb; }
+      .data-table tr:last-child { border-bottom: none; }
+      .data-table td { display: flex; justify-content: flex-end; flex-wrap: wrap; align-items: flex-start; gap: 0.4rem 0.5rem; padding: 0.3rem 0; border: none; text-align: right; overflow-wrap: anywhere; }
+      .data-table td::before { content: attr(data-label); flex: none; max-width: 45%; margin-right: auto; text-align: left; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--gray); padding-top: 0.15rem; }
+      .data-table td[data-label=""]::before, .data-table td.cell-actions::before { display: none; }
+      .data-table td:first-child { display: block; text-align: left; font-weight: 600; font-size: 1rem; padding-bottom: 0.4rem; }
+      .data-table td:first-child::before { display: none; }
+      .data-table td.cell-actions { justify-content: flex-start; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.6rem; text-align: left; }
+      .data-table td.empty-state { display: block; text-align: center; }
+      .tello-fab span { display: none; }
+      .tello-fab { padding: 0.55rem; }
+      .tello-panel { right: 0.5rem; left: 0.5rem; width: auto; max-width: none; bottom: 4.5rem; height: calc(100vh - 6rem); }
+    }
     @media (max-width: 1100px) { .doc-layout { grid-template-columns: 1fr; } .doc-preview { position: static; max-height: 70vh; } }
     @media (max-width: 600px) { .doc-fields { grid-template-columns: 1fr; } .doc-item { grid-template-columns: minmax(0, 1fr) 5.5rem auto; } }
   </style>
@@ -171,11 +203,14 @@
       function loadInspections() { if (window.ECInspections) window.ECInspections.load(); }
     })();
   </script>
+  <button type="button" class="tello-fab" id="telloFab" aria-expanded="false" aria-controls="telloPanel"><img src="/tello-icon.svg" alt="" /><span>Ask Tello</span></button>
+  <div class="tello-panel" id="telloPanel" hidden><div class="tello-panel-head"><img src="/tello-icon.svg" alt="" /> Tello <button type="button" id="telloClose" aria-label="Close Tello">×</button></div></div>
   <script src="/js/listings-dashboard.js"></script><script src="/js/maintenance-ai.js"></script>
   <script src="/js/applications-dashboard.js"></script>
   <script src="/js/tenants-dashboard.js"></script>
   <script src="/js/doc-templates.js"></script>
   <script src="/js/documents-dashboard.js"></script>
   <script src="/js/inspections-dashboard.js"></script>
+  <script src="/js/dashboard-mobile.js"></script>
 </body>
 </html>

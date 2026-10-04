@@ -36,7 +36,7 @@
         var addr = esc(l.street) + (l.unit ? ' #' + esc(l.unit) : '') + '<br><small style="color:var(--gray)">' + esc(l.city) + ', ' + esc(l.state) + '</small>';
         shown[l.id] = l;
         var view = l.status === 'active' ? ' <a class="btn btn-sm btn-secondary" href="/listing?id=' + l.id + '" target="_blank" rel="noopener">View</a> <button class="btn btn-sm btn-secondary" data-share-listing="' + l.id + '">Share</button>' : '';
-        return '<tr><td>' + addr + '</td><td>' + money(l.rent) + '/mo</td><td>' + l.bedrooms + ' bd / ' + l.full_baths + (l.half_baths ? '.5' : '') + ' ba</td><td>' + (l.photos || []).length + '</td><td><span class="badge ' + badge + '">' + esc(l.status) + '</span> ' + zillow + '</td><td><button class="btn btn-sm" data-edit-listing="' + l.id + '">Edit</button>' + view + ' <button class="btn btn-sm btn-danger" data-delete-listing="' + l.id + '">Delete</button></td></tr>';
+        return '<tr><td>' + addr + '</td><td>' + money(l.rent) + '/mo</td><td>' + (Number(l.bedrooms) ? l.bedrooms + ' bd' : 'Studio') + ' / ' + l.full_baths + (l.half_baths ? '.5' : '') + ' ba</td><td>' + (l.photos || []).length + '</td><td><span class="badge ' + badge + '">' + esc(l.status) + '</span> ' + zillow + '</td><td><button class="btn btn-sm" data-edit-listing="' + l.id + '">Edit</button>' + view + ' <button class="btn btn-sm btn-danger" data-delete-listing="' + l.id + '">Delete</button></td></tr>';
       }).join('');
     }).catch(function(err) { body.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
   }

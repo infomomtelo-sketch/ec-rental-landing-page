@@ -48,6 +48,10 @@
     form input { flex: 1; min-width: 0; border: 1px solid #d6d3c9; border-radius: 999px; padding: 0.75rem 1rem; font: inherit; font-size: 16px; }
     form button { background: var(--deep); color: var(--cream); border: none; border-radius: 999px; padding: 0 1.2rem; font: inherit; font-weight: 700; cursor: pointer; }
     form button:disabled { opacity: 0.5; }
+    body.embed header { display: none; }
+    body.embed .hello { padding-top: 0.75rem; }
+    body.embed .hello img { width: 56px; height: 56px; border-radius: 15px; }
+    body.embed .hello h2 { font-size: 1.25rem; }
     .note { text-align: center; font-size: 0.75rem; color: var(--gray); padding: 0 1rem 0.5rem; background: #fff; }
   </style>
 </head>
@@ -67,15 +71,18 @@
   <script>
     (function() {
       var log = document.getElementById('log'), chips = document.getElementById('chips'), form = document.getElementById('ask'), q = document.getElementById('q'), send = document.getElementById('send');
-      var mode = 'rent', history = [], busy = false;
+      var params = new URLSearchParams(location.search), mode = 'rent', history = [], busy = false;
+      var inDashboard = params.get('mode') === 'dashboard';
+      if (params.get('embed') === '1') document.body.classList.add('embed');
       var SUGGEST = {
         rent: ["What's available now?", 'Anything under $1,500?', 'Which homes allow pets?', 'How do I apply?'],
+        dash: ['How do I add a listing?', 'How do AI inspections work?', 'How do I invite a tenant?', 'Where are my tax reports?'],
         own: ['What does EC Rental do for landlords?', 'How do your AI inspections work?', 'What are your plans and prices?', 'What should my rental rent for?']
       };
       function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; d.textContent = text; log.appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d; }
       function showChips() {
         chips.innerHTML = '';
-        SUGGEST[mode].forEach(function(s) { var b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.onclick = function() { ask(s); }; chips.appendChild(b); });
+        SUGGEST[inDashboard ? 'dash' : mode].forEach(function(s) { var b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.onclick = function() { ask(s); }; chips.appendChild(b); });
         log.appendChild(chips);
       }
       document.querySelectorAll('[data-mode]').forEach(function(b) {
@@ -91,10 +98,10 @@
         var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Tello is typing...'; log.appendChild(t);
         var req = mode === 'rent'
           ? fetch('/api/public/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) })
-          : fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) });
+          : fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history, context: inDashboard ? 'dashboard' : undefined }) });
         req.then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Tello is busy right now. Please try again.'); return d; }); })
           .then(function(d) {
-            var reply = d.reply || d.response || '';
+            var reply = String(d.reply || d.response || '').replace(/\[SHOW_[A-Z_]+\]/g, '').trim();
             add('bot', reply);
             history.push({ role: 'user', content: text }, { role: 'assistant', content: reply }); history = history.slice(-8);
             var extra = document.createElement('div'); extra.className = 'chips';
@@ -106,8 +113,14 @@
           .then(function() { t.remove(); busy = false; send.disabled = false; });
       }
       form.addEventListener('submit', function(e) { e.preventDefault(); ask(q.value); });
-      var start = new URLSearchParams(location.search).get('mode');
-      if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
+      var start = params.get('mode');
+      if (inDashboard) {
+        mode = 'own';
+        document.querySelector('.modes').style.display = 'none';
+        document.querySelector('.hello h2').textContent = "Hi, I'm Tello. Need a hand?";
+        document.querySelector('.hello p').textContent = 'Ask me how to do anything in your dashboard, or anything about managing your rentals.';
+        showChips();
+      } else if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
     })();
   </script>
 </body>

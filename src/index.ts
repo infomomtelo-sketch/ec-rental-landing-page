@@ -2,7 +2,7 @@
  * EC Rental Property Management LLC — Worker
  * Powered by Thelo AI (branded), running on Cloudflare Workers AI.
  */
-interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; }
+interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; context?: string; }
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
@@ -25,6 +25,23 @@ Special actions — include these tags in your response to trigger UI elements:
 - If asked about tax reporting, statements, or financial reports: include [SHOW_TAX_INFO] in your response.
 - If asked about maintenance or repairs: include [SHOW_MAINTENANCE] in your response.
 Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
+
+// Added to the system prompt when Tello is opened inside the signed-in landlord dashboard.
+const DASHBOARD_GUIDE = `
+The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the ☰ button at the top left. You can't see or change their data.
+Dashboard pages (left menu):
+- Overview: totals for properties, occupancy, rent this month and open maintenance.
+- Properties: "+ Add Property", then Edit or Delete on each row.
+- Listings: "+ New Listing". In the listing form, "Write with AI" drafts the description (it can read the photos), "Check my rent" compares rent with similar EC Rental listings, and photos can be dragged in or picked several at once. Each listing has Edit, View, Share (ready-made post for Facebook, Marketplace and texts) and Delete. Listings can be switched on for the Zillow feed. Renter Inquiries are below the listings, with "Draft reply".
+- Applications: rental applications from active listings, with Review and "AI summary".
+- Tenants: invite a tenant by email to their tenant portal (lease, rent payments, maintenance requests).
+- Documents: "+ New Document" for leases, notices, invoices and receipts, then "Print or save PDF".
+- Transactions: "+ Add Transaction" for rent, expenses and owner payments.
+- Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
+- Tax Reports: per-property totals and "Export CSV".
+- Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report.
+- Settings: account details and password.
+In this mode, never include [SHOW_...] tags.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
@@ -93,7 +110,7 @@ export default {
         const body = await request.json() as ChatRequest;
         const userMessage = body.message?.trim().slice(0, 2000);
         if (!userMessage) return json({ error: "Message is required" }, 400);
-        const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
+        const messages = [{ role: "system", content: SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE : "") }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
         const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
         return json({ response: (aiResponse as { response?: string }).response || "I'm sorry, I couldn't generate a response right now." });
       } catch { return json({ error: "Something went wrong." }, 500); }
