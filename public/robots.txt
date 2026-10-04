@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /tenant
+Disallow: /document
+Disallow: /inspection-report
+
+Sitemap: https://ecrentalpm.com/sitemap.xml

@@ -10,6 +10,7 @@
   var photoInput = document.getElementById('listingPhotoInput');
   var photoStatus = document.getElementById('listingPhotoStatus');
   var current = null;
+  var shown = {};
 
   function token() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
   function api(path, method, payload, rawType) {
@@ -27,12 +28,14 @@
     if (!token()) return;
     api('/listings').then(function(list) {
       if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon">📣</div>No listings yet. Click "+ New Listing" to advertise a vacancy.</td></tr>'; return; }
+      shown = {};
       body.innerHTML = list.map(function(l) {
         var badge = l.status === 'active' ? 'badge-green' : l.status === 'rented' ? 'badge-gray' : 'badge-yellow';
         var issues = l.zillow_issues || [];
         var zillow = !l.syndicate_zillow ? '<span class="badge badge-gray">Zillow off</span>' : !issues.length ? '<span class="badge badge-green">On Zillow feed</span>' : '<span class="badge badge-yellow" title="' + esc(issues.join('; ')) + '">Not on Zillow yet</span><br><small style="color:var(--gray)">' + esc(issues[0]) + (issues.length > 1 ? ' +' + (issues.length - 1) + ' more' : '') + '</small>';
         var addr = esc(l.street) + (l.unit ? ' #' + esc(l.unit) : '') + '<br><small style="color:var(--gray)">' + esc(l.city) + ', ' + esc(l.state) + '</small>';
-        var view = l.status === 'active' ? ' <a class="btn btn-sm btn-secondary" href="/listing?id=' + l.id + '" target="_blank" rel="noopener">View</a>' : '';
+        shown[l.id] = l;
+        var view = l.status === 'active' ? ' <a class="btn btn-sm btn-secondary" href="/listing?id=' + l.id + '" target="_blank" rel="noopener">View</a> <button class="btn btn-sm btn-secondary" data-share-listing="' + l.id + '">Share</button>' : '';
         return '<tr><td>' + addr + '</td><td>' + money(l.rent) + '/mo</td><td>' + l.bedrooms + ' bd / ' + l.full_baths + (l.half_baths ? '.5' : '') + ' ba</td><td>' + (l.photos || []).length + '</td><td><span class="badge ' + badge + '">' + esc(l.status) + '</span> ' + zillow + '</td><td><button class="btn btn-sm" data-edit-listing="' + l.id + '">Edit</button>' + view + ' <button class="btn btn-sm btn-danger" data-delete-listing="' + l.id + '">Delete</button></td></tr>';
       }).join('');
     }).catch(function(err) { body.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
@@ -218,12 +221,54 @@
     }).catch(function(err) { showMsg(err.message, false); });
   });
 
+  // "Share" on an active listing: a ready-to-post caption for Facebook groups, Marketplace, Nextdoor or a text.
+  var shareModal = document.getElementById('shareModal'), shareText = document.getElementById('shareText'), shareMsg = document.getElementById('shareMsg');
+  var shareNative = document.getElementById('shareNative'), shareFacebook = document.getElementById('shareFacebook');
+  var shareUrl = '';
+  var TYPE_WORDS = { HOUSE: 'house', CONDO: 'condo', TOWNHOUSE: 'townhouse' };
+  function availableText(d) {
+    var t = Date.parse(d);
+    if (!d || isNaN(t) || t <= Date.now()) return 'Available now';
+    return 'Available ' + new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+  function shareCaption(l) {
+    var baths = l.full_baths + (l.half_baths ? 0.5 : 0);
+    var lines = ['🏠 For rent in ' + l.city + ': ' + (l.bedrooms ? l.bedrooms + ' bd' : 'Studio') + ' / ' + baths + ' ba ' + (TYPE_WORDS[l.property_type] || 'home') + ' · ' + money(l.rent) + '/mo'];
+    var facts = [availableText(l.date_available)];
+    if (l.square_feet) facts.push(Number(l.square_feet).toLocaleString('en-US') + ' sq ft');
+    if (l.cats_allowed || l.small_dogs_allowed || l.large_dogs_allowed) facts.push('pets considered');
+    if (l.laundry === 'in_unit') facts.push('in-unit laundry');
+    if (l.parking_type === 'garageAttached' || l.parking_type === 'garageLot') facts.push('garage');
+    lines.push('📍 ' + l.street + ', ' + l.city + ' · ' + facts.join(' · '));
+    if (l.title) lines.push(l.title);
+    lines.push('See photos, ask questions any time and apply online: ' + shareUrl);
+    lines.push('#' + String(l.city).replace(/[^A-Za-z]/g, '') + 'Rentals #ForRent #EqualHousingOpportunity');
+    return lines.join('\n\n');
+  }
+  function openShare(l) {
+    shareUrl = 'https://ecrentalpm.com/listing?id=' + l.id;
+    shareText.value = shareCaption(l);
+    shareFacebook.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl);
+    shareNative.hidden = !navigator.share;
+    shareMsg.style.display = 'none';
+    shareModal.classList.add('open');
+  }
+  document.getElementById('shareModalClose').addEventListener('click', function() { shareModal.classList.remove('open'); });
+  document.getElementById('shareCopy').addEventListener('click', function() {
+    function done() { shareMsg.textContent = 'Copied. Paste it into your post.'; shareMsg.style.display = 'block'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(shareText.value).then(done, function() { shareText.select(); document.execCommand('copy'); done(); });
+    else { shareText.select(); document.execCommand('copy'); done(); }
+  });
+  shareNative.addEventListener('click', function() { navigator.share({ text: shareText.value }).catch(function() {}); });
+
   document.getElementById('addListingBtn').addEventListener('click', function() { open(null); });
   document.getElementById('listingModalClose').addEventListener('click', function() { modal.classList.remove('open'); });
   body.addEventListener('click', function(e) {
     var edit = e.target.getAttribute('data-edit-listing'), del = e.target.getAttribute('data-delete-listing');
     if (edit) api('/listings/' + edit).then(open);
     if (del && confirm('Delete this listing and its photos?')) api('/listings/' + del, 'DELETE').then(load);
+    var share = e.target.getAttribute('data-share-listing');
+    if (share && shown[share]) openShare(shown[share]);
   });
   var nav = document.querySelector('[data-page="listings"]');
   if (nav) nav.addEventListener('click', function() { load(); loadLeads(); });
