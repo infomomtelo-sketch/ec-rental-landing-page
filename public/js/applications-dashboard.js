@@ -46,11 +46,19 @@
         section('Income', row('Employer', esc(a.employer)) + row('Job title', esc(a.job_title)) + row('Employer phone', phone(a.employer_phone)) + row('Employed for', esc(a.employment_length)) + row('Monthly income', a.monthly_income ? money(a.monthly_income) + (ratio(a) ? ' (' + ratio(a) + ')' : '') : '') + row('Other income', esc(a.other_income))) +
         section('Other', row('Pets', esc(a.pets)) + row('Vehicles', esc(a.vehicles)) + row('Notes from applicant', esc(a.additional_info))) +
         section('Signature', row('Signed as', esc(a.signature_name)) + row('Signed at', new Date(a.signed_at).toLocaleString('en-US'))) +
+        '<div style="margin-top:1rem"><button class="btn btn-sm btn-secondary" id="appAiBtn">✨ AI summary</button><div id="appAiOut" style="display:none;white-space:pre-wrap;font-size:0.85rem;margin-top:0.5rem;padding:0.7rem 0.9rem;border-radius:8px;background:#f3f4f6"></div></div>' +
         '<h3 style="font-size:0.95rem;color:var(--primary);margin:1.25rem 0 0.5rem">Your review</h3>' +
         '<div class="form-row"><div class="form-group"><label>Decision</label><select id="appStatus">' + Object.keys(STATUS).map(function(k) { return '<option value="' + k + '"' + (a.status === k ? ' selected' : '') + '>' + STATUS[k][0] + '</option>'; }).join('') + '</select></div><div class="form-group"><label>Screening</label><select id="appScreening">' + Object.keys(SCREEN).map(function(k) { return '<option value="' + k + '"' + (a.screening_status === k ? ' selected' : '') + '>' + SCREEN[k] + '</option>'; }).join('') + '</select></div></div>' +
         '<div class="form-group"><label>Private notes</label><textarea id="appNotes" rows="3">' + esc(a.landlord_notes) + '</textarea></div>' +
         '<p style="font-size:0.8rem;color:var(--gray);margin-bottom:0.75rem">Apply the same criteria to every applicant. If you deny or add conditions based on a credit or background report, you must send the applicant an adverse action notice.</p>' +
         '<button class="btn" id="appSave">Save review</button> <span id="appSaved" style="font-size:0.85rem;color:#166534"></span>';
+      document.getElementById('appAiBtn').addEventListener('click', function() {
+        var btn = this, out = document.getElementById('appAiOut');
+        btn.disabled = true; out.style.display = 'block'; out.textContent = 'Summarizing...';
+        api('/ai/application-summary', 'POST', { applicationId: a.id }).then(function(r) {
+          out.textContent = (r.ratio ? 'Income is ' + r.ratio + '× the rent.\n' : '') + (r.missing.length ? 'Left blank: ' + r.missing.join(', ') + '.\n' : '') + (r.summary ? '\n' + r.summary : '') + '\n\nAI summary to help you review. It isn\'t a decision: use the same written criteria for every applicant.';
+        }).catch(function(err) { out.textContent = err.message; }).then(function() { btn.disabled = false; });
+      });
       document.getElementById('appSave').addEventListener('click', function() {
         api('/applications/' + a.id, 'PUT', { status: document.getElementById('appStatus').value, screening_status: document.getElementById('appScreening').value, landlord_notes: document.getElementById('appNotes').value })
           .then(function() { document.getElementById('appSaved').textContent = 'Saved.'; load(); })
