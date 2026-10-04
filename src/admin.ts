@@ -50,6 +50,8 @@ export async function handleAdminRoutes(request: Request, env: AdminEnv, url: UR
       leads: await count(env, "SELECT COUNT(*) AS n FROM signups WHERE plan IN " + LEAD_TYPES),
       newLeads: await count(env, "SELECT COUNT(*) AS n FROM signups WHERE plan IN " + LEAD_TYPES + " AND status = 'pending'"),
       openMaintenance: await count(env, "SELECT COUNT(*) AS n FROM maintenance_requests WHERE status = 'open'"),
+      paying: await count(env, "SELECT COUNT(*) AS n FROM billing WHERE status = 'active'"),
+      trialing: await count(env, "SELECT COUNT(*) AS n FROM billing WHERE status = 'trialing'"),
     });
   }
 
@@ -60,6 +62,7 @@ export async function handleAdminRoutes(request: Request, env: AdminEnv, url: UR
       " (SELECT COUNT(*) FROM properties p WHERE p.user_id = u.id) AS properties," +
       " (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS listings," +
       " (SELECT s.phone FROM signups s WHERE lower(s.email) = lower(u.email) AND s.plan NOT IN " + LEAD_TYPES + " ORDER BY s.created_at DESC LIMIT 1) AS phone," +
+      " (SELECT b.status FROM billing b WHERE b.user_id = u.id) AS billing_status," +
       " (SELECT s.property_count FROM signups s WHERE lower(s.email) = lower(u.email) AND s.plan NOT IN " + LEAD_TYPES + " ORDER BY s.created_at DESC LIMIT 1) AS unit_count" +
       " FROM users u WHERE u.role != 'tenant' ORDER BY u.created_at DESC LIMIT 1000").all<AdminUser>();
     return json(rows.results.map((u) => ({ ...u, role: isAdmin(env, u) ? "admin" : u.role })));

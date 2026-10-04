@@ -40,7 +40,7 @@ Dashboard pages (left menu):
 - Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
 - Tax Reports: per-property totals and "Export CSV".
 - Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report.
-- Settings: account details and password.
+- Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling.
 In this mode, never include [SHOW_...] tags.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
@@ -55,6 +55,7 @@ import { handleMapRoute } from "./geo";
 import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handleAdminRoutes, isAdmin } from "./admin";
+import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook } from "./billing";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
@@ -160,10 +161,17 @@ export default {
           env.DB.prepare("INSERT INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, passwordHash, salt, body.plan, PLAN_LIMITS[body.plan], "landlord", now),
           env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, body.phone, body.propertyCount, planNames[body.plan], body.message || "", now),
         ]);
-        if (viaGoogle) return json({ success: true, message: "Account created", token: await createSession(env, Number(results[0].meta.last_row_id)) });
-        return json({ success: true, message: "Account created" });
+        const newUserId = Number(results[0].meta.last_row_id);
+        // With Stripe switched on, the new landlord goes straight to checkout. If Stripe fails they still have their account.
+        let checkoutUrl: string | undefined;
+        if (billingEnabled(env)) { try { checkoutUrl = await createCheckout(env, { id: newUserId, name: body.name, email, plan: body.plan, role: "landlord" }, body.plan, url.origin); } catch (err) { console.error("[billing] signup checkout", err instanceof Error ? err.message : err); } }
+        if (viaGoogle) return json({ success: true, message: "Account created", token: await createSession(env, newUserId), checkoutUrl });
+        return json({ success: true, message: "Account created", checkoutUrl });
       } catch (err) { return dbErrorResponse("subscribe", err); }
     }
+
+    // Stripe calls this when a subscription starts, changes or ends (src/billing.ts).
+    if (url.pathname === "/api/stripe/webhook" && request.method === "POST") { try { return await handleStripeWebhook(request, env); } catch (err) { console.error("[stripe-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
 
     // Login API
     if (url.pathname === "/api/login" && request.method === "POST") {
@@ -259,6 +267,8 @@ export default {
 
     // Site owner admin page (src/admin.ts)
     if (user && url.pathname.startsWith("/api/admin/")) { if (user.role !== "admin") return json({ error: "Admins only" }, 403); try { const res = await handleAdminRoutes(request, env, url); if (res) return res; } catch (err) { return dbErrorResponse("admin", err); } }
+    // Plans and Stripe billing (src/billing.ts)
+    if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
 
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
     if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch { return json({ error: "Update failed" }, 500); } }
@@ -316,4 +326,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; ADMIN_EMAILS?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; ADMIN_EMAILS?: string; }

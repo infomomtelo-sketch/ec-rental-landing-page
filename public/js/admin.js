@@ -36,7 +36,8 @@
         ['Applications', o.applications, (o.newApplications || 0) + ' waiting for review'],
         ['Leads', o.leads, (o.newLeads || 0) + ' new'],
         ['Open maintenance', o.openMaintenance, 'Requests not yet resolved'],
-        ['Plan value / mo', money(o.planValue), 'At list price, not billed yet'],
+        ['Paying in Stripe', o.paying, (o.trialing || 0) + ' on a free trial'],
+        ['Plan value / mo', money(o.planValue), 'All accounts at list price'],
       ];
       document.getElementById('statCards').innerHTML = cards.map(function(c) { return '<div class="stat-card"><div class="label">' + esc(c[0]) + '</div><div class="value">' + esc(c[1] === undefined ? 0 : c[1]) + '</div><div class="note">' + esc(c[2]) + '</div></div>'; }).join('');
       document.getElementById('planBody').innerHTML = PLANS.map(function(p) { var n = (o.byPlan && o.byPlan[p[0]]) || 0; return '<tr><td>' + esc(p[1]) + '</td><td>' + n + '</td><td>' + money(p[2]) + '/mo</td><td>' + money(n * p[2]) + '</td></tr>'; }).join('');
@@ -48,6 +49,8 @@
     if (a.role === 'admin') return '<span class="badge badge-gold">Admin</span>';
     return '<select onchange="ecAdminSetPlan(' + Number(a.id) + ', this)">' + PLANS.map(function(p) { return '<option value="' + p[0] + '"' + (p[0] === a.plan ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>';
   }
+  var BILLING = { active: ['Paying', 'badge-green'], trialing: ['Free trial', 'badge-gold'], past_due: ['Payment failed', 'badge-yellow'], unpaid: ['Unpaid', 'badge-yellow'], canceled: ['Canceled', 'badge-gray'] };
+  function billingBadge(status) { var b = BILLING[status]; return '<br><span class="badge ' + (b ? b[1] : 'badge-gray') + '" style="margin-top:0.35rem;">' + esc(b ? b[0] : 'No subscription') + '</span>'; }
   function renderAccounts() {
     var q = document.getElementById('accountSearch').value.trim().toLowerCase();
     var rows = accounts.filter(function(a) { return !q || [a.name, a.email, a.company].join(' ').toLowerCase().indexOf(q) !== -1; });
@@ -58,7 +61,7 @@
       var limit = Number(a.property_limit) >= 999999 ? 'unlimited' : a.property_limit;
       return '<tr><td><strong>' + esc(a.name) + '</strong>' + (a.company ? '<br><span class="muted">' + esc(a.company) + '</span>' : '') + '</td>' +
         '<td><a href="mailto:' + esc(a.email) + '">' + esc(a.email) + '</a>' + (a.phone ? '<br><a href="tel:' + esc(a.phone) + '">' + esc(a.phone) + '</a>' : '') + (a.unit_count ? '<br><span class="muted">Said ' + esc(a.unit_count) + ' units at sign up</span>' : '') + '</td>' +
-        '<td>' + planSelect(a) + '</td><td>' + esc(a.properties) + ' <span class="muted">of ' + esc(limit) + '</span></td><td>' + esc(a.listings) + '</td><td>' + date(a.created_at) + '</td></tr>';
+        '<td>' + planSelect(a) + (a.role === 'admin' ? '' : billingBadge(a.billing_status)) + '</td><td>' + esc(a.properties) + ' <span class="muted">of ' + esc(limit) + '</span></td><td>' + esc(a.listings) + '</td><td>' + date(a.created_at) + '</td></tr>';
     }).join('');
   }
   function loadAccounts() { return api('/admin/users').then(function(r) { accounts = Array.isArray(r.data) ? r.data : []; renderAccounts(); }); }
