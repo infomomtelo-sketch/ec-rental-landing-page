@@ -10,9 +10,9 @@ const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Ma
 Company info:
 - Locally owned property management in Fresno, CA serving the Central Valley including Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
-- Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited).
+- Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited). Every plan starts with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime).
 - Contact: info@ecrentalpm.com, (559) 825-3038.
-- AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report.
+- AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. Launch bonus: a landlord's first in-person inspection is free once their plan is paid (Fresno and Clovis); they book it from the dashboard Inspections page.
 Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
 - Never use more than 40 words unless absolutely necessary.
@@ -39,7 +39,7 @@ Dashboard pages (left menu):
 - Transactions: "+ Add Transaction" for rent, expenses and owner payments.
 - Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
 - Tax Reports: per-property totals and "Export CSV".
-- Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report.
+- Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report. "Book in-person inspection" asks a certified home inspector to visit (Fresno and Clovis); the first one on an account is a free launch bonus once the plan is paid.
 - Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling.
 In this mode, never include [SHOW_...] tags.`;
 
@@ -55,6 +55,7 @@ import { handleMapRoute } from "./geo";
 import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handleAdminRoutes, isAdmin } from "./admin";
+import { handleInspectionRequests } from "./inspection-requests";
 import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook } from "./billing";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
@@ -267,6 +268,8 @@ export default {
 
     // Site owner admin page (src/admin.ts)
     if (user && url.pathname.startsWith("/api/admin/")) { if (user.role !== "admin") return json({ error: "Admins only" }, 403); try { const res = await handleAdminRoutes(request, env, url); if (res) return res; } catch (err) { return dbErrorResponse("admin", err); } }
+    if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
+
     // Plans and Stripe billing (src/billing.ts)
     if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
 
@@ -314,9 +317,9 @@ export default {
 
     // Chat Leads API (admin only): tenant applications and maintenance requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
-    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'rent_review') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
+    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
-    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
+    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
     if (url.pathname.startsWith("/api/inspections")) { try { const res = await handleInspectionRoutes(request, env, url, user!); if (res) return res; } catch (err) { return dbErrorResponse("inspections", err); } }

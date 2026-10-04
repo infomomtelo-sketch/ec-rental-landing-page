@@ -8,6 +8,7 @@
  * overrides the stored signing secret if you'd rather create the webhook in the Stripe dashboard.
  * This must be EC Rental's own Stripe account, never Title 22's.
  */
+import { isAdmin } from "./admin";
 
 export interface BillingEnv {
   DB: D1Database;
@@ -16,6 +17,8 @@ export interface BillingEnv {
   STRIPE_TRIAL_DAYS?: string;
   /** Only for local tests against a fake Stripe server. */
   STRIPE_API_BASE?: string;
+  /** Comma-separated site owner emails (see src/admin.ts); they never see the billing banner. */
+  ADMIN_EMAILS?: string;
 }
 interface BillingUser { id: number; name: string; email: string; plan: string; role: string; }
 interface BillingRow { user_id: number; customer_id: string | null; subscription_id: string | null; status: string; plan: string | null; trial_end: string | null; period_end: string | null; cancel_at_period_end: number; }
@@ -231,7 +234,7 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
     if (!billingEnabled(env)) return json({ enabled: false, plans });
     const row = await billingRow(env, user.id);
     return json({
-      enabled: true, plans, trialDays: row?.subscription_id ? 0 : trialDays(env), exempt: user.role === "admin",
+      enabled: true, plans, trialDays: row?.subscription_id ? 0 : trialDays(env), exempt: isAdmin(env, user),
       status: row?.status || "none", plan: row?.plan || user.plan, trialEnd: row?.trial_end || null, periodEnd: row?.period_end || null,
       cancelAtPeriodEnd: !!row?.cancel_at_period_end, hasCustomer: !!row?.customer_id,
     });

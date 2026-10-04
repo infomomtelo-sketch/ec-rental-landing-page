@@ -34,6 +34,7 @@ jobs:
       # schema.sql only uses CREATE ... IF NOT EXISTS, so running it on every deploy is safe.
       - name: Update the database tables
         run: npm run db:init
+      # Values are trimmed because a pasted secret often carries a stray space or newline, which Google rejects as an unknown client.
       - name: Copy Google sign-in keys and admin emails to the Worker
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -41,9 +42,9 @@ jobs:
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
         run: |
           node -e '
-            const out = {};
-            if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) { out.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID; out.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET; }
-            if (process.env.ADMIN_EMAILS) out.ADMIN_EMAILS = process.env.ADMIN_EMAILS;
+            const env = process.env, out = {};
+            if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) { out.GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID.trim(); out.GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET.trim(); }
+            if (env.ADMIN_EMAILS && env.ADMIN_EMAILS.trim()) out.ADMIN_EMAILS = env.ADMIN_EMAILS.trim();
             process.stdout.write(JSON.stringify(out));
           ' > secrets.json
           if [ "$(cat secrets.json)" != "{}" ]; then
@@ -61,8 +62,8 @@ jobs:
         run: |
           if [ -n "$STRIPE_SECRET_KEY" ]; then
             node -e '
-              const out = { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY };
-              if (process.env.STRIPE_WEBHOOK_SECRET) out.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+              const out = { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY.trim() };
+              if (process.env.STRIPE_WEBHOOK_SECRET) out.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET.trim();
               process.stdout.write(JSON.stringify(out));
             ' > stripe.json
             npx wrangler secret bulk stripe.json

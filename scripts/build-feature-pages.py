@@ -115,7 +115,7 @@ PAGES = {
   desc="Move-in, move-out, routine and annual inspections led by a certified home inspector. Tello reads every photo, flags repairs and compares move-out with move-in.",
   eyebrow="AI inspections", h1='Every room documented. <span class="grad">Every deposit protected.</span>',
   lede="Snap photos room by room. Tello fills in the condition and notes, a certified home inspector reviews every one, and you get a printable report ready to sign.",
-  cta=("Book an inspection", "/#contact"),
+  cta=("Start 14-day free trial", "/#subscribe"),
   stats=[("4", "inspection types"), ("Every", "photo reviewed"), ("1 tap", "repair → work order")],
   mock="""<div class="row"><div><b>Move-out inspection</b><small>Compared with move-in</small></div><span class="pill p-gold">In progress</span></div>
 <div class="row"><div><b>Living room carpet</b><small>Light wear since move-in</small></div><span class="pill p-green">Wear and tear</span></div>
@@ -130,12 +130,14 @@ PAGES = {
    ("⚖️", "Move-out vs move-in", "Tello drafts which changes look like wear and tear and which look like damage, for you to review."),
    ("🔧", "Repairs in one tap", "Turn any flagged item into a maintenance request."),
    ("🖨️", "Signed reports", "A printable photo report with landlord and tenant signature lines. Photos stay private."),
+   ("🎁", "First visit free", "Launch bonus: your first in-person inspection is free once your plan is paid. Fresno and Clovis area."),
   ],
   steps=[("Start", "Pick the property and inspection type."), ("Snap photos", "Room by room, from your phone."),
          ("Review", "Check Tello's notes and correct them."), ("Sign", "Print or save the report and sign it.")],
   split=("Why it matters in California", "Deposit decisions, backed by photos.", "California Civil Code 1950.5 allows deductions for damage beyond ordinary wear and tear and requires an itemized statement. Dated photo reports make those calls clearer and fairer.",
          ["Dated, photo-backed records", "Side-by-side move-in and move-out", "Private photos, never public", "Saved in your dashboard"]),
   faq=[("Who does the inspection?", "Inspections are led by a certified home inspector. Landlords can also run their own with the same tools."),
+       ("Is there a free in-person inspection?", "Yes, as a launch bonus. Your first in-person inspection by a certified home inspector is free once your plan is paid (Fresno and Clovis area). Book it from the Inspections page in your dashboard."),
        ("Can tenants see the photos?", "Inspection photos are private to the landlord's account and the printed report."),
        ("Is the AI always right?", "No. It drafts notes; the inspector reviews and corrects every one.")],
  ),
@@ -356,8 +358,8 @@ def page(slug, p):
     </div></section>
 
     <section class="band" style="padding-top:0"><div class="wrap">
-      <div class="ctaband"><h2>Run your Fresno rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it.</p>
-      <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Get started</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
+      <div class="ctaband"><h2>Run your Fresno rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Every plan starts with a 14-day free trial.</p>
+      <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
       <div class="kicker" style="margin-top:56px">Explore more</div>
       <div class="more">{more}</div>
     </div></section>
@@ -383,7 +385,7 @@ def index():
         <span class="eyebrow">{TELLO} The EC Rental platform</span>
         <h1>Everything your rentals need. <span class="grad">Tello built in.</span></h1>
         <p class="lede" style="margin:0 auto">Eight tools that work together, from the first listing to tax season, for Fresno and Clovis landlords and the renters they serve.</p>
-        <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Get started →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
+        <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
       </div>
     </div></section>
     <section class="band alt"><div class="wrap"><div class="grid">{cards}</div></div></section>
