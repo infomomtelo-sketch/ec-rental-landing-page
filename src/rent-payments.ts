@@ -156,15 +156,19 @@ async function landlordRoutes(request: Request, env: RentPaymentsEnv, url: URL, 
     await ensureConnectWebhook(env, url.origin);
     let account = await payoutAccount(env, user.id);
     if (!account) {
-      const acct = await stripe(env, "POST", "accounts", {
-        type: "standard", country: "US", email: user.email,
+      // Same setup as a Standard account (landlord's own full Stripe Dashboard, Stripe collects their details and
+      // carries losses, landlord pays the fees), described with controller properties, which is how Stripe's newer
+      // Connect platform setup expects it. Falls back to the older `type: "standard"` form.
+      const base = { country: "US", email: user.email,
         business_profile: { name: user.company || user.name, product_description: "Residential rent collected through EC Rental Property Management" },
-        metadata: { user_id: String(user.id) },
-      }).catch((err: Error) => {
-        // Stripe refuses until Connect is switched on for EC Rental's own Stripe account (one-time, in the Stripe dashboard).
-        if (/connect/i.test(err.message)) console.error("[rent-payments] Stripe Connect isn't enabled:", err.message);
-        throw /connect/i.test(err.message) ? new ConnectOff(err.message.replace(/^Stripe \w+ \S+ \d+: /, "").slice(0, 400)) : err;
-      });
+        metadata: { user_id: String(user.id) } };
+      const acct = await stripe(env, "POST", "accounts", { ...base, controller: { fees: { payer: "account" }, losses: { payments: "stripe" }, requirement_collection: "stripe", stripe_dashboard: { type: "full" } } })
+        .catch((first: Error) => stripe(env, "POST", "accounts", { ...base, type: "standard" }).catch((err: Error) => {
+          console.error("[rent-payments] Stripe refused a connected account:", first.message, "|", err.message);
+          // Stripe refuses until EC Rental's own Connect setup is finished (one-time, in the Stripe dashboard).
+          if (!/connect/i.test(err.message)) throw err;
+          throw new ConnectOff(first.message.replace(/^Stripe \w+ \S+ \d+: /, "").slice(0, 400));
+        }));
       await env.DB.prepare("INSERT INTO payout_accounts (user_id, mode, account_id, charges_enabled, payouts_enabled, details_submitted, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(user.id, keyMode(env), acct.id, acct.charges_enabled ? 1 : 0, acct.payouts_enabled ? 1 : 0, acct.details_submitted ? 1 : 0, new Date().toISOString()).run();
       account = await payoutAccount(env, user.id);
