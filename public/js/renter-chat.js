@@ -58,9 +58,9 @@
 
   function actions(d) {
     var row = document.createElement('div'); row.className = 'rc-acts';
-    (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.href = '/listing?id=' + l.id; a.textContent = '🏠 ' + l.label; row.appendChild(a); });
-    if (listingId && d.tour) { var t = document.createElement('button'); t.type = 'button'; t.textContent = '📅 Request a showing'; t.onclick = function() { row.remove(); tourForm(); }; row.appendChild(t); }
-    if (listingId && d.apply) { var a2 = document.createElement('a'); a2.href = '/apply?listing=' + listingId; a2.textContent = '📝 Apply now'; row.appendChild(a2); }
+    (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.href = '/listing?id=' + l.id; a.textContent = l.label; row.appendChild(a); });
+    if (listingId && d.tour) { var t = document.createElement('button'); t.type = 'button'; t.textContent = 'Request a showing'; t.onclick = function() { row.remove(); tourForm(); }; row.appendChild(t); }
+    if (listingId && d.apply) { var a2 = document.createElement('a'); a2.href = '/apply?listing=' + listingId; a2.textContent = 'Apply now'; row.appendChild(a2); }
     if (row.children.length) addNode(row);
   }
 

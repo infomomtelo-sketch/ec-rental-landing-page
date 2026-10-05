@@ -26,7 +26,7 @@
   var promo = document.createElement('div');
   promo.id = 'inspPromo'; promo.style.display = 'none';
   promo.style.cssText += ';background:#f0f7f3;border:1px solid #b7dcc6;color:#14532d;border-radius:10px;padding:0.9rem 1rem;margin-bottom:1rem;display:none;gap:0.75rem;align-items:center;flex-wrap:wrap';
-  promo.innerHTML = '<span style="flex:1;min-width:220px"><strong>🎁 Launch bonus:</strong> your first in-person inspection by a certified home inspector is <strong>free</strong> (Fresno &amp; Clovis area). We schedule it after your first monthly payment.</span>';
+  promo.innerHTML = '<span style="flex:1;min-width:220px"><strong>Launch bonus:</strong> your first in-person inspection by a certified home inspector is <strong>free</strong> (Fresno &amp; Clovis area). We schedule it after your first monthly payment.</span>';
   var promoBtn = document.createElement('button'); promoBtn.className = 'btn btn-sm'; promoBtn.type = 'button'; promoBtn.textContent = 'Book it';
   promo.appendChild(promoBtn);
   var header = page.querySelector('.main-header'); header.parentNode.insertBefore(promo, header.nextSibling);
@@ -104,7 +104,7 @@
     api('/leads').then(function (data) {
       if (!Array.isArray(data)) return;
       var rows = data.filter(function (l) { return l.type === 'inspection_request'; });
-      document.getElementById('inspLeadsBody').innerHTML = rows.length === 0 ? '<tr><td colspan="8" class="empty-state"><div class="icon">🔍</div>No in-person inspection requests yet. Landlords book them from their Inspections page.</td></tr>' : rows.map(function (l) {
+      document.getElementById('inspLeadsBody').innerHTML = rows.length === 0 ? '<tr><td colspan="8" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>No in-person inspection requests yet. Landlords book them from their Inspections page.</td></tr>' : rows.map(function (l) {
         var d = l.details || {};
         var contact = '<a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a>' + (l.phone ? '<br><a href="tel:' + esc(String(l.phone).replace(/[^\d+]/g, '')) + '">' + esc(l.phone) + '</a>' : '');
         var type = esc(TYPES[d.type] || d.type || '') + (d.free ? '<br><span class="badge badge-green">Free bonus</span>' : '') + '<br><small>Plan: ' + esc(d.billing_status || 'none') + '</small>';

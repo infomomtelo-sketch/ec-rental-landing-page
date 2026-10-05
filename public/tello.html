@@ -74,7 +74,7 @@
     <div class="chips" id="chips"></div>
   </main>
   <div class="pick" id="pick" hidden><img id="pickImg" alt="Picture to send" /><span>Picture attached</span><button type="button" id="pickDrop">Remove</button></div>
-  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden>📎</button><input type="file" id="file" accept="image/*" hidden /><input id="q" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off" /><button type="submit" id="send">Send</button></form>
+  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><input id="q" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off" /><button type="submit" id="send">Send</button></form>
   <p class="note">Tello is AI and can make mistakes. EC Rental confirms every detail. Equal Housing Opportunity.</p>
   <script>
     (function() {
@@ -132,7 +132,7 @@
             add('bot', reply);
             history.push({ role: 'user', content: (image ? '[sent a picture] ' : '') + text }, { role: 'assistant', content: reply }); history = history.slice(-8);
             var extra = document.createElement('div'); extra.className = 'chips';
-            (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.className = 'home'; a.href = '/listing?id=' + l.id; a.textContent = '🏠 ' + l.label; extra.appendChild(a); });
+            (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.className = 'home'; a.href = '/listing?id=' + l.id; a.textContent = l.label; extra.appendChild(a); });
             if (mode === 'own' && /rent for|price|pricing my|what should/i.test(text)) { var r = document.createElement('a'); r.className = 'home'; r.href = '/rent-review'; r.textContent = 'Get a free rent review'; extra.appendChild(r); }
             if (extra.children.length) { log.appendChild(extra); extra.scrollIntoView({ block: 'end', behavior: 'smooth' }); }
           })

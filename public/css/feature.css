@@ -76,7 +76,7 @@ h2.title { font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.03em; lin
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 2.6rem; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; transition: border-color .2s, transform .2s; }
 .card:hover { border-color: rgba(232,162,61,0.45); transform: translateY(-2px); }
-.card .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.25rem; background: linear-gradient(135deg, rgba(232,162,61,0.22), rgba(52,196,124,0.18)); border: 1px solid var(--line); margin-bottom: 14px; }
+.card .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--gold2); background: linear-gradient(135deg, rgba(232,162,61,0.22), rgba(52,196,124,0.18)); border: 1px solid var(--line); margin-bottom: 14px; }
 .card h3 { font-size: 1.08rem; letter-spacing: -0.01em; margin-bottom: 6px; }
 .card p { color: var(--muted); font-size: 0.95rem; }
 @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
@@ -113,6 +113,7 @@ h2.title { font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.03em; lin
 
 .more { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 1.6rem; }
 .more a { text-decoration: none; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--card); font-weight: 600; font-size: 0.93rem; display: flex; gap: 10px; align-items: center; }
+.more a span { display: flex; color: var(--gold2); }
 .more a:hover { border-color: rgba(232,162,61,0.45); }
 @media (max-width: 900px) { .more { grid-template-columns: 1fr 1fr; } }
 
