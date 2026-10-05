@@ -41,9 +41,13 @@
     } else {
       p('Let tenants pay rent from their tenant portal by bank transfer (ACH) or card. The money goes straight to your own Stripe account and bank; EC Rental never holds it. Stripe takes its fee from each payment (at Stripe\'s standard US rates, about 0.8% for a bank transfer, capped at $5, or 2.9% + 30¢ for a card).');
       if (d.status === 'pending') p('Stripe still needs a few details from you before tenants can pay.', 'color:#7a4b00');
-      var btn = el('button', { class: 'btn btn-sm', type: 'button' }, d.status === 'pending' ? 'Finish Stripe setup' : 'Set up payouts with Stripe');
-      btn.addEventListener('click', function () { connect(btn); });
-      c.appendChild(btn);
+      if (d.planOk === false) {
+        p('Online rent payments come with an EC Rental plan. Start your free trial in Plan & Billing above, then come back here.', 'color:#7a4b00');
+      } else {
+        var btn = el('button', { class: 'btn btn-sm', type: 'button' }, d.status === 'pending' ? 'Finish Stripe setup' : 'Set up payouts with Stripe');
+        btn.addEventListener('click', function () { connect(btn); });
+        c.appendChild(btn);
+      }
     }
     if (d.payments && d.payments.length) {
       c.appendChild(el('h3', { style: 'font-size:1rem;color:var(--primary);margin:1.25rem 0 0.5rem' }, 'Recent online payments'));

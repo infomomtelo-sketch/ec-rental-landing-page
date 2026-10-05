@@ -35,6 +35,12 @@ const WEBHOOK_EVENTS = ["checkout.session.completed", "customer.subscription.cre
 /** Stripe statuses that count as a working, paid-up (or trialing) plan. */
 const GOOD_STATUSES = ["active", "trialing"];
 
+/** True when the landlord has a paid-up or trialing plan. */
+export async function hasActivePlan(env: BillingEnv, userId: number): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT status FROM billing WHERE user_id = ?").bind(userId).first<{ status: string }>();
+  return !!row && GOOD_STATUSES.includes(row.status);
+}
+
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 export function billingEnabled(env: BillingEnv): boolean { return !!env.STRIPE_SECRET_KEY; }
 /** Test and live keys get separate webhook and portal settings, so switching keys just works. */

@@ -12,7 +12,7 @@
  * Checkout session when the tenant comes back from Stripe, so a late webhook never leaves a payment stuck.
  * Needs Connect switched on in EC Rental's Stripe dashboard; never Title 22's Stripe account.
  */
-import { billingEnabled, getSetting, keyMode, setSetting, stripe, verifySignature, type BillingEnv } from "./billing";
+import { billingEnabled, getSetting, hasActivePlan, keyMode, setSetting, stripe, verifySignature, type BillingEnv } from "./billing";
 
 export interface RentPaymentsEnv extends BillingEnv {
   /** Optional override for the Connect webhook's signing secret, if the endpoint is made in the Stripe dashboard. */
@@ -148,11 +148,13 @@ async function landlordRoutes(request: Request, env: RentPaymentsEnv, url: URL, 
       try { await saveAccount(env, await stripe(env, "GET", "accounts/" + account.account_id)); account = await payoutAccount(env, user.id); } catch (err) { console.error("[rent-payments] account refresh", err instanceof Error ? err.message : err); }
     }
     const payments = await env.DB.prepare("SELECT r.id, r.amount_cents, r.period, r.status, r.method, r.failure, r.created_at, r.paid_at, p.address, u.name AS tenant_name FROM rent_payments r JOIN properties p ON r.property_id = p.id JOIN users u ON r.tenant_user_id = u.id WHERE r.landlord_user_id = ? AND r.status IN ('processing', 'paid', 'failed') ORDER BY r.created_at DESC LIMIT 25").bind(user.id).all();
-    return json({ enabled: true, status: accountStatus(account), payoutsEnabled: !!account?.payouts_enabled, payments: payments.results });
+    return json({ enabled: true, status: accountStatus(account), payoutsEnabled: !!account?.payouts_enabled, planOk: await hasActivePlan(env, user.id), payments: payments.results });
   }
 
   if (url.pathname === "/api/rent-payments/connect" && request.method === "POST") {
     if (!billingEnabled(env)) return json({ error: "Online payments aren't switched on yet." }, 503);
+    // Online rent payments come with an EC Rental plan (paid or in its free trial).
+    if (!(await hasActivePlan(env, user.id))) return json({ error: "Online rent payments come with an EC Rental plan. Start your free trial in Plan & Billing first." }, 402);
     await ensureConnectWebhook(env, url.origin);
     let account = await payoutAccount(env, user.id);
     if (!account) {
