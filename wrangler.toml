@@ -11,6 +11,10 @@ routes = [
   { pattern = "www.ecrentalpm.com", custom_domain = true },
 ]
 
+# Daily jobs (src/index.ts scheduled): rent reminders. 16:00 UTC is 9am in Fresno (8am in winter).
+[triggers]
+crons = ["0 16 * * *"]
+
 [ai]
 binding = "AI"
 

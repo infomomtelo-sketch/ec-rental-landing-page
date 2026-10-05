@@ -47,3 +47,6 @@ CREATE TABLE IF NOT EXISTS rent_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rent_payments_session ON rent_payments(session_id);
 CREATE INDEX IF NOT EXISTS idx_rent_payments_landlord ON rent_payments(landlord_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_rent_payments_tenancy ON rent_payments(tenancy_id, status);
+-- Automatic rent reminders (src/rent-reminders.ts): each landlord's settings, and which reminders already went out.
+CREATE TABLE IF NOT EXISTS rent_reminder_settings (user_id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, due_day INTEGER NOT NULL DEFAULT 1, days_before INTEGER NOT NULL DEFAULT 3, late_after INTEGER NOT NULL DEFAULT 5, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+CREATE TABLE IF NOT EXISTS rent_reminder_log (tenancy_id INTEGER NOT NULL, period TEXT NOT NULL, kind TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (tenancy_id, period, kind));
