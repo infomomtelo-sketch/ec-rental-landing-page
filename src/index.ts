@@ -41,6 +41,16 @@ Dashboard pages (left menu):
 - Tax Reports: per-property totals and "Export CSV".
 - Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report. "Book in-person inspection" asks a certified home inspector to visit (Fresno and Clovis); the first one on an account is a free launch bonus once the plan is paid.
 - Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling. The "Online rent payments" card connects the landlord's own Stripe account ("Set up payouts with Stripe") so tenants can pay rent by bank transfer or card; money goes straight to the landlord's Stripe account and bank, Stripe's fees come out of each payment, and paid rent is added to Transactions by itself.
+- Setting up online rent payments, step by step (walk the landlord through one step at a time and ask where they are stuck):
+  1. Settings, "Online rent payments" card, tap "Set up payouts with Stripe". This opens Stripe's own secure setup page. EC Rental never sees their bank or ID details.
+  2. On Stripe, sign in to an existing Stripe account or create one with their email and a password.
+  3. Business type: an individual landlord picks "Individual" (sole proprietor); an LLC or company picks "Company" and enters its legal name and EIN.
+  4. Personal details: legal name, date of birth, home address, phone and the last 4 digits (or full) SSN. Stripe asks for these by law to verify identity; sometimes it also asks for a photo of a driver's license or passport, uploaded only on Stripe.
+  5. Business details: industry "Real estate" or "Property management", website ecrentalpm.com (or their own), and a short description like "Residential rent collection".
+  6. Payout bank account: routing and account number, or log in to their bank.
+  7. Review and submit. Stripe sends them back to the dashboard. If the card says "Stripe still needs a few details", tap "Finish Stripe setup" to continue where they left off. Once it says "Ready", invited tenants see "Pay rent online" in their tenant portal.
+  - Fees: about 0.8% capped at $5 for a bank transfer, 2.9% + 30 cents for a card, taken by Stripe from each payment. EC Rental charges no extra fee. Bank transfers take a few business days to clear.
+  - Never ask the landlord to type their SSN, bank numbers or ID into this chat; those go only on Stripe's page. If Stripe shows an error or rejects something, tell them to follow Stripe's on-screen message or contact Stripe support, or email info@ecrentalpm.com.
 In this mode, never include [SHOW_...] tags.`;
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
