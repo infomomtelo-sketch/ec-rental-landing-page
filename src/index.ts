@@ -52,6 +52,7 @@ Dashboard pages (left menu):
   7. Review and submit. Stripe sends them back to the dashboard. If the card says "Stripe still needs a few details", tap "Finish Stripe setup" to continue where they left off. Once it says "Ready", invited tenants see "Pay rent online" in their tenant portal.
   - Fees: about 0.8% capped at $5 for a bank transfer, 2.9% + 30 cents for a card, taken by Stripe from each payment. EC Rental charges no extra fee. Bank transfers take a few business days to clear.
   - Never ask the landlord to type their SSN, bank numbers or ID into this chat; those go only on Stripe's page. If Stripe shows an error or rejects something, tell them to follow Stripe's on-screen message or contact Stripe support, or email info@ecrentalpm.com.
+- Rent reminders (Settings, "Rent reminders" card): when switched on, tenants who accepted their invite get an email a few days before rent is due (with a "Pay rent online" button once online payments are set up) and a friendly notice a few days after the due date if that month's rent isn't recorded yet; the landlord gets a copy of late notices. The landlord picks the due day and the timing. Rent recorded in Transactions as Rent Collected, or paid online, stops the reminders for that month. Needs an EC Rental plan or free trial.
 In this mode, never include [SHOW_...] tags.`;
 
 // A picture attached in the Tello chat (screenshot or photo), sent as a data URL. Read once and never stored.
@@ -65,6 +66,7 @@ function chatImage(value: unknown): number[] | null {
   try { const bin = atob(m[2]); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out.length ? out : null; } catch { return null; }
 }
 
+import { handleRentReminderRoutes, runRentReminders } from "./rent-reminders";
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
@@ -303,6 +305,7 @@ export default {
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)
+    if (user && url.pathname === "/api/rent-reminders") { try { const res = await handleRentReminderRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("rent reminders", err); } }
     if (user && (url.pathname === "/api/rent-payments" || url.pathname.startsWith("/api/rent-payments/"))) { try { const res = await handleLandlordRentPayments(request, env, url, user); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Stripe is having trouble right now. Please try again in a minute." }, 502); } }
     if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
 
@@ -360,6 +363,13 @@ export default {
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
     if (!env.ASSETS) return new Response("Static pages aren't available in this preview. Open https://ecrentalpm.com instead.", { status: 503, headers: { "Content-Type": "text/plain" } });
     return env.ASSETS.fetch(request);
+  },
+
+  // Daily cron (wrangler.toml [triggers]): rent reminders and late notices.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
+      .then((n) => console.log("[rent-reminders] sent", n))
+      .catch((err) => console.error("[rent-reminders]", err instanceof Error ? err.message : err)));
   },
 };
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
