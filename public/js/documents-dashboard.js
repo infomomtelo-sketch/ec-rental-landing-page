@@ -29,7 +29,7 @@
   function loadList() {
     if (!token()) return;
     api('/documents').then(function(list) {
-      if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="icon">📄</div>No documents yet. Click "New Document" to make a lease, notice, invoice or receipt.</td></tr>'; return; }
+      if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>No documents yet. Click "New Document" to make a lease, notice, invoice or receipt.</td></tr>'; return; }
       body.innerHTML = list.map(function(doc) {
         var t = D.types[doc.doc_type];
         return '<tr><td><strong>' + esc(doc.title) + '</strong><br><small style="color:var(--gray)">' + esc(t ? t.label : doc.doc_type) + '</small></td><td>' + esc(doc.property_address || '—') + '</td><td>' + (doc.shared_with ? '<span class="badge badge-green">Shared</span><br><small style="color:var(--gray)">' + esc(doc.shared_with) + '</small>' : '<span style="color:var(--gray)">Not shared</span>') + '</td><td>' + date(doc.updated_at) + '</td><td style="white-space:nowrap"><button class="btn btn-sm" data-open="' + doc.id + '">Open</button> <a class="btn btn-sm btn-secondary" href="/document?id=' + doc.id + '" target="_blank" rel="noopener">Print</a> <button class="btn btn-sm btn-danger" data-del="' + doc.id + '">Delete</button></td></tr>';

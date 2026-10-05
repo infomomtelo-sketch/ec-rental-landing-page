@@ -31,7 +31,7 @@
       propSel.innerHTML = '<option value="">Choose a property...</option>' + list.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address) + '</option>'; }).join('');
     }).catch(function() {});
     api('/tenancies').then(function(list) {
-      if (!list.length) { body.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="icon">🔑</div>No tenants invited yet. Invite one above so they can see their lease and send maintenance requests.</td></tr>'; return; }
+      if (!list.length) { body.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg></div>No tenants invited yet. Invite one above so they can see their lease and send maintenance requests.</td></tr>'; return; }
       body.innerHTML = list.map(function(t) {
         var status = t.status === 'active' ? '<span class="badge badge-green">Active</span><br><small style="color:var(--gray)">since ' + date(t.accepted_at) + '</small>' : '<span class="badge badge-yellow">Invited</span><br><small style="color:var(--gray)">link expires ' + date(t.invite_expires_at) + '</small>';
         var actions = (t.status === 'invited' ? '<button class="btn btn-sm" data-resend="' + t.id + '" data-email="' + esc(t.email) + '">Resend</button> ' : '') + '<button class="btn btn-sm btn-danger" data-end="' + t.id + '">Remove</button>';

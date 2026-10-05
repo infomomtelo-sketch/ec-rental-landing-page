@@ -10,16 +10,59 @@ OUT = pathlib.Path(__file__).resolve().parent.parent / "public" / "features"
 SITE = "https://ecrentalpm.com"
 TELLO = '<img src="/tello-icon.svg" alt="" />'
 
+# Monochrome line icons (24x24, stroke) used for feature cards and links.
+ICONS = {
+ "alert": '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+ "award": '<circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/>',
+ "bank": '<path d="M3 21h18M5 18v-7M9.5 18v-7M14.5 18v-7M19 18v-7M12 3l9 5H3z"/>',
+ "camera": '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
+ "cash": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+ "chart": '<path d="M3 3v18h18"/><path d="M8 17v-4M13 17V8M18 17v-7"/>',
+ "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+ "chip": '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/>',
+ "clipboard": '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/>',
+ "clock": '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+ "dollar": '<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+ "door": '<path d="M3 21h18"/><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><path d="M14 12h.01"/>',
+ "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+ "file": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+ "files": '<path d="M15 2H8a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M15 2v5h5M10 11h6M10 15h6"/><path d="M4 7v13a2 2 0 0 0 2 2h10"/>',
+ "folder": '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
+ "gift": '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+ "home": '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/>',
+ "image": '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+ "key": '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+ "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+ "lock": '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+ "mail": '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
+ "megaphone": '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+ "message": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+ "pen": '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+ "phone-mobile": '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+ "printer": '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+ "receipt": '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M16 8H8M16 12H8M13 16H8"/>',
+ "scale": '<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
+ "search": '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+ "send": '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+ "wrench": '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+}
+
+
+def icon(name):
+    if name == "tello":
+        return '<img src="/tello-icon.svg" alt="" width="22" height="22" />'
+    return f'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>'
+
 # slug, nav label, icon
 NAV = [
-    ("tello", "Tello AI assistant", "✦"),
-    ("listings", "Listings + Zillow feed", "📣"),
-    ("applications", "Online applications", "📝"),
-    ("inspections", "AI inspections", "🔍"),
-    ("maintenance", "Maintenance", "🔧"),
-    ("tenant-portal", "Tenant portal", "🔑"),
-    ("documents", "Leases + notices", "📄"),
-    ("accounting", "Rent + tax reports", "💰"),
+    ("tello", "Tello AI assistant", "tello"),
+    ("listings", "Listings + Zillow feed", "megaphone"),
+    ("applications", "Online applications", "pen"),
+    ("inspections", "AI inspections", "search"),
+    ("maintenance", "Maintenance", "wrench"),
+    ("tenant-portal", "Tenant portal", "key"),
+    ("documents", "Leases + notices", "file"),
+    ("accounting", "Rent + tax reports", "dollar"),
 ]
 
 PAGES = {
@@ -37,12 +80,12 @@ PAGES = {
 <div class="bubble ai">Great. Share your name and phone and the landlord will confirm a time.</div>""",
   chips=("Answers from the listing", "Fair housing rules built in"),
   features=[
-   ("💬", "Answers renters 24/7", "On every listing and on ecrentalpm.com/tello. Rent, pets, move-in dates and showings, straight from the listing details."),
-   ("✍️", "Writes your listings", "Give Tello a few facts and up to three photos and it drafts a clear, fair-housing-safe description you can edit."),
-   ("📨", "Drafts your replies", "One tap turns a renter inquiry into a warm reply with your apply link, ready for you to read and send."),
-   ("🧾", "Summarizes applications", "A quick read of income, rental history and employment, with no names or household details and never an approve or deny."),
-   ("🔍", "Reads inspection photos", "Fills in condition and notes room by room and compares move-out with move-in."),
-   ("🔧", "Triages repairs", "Suggests a priority, next steps and a kind reply to the tenant for every maintenance request."),
+   ("message", "Answers renters 24/7", "On every listing and on ecrentalpm.com/tello. Rent, pets, move-in dates and showings, straight from the listing details."),
+   ("pen", "Writes your listings", "Give Tello a few facts and up to three photos and it drafts a clear, fair-housing-safe description you can edit."),
+   ("send", "Drafts your replies", "One tap turns a renter inquiry into a warm reply with your apply link, ready for you to read and send."),
+   ("receipt", "Summarizes applications", "A quick read of income, rental history and employment, with no names or household details and never an approve or deny."),
+   ("search", "Reads inspection photos", "Fills in condition and notes room by room and compares move-out with move-in."),
+   ("wrench", "Triages repairs", "Suggests a priority, next steps and a kind reply to the tenant for every maintenance request."),
   ],
   steps=[("Ask anything", "Renters ask on a listing. Landlords ask from the dashboard's Ask Tello button."),
          ("Tello drafts", "An answer, a description, a reply, a summary or a repair plan."),
@@ -63,16 +106,16 @@ PAGES = {
   stats=[("1 tap", "to share on Facebook"), ("24/7", "renter chat"), ("Zillow", "-ready feed")],
   mock="""<div class="row"><div><b>5287 N Tisha Ave · Studio 1</b><small>Fresno, CA · Studio / 1 ba</small></div><span class="pill p-green">Active</span></div>
 <div class="row"><div><small>Rent</small><b>$1,200/mo</b></div><span class="pill p-green">On Zillow feed</span></div>
-<div class="row"><div><b>✍️ Write with AI</b><small>Reads your photos and drafts the description</small></div></div>
+<div class="row"><div><b>Write with AI</b><small>Reads your photos and drafts the description</small></div></div>
 <div class="mbtn gold">Share: Facebook · Marketplace · Text</div>""",
   chips=("Description written by Tello", "New inquiry · Draft reply ready"),
   features=[
-   ("🏠", "A page for every home", "Photos, rent, pets, move-in date, a map and an Apply button, built to load fast on phones."),
-   ("🖼️", "Drag-and-drop photos", "Drop in a batch of photos from your phone or computer. They're stored securely with unique links."),
-   ("✍️", "Write with AI", "Tello reads up to three photos and your facts and writes a description you can edit."),
-   ("📊", "Check my rent", "Compares your rent with similar EC Rental listings nearby when there are enough to compare."),
-   ("📣", "Share anywhere", "A ready-to-post caption for Facebook, Marketplace and texts, plus a share preview with your first photo."),
-   ("🔗", "Zillow-ready feed", "Switch a listing on for the feed. A checklist shows exactly what's missing before it goes out."),
+   ("home", "A page for every home", "Photos, rent, pets, move-in date, a map and an Apply button, built to load fast on phones."),
+   ("image", "Drag-and-drop photos", "Drop in a batch of photos from your phone or computer. They're stored securely with unique links."),
+   ("pen", "Write with AI", "Tello reads up to three photos and your facts and writes a description you can edit."),
+   ("chart", "Check my rent", "Compares your rent with similar EC Rental listings nearby when there are enough to compare."),
+   ("megaphone", "Share anywhere", "A ready-to-post caption for Facebook, Marketplace and texts, plus a share preview with your first photo."),
+   ("link", "Zillow-ready feed", "Switch a listing on for the feed. A checklist shows exactly what's missing before it goes out."),
   ],
   steps=[("Add the home", "Address, rent, beds, baths and your photos."), ("Let Tello write", "Edit the AI description and check your rent."),
          ("Publish", "Go live on ecrentalpm.com and switch on the Zillow feed."), ("Answer leads", "Inquiries land in your dashboard with a drafted reply.")],
@@ -91,16 +134,16 @@ PAGES = {
   stats=[("Minutes", "to apply"), ("1", "dashboard for all"), ("0", "SSNs on the form")],
   mock="""<div class="row"><div><b>Rental application</b><small>5287 N Tisha Ave · Studio 1</small></div><span class="pill p-gold">New</span></div>
 <div class="row"><div><small>Monthly income</small><b>$4,800</b></div><div><small>Move-in</small><b>Nov 1</b></div></div>
-<div class="row"><div><b>🧾 AI summary</b><small>Income is about 4x rent. Two years at current job. Prior landlord listed.</small></div></div>
+<div class="row"><div><b>AI summary</b><small>Income is about 4x rent. Two years at current job. Prior landlord listed.</small></div></div>
 <div class="mbtn">Review application</div>""",
   chips=("Applied from a phone", "Summary ready to review"),
   features=[
-   ("📱", "Mobile-first form", "Renters apply from the listing page in a few minutes, on any phone."),
-   ("🗂️", "Everything in one place", "Applications from all your listings land in one Applications page."),
-   ("🧾", "AI summary", "Tello summarizes income, employment and rental history. It never names people, never describes the household and never decides."),
-   ("🔒", "Less sensitive data", "No Social Security numbers or dates of birth on the form. Screening happens through a screening partner."),
-   ("⚖️", "Fair by design", "Every applicant answers the same questions and is reviewed the same way."),
-   ("✅", "Track status", "Move each application through reviewing, approved or denied, and track the screening step."),
+   ("phone-mobile", "Mobile-first form", "Renters apply from the listing page in a few minutes, on any phone."),
+   ("folder", "Everything in one place", "Applications from all your listings land in one Applications page."),
+   ("receipt", "AI summary", "Tello summarizes income, employment and rental history. It never names people, never describes the household and never decides."),
+   ("lock", "Less sensitive data", "No Social Security numbers or dates of birth on the form. Screening happens through a screening partner."),
+   ("scale", "Fair by design", "Every applicant answers the same questions and is reviewed the same way."),
+   ("check", "Track status", "Move each application through reviewing, approved or denied, and track the screening step."),
   ],
   steps=[("Renter finds a home", "From your listing, Zillow or a shared post."), ("Applies online", "Contact, income, employment and rental history."),
          ("You review", "Read the application and the AI summary."), ("Decide", "Set the status and reach out.")],
@@ -124,13 +167,13 @@ PAGES = {
   chips=("Photo read by Tello", "Reviewed by a certified inspector"),
   video="inspections",
   features=[
-   ("📸", "Room by room", "Move-in, move-out, routine and annual inspections, captured from a phone."),
-   ("🤖", "AI photo reading", "Tello pre-fills condition and notes for each photo. You correct anything it got wrong."),
-   ("🎓", "Certified inspector", "Led by a certified home inspector, trained through Home Inspectors of America."),
-   ("⚖️", "Move-out vs move-in", "Tello drafts which changes look like wear and tear and which look like damage, for you to review."),
-   ("🔧", "Repairs in one tap", "Turn any flagged item into a maintenance request."),
-   ("🖨️", "Signed reports", "A printable photo report with landlord and tenant signature lines. Photos stay private."),
-   ("🎁", "First visit free", "Launch bonus: your first in-person inspection is free once your plan is paid. Fresno and Clovis area."),
+   ("camera", "Room by room", "Move-in, move-out, routine and annual inspections, captured from a phone."),
+   ("chip", "AI photo reading", "Tello pre-fills condition and notes for each photo. You correct anything it got wrong."),
+   ("award", "Certified inspector", "Led by a certified home inspector, trained through Home Inspectors of America."),
+   ("scale", "Move-out vs move-in", "Tello drafts which changes look like wear and tear and which look like damage, for you to review."),
+   ("wrench", "Repairs in one tap", "Turn any flagged item into a maintenance request."),
+   ("printer", "Signed reports", "A printable photo report with landlord and tenant signature lines. Photos stay private."),
+   ("gift", "First visit free", "Launch bonus: your first in-person inspection is free once your plan is paid. Fresno and Clovis area."),
   ],
   steps=[("Start", "Pick the property and inspection type."), ("Snap photos", "Room by room, from your phone."),
          ("Review", "Check Tello's notes and correct them."), ("Sign", "Print or save the report and sign it.")],
@@ -155,12 +198,12 @@ PAGES = {
   chips=("Email sent to landlord", "Tenant reply drafted"),
   video="maintenance",
   features=[
-   ("📱", "Requests from the portal", "Tenants describe the problem and pick a priority from their tenant portal."),
-   ("📧", "Instant alerts", "The landlord gets an email the moment a request comes in."),
-   ("🤖", "AI triage", "Tello suggests priority and category, lists next steps and drafts a reply with any safety step to take now."),
-   ("🚨", "Safety first", "Gas smells, flooding and other emergencies are flagged as emergencies."),
-   ("📋", "Track to resolved", "Open, in progress and resolved, with the full history saved per property."),
-   ("🔍", "From inspections", "Repairs found in an inspection become maintenance requests in one tap."),
+   ("phone-mobile", "Requests from the portal", "Tenants describe the problem and pick a priority from their tenant portal."),
+   ("mail", "Instant alerts", "The landlord gets an email the moment a request comes in."),
+   ("chip", "AI triage", "Tello suggests priority and category, lists next steps and drafts a reply with any safety step to take now."),
+   ("alert", "Safety first", "Gas smells, flooding and other emergencies are flagged as emergencies."),
+   ("clipboard", "Track to resolved", "Open, in progress and resolved, with the full history saved per property."),
+   ("search", "From inspections", "Repairs found in an inspection become maintenance requests in one tap."),
   ],
   steps=[("Tenant reports", "From the tenant portal, day or night."), ("You're alerted", "Email plus the request in your dashboard."),
          ("Tello triages", "Priority, next steps and a reply to send."), ("Resolve", "Mark it fixed. The tenant sees it too.")],
@@ -183,12 +226,12 @@ PAGES = {
 <div class="mbtn">Send a maintenance request</div>""",
   chips=("Invite accepted", "Lease shared"),
   features=[
-   ("✉️", "Invite by email", "Send an invite from the Tenants page. The secure link works for 7 days."),
-   ("🏠", "Their home", "Address, rent and lease dates in one place."),
-   ("💵", "Rent history", "Rent payments you record show up in the tenant's portal."),
-   ("📄", "Shared documents", "Share a lease, notice or receipt with the tenant from your Documents page."),
-   ("🔧", "Repair requests", "Tenants send maintenance requests and see their status."),
-   ("🔒", "Private by design", "Tenants only see their own home, from their own move-in date onward."),
+   ("mail", "Invite by email", "Send an invite from the Tenants page. The secure link works for 7 days."),
+   ("home", "Their home", "Address, rent and lease dates in one place."),
+   ("cash", "Rent history", "Rent payments you record show up in the tenant's portal."),
+   ("file", "Shared documents", "Share a lease, notice or receipt with the tenant from your Documents page."),
+   ("wrench", "Repair requests", "Tenants send maintenance requests and see their status."),
+   ("lock", "Private by design", "Tenants only see their own home, from their own move-in date onward."),
   ],
   steps=[("Invite", "Enter the tenant's email on the Tenants page."), ("Tenant joins", "They set a password from the email link."),
          ("Share", "Share documents and record rent."), ("Stay connected", "Requests and updates in one place.")],
@@ -211,12 +254,12 @@ PAGES = {
 <div class="mbtn">Print or save PDF</div>""",
   chips=("Filled from your property", "Shared to the tenant portal"),
   features=[
-   ("📝", "Rental agreement", "A California residential lease or month-to-month agreement."),
-   ("⏰", "3-day notice", "A 3-day notice to pay rent or quit, filled with the amounts you enter."),
-   ("🚪", "Notice of entry", "Written notice before entering the unit."),
-   ("🧾", "Invoices and receipts", "Bill a tenant or give a rent receipt in seconds."),
-   ("📋", "Rental application", "A printable application when you need paper."),
-   ("🔗", "Share with tenants", "Shared documents appear in the tenant's portal while their tenancy is active."),
+   ("pen", "Rental agreement", "A California residential lease or month-to-month agreement."),
+   ("clock", "3-day notice", "A 3-day notice to pay rent or quit, filled with the amounts you enter."),
+   ("door", "Notice of entry", "Written notice before entering the unit."),
+   ("receipt", "Invoices and receipts", "Bill a tenant or give a rent receipt in seconds."),
+   ("clipboard", "Rental application", "A printable application when you need paper."),
+   ("link", "Share with tenants", "Shared documents appear in the tenant's portal while their tenancy is active."),
   ],
   steps=[("Pick a template", "Lease, notice, invoice, receipt or application."), ("Auto-fill", "Property, tenant and rent details come in for you."),
          ("Edit", "Change anything before you print."), ("Print or share", "Save as PDF or share to the tenant portal.")],
@@ -239,12 +282,12 @@ PAGES = {
 <div class="mbtn gold">Export CSV</div>""",
   chips=("Rent recorded", "Report ready for your CPA"),
   features=[
-   ("💵", "Record rent", "Log rent as it comes in. It shows in the tenant's portal too."),
-   ("🧾", "Track expenses", "Repairs, fees and other costs, tied to the property."),
-   ("🏦", "Owner payments", "Record distributions paid to owners."),
-   ("📑", "Tax summary", "Rent collected, expenses, management fee and paid to owner, per property."),
-   ("⬇️", "Export CSV", "One click for a file your accountant can open."),
-   ("📊", "Overview", "Rent collected this month and open repairs at a glance."),
+   ("cash", "Record rent", "Log rent as it comes in. It shows in the tenant's portal too."),
+   ("receipt", "Track expenses", "Repairs, fees and other costs, tied to the property."),
+   ("bank", "Owner payments", "Record distributions paid to owners."),
+   ("files", "Tax summary", "Rent collected, expenses, management fee and paid to owner, per property."),
+   ("download", "Export CSV", "One click for a file your accountant can open."),
+   ("chart", "Overview", "Rent collected this month and open repairs at a glance."),
   ],
   steps=[("Add properties", "Each home or unit you manage."), ("Record activity", "Rent, expenses and owner payments."),
          ("Review", "See totals per property any time."), ("Export", "Download the CSV at tax time.")],
@@ -299,7 +342,7 @@ def head(title, desc, url):
 def page(slug, p):
     url = f"{SITE}/features/{slug}"
     stats = "".join(f"<div><b>{esc(a)}</b><span>{esc(b)}</span></div>" for a, b in p["stats"])
-    feats = "".join(f'<div class="card"><div class="ic">{i}</div><h3>{esc(t)}</h3><p>{esc(d)}</p></div>' for i, t, d in p["features"])
+    feats = "".join(f'<div class="card"><div class="ic">{icon(i)}</div><h3>{esc(t)}</h3><p>{esc(d)}</p></div>' for i, t, d in p["features"])
     steps = "".join(f'<div class="step"><h3>{esc(t)}</h3><p>{esc(d)}</p></div>' for t, d in p["steps"])
     k, h, sub, checks = p["split"]
     checks_html = "".join(f"<li>{esc(c)}</li>" for c in checks)
@@ -309,7 +352,7 @@ def page(slug, p):
     else:
         right = f'<div class="mock"><div class="mock-bar"><i></i><i></i><i></i><span>ecrentalpm.com</span></div><div class="screen">{p["mock"]}</div></div>'
     faq = "".join(f"<details><summary>{esc(q)}</summary><p>{esc(a)}</p></details>" for q, a in p["faq"])
-    more = "".join(f'<a href="/features/{s}"><span>{i}</span>{esc(l)}</a>' for s, l, i in NAV if s != slug)
+    more = "".join(f'<a href="/features/{s}"><span>{icon(i)}</span>{esc(l)}</a>' for s, l, i in NAV if s != slug)
     ld = {"@context": "https://schema.org", "@type": "WebPage", "name": p["title"], "description": p["desc"], "url": url,
           "isPartOf": {"@type": "WebSite", "name": "EC Rental Property Management", "url": SITE},
           "mainEntity": {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in p["faq"]]}}
@@ -375,7 +418,7 @@ def index():
     url = f"{SITE}/features/"
     title = "Features | EC Rental Property Management, Fresno"
     desc = "Everything EC Rental does for Fresno landlords and renters: Tello AI, listings with a Zillow-ready feed, online applications, AI inspections, maintenance, tenant portal, documents and tax reports."
-    cards = "".join(f'<a class="card" href="/features/{s}" style="text-decoration:none"><div class="ic">{i}</div><h3>{esc(l)}</h3><p>{esc(PAGES[s]["lede"])}</p></a>' for s, l, i in NAV)
+    cards = "".join(f'<a class="card" href="/features/{s}" style="text-decoration:none"><div class="ic">{icon(i)}</div><h3>{esc(l)}</h3><p>{esc(PAGES[s]["lede"])}</p></a>' for s, l, i in NAV)
     return f'''{head(title, desc, url)}
 <body>
   {nav()}

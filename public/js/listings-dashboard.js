@@ -27,7 +27,7 @@
   function load() {
     if (!token()) return;
     api('/listings').then(function(list) {
-      if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon">📣</div>No listings yet. Click "+ New Listing" to advertise a vacancy.</td></tr>'; return; }
+      if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>No listings yet. Click "+ New Listing" to advertise a vacancy.</td></tr>'; return; }
       shown = {};
       body.innerHTML = list.map(function(l) {
         var badge = l.status === 'active' ? 'badge-green' : l.status === 'rented' ? 'badge-gray' : 'badge-yellow';
@@ -50,7 +50,7 @@
       leadsBody.innerHTML = list.map(function(l) {
         var from = (l.source === 'zillow' ? '<span class="badge badge-green">Zillow</span>' : '<span class="badge badge-gray">Website</span>') + (LEAD_TYPES[l.leadType] ? '<br><small style="color:var(--gray)">' + LEAD_TYPES[l.leadType] + '</small>' : '');
         var contact = '<strong>' + esc(l.name) + '</strong><br><a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a>' + (l.phone ? '<br><a href="tel:' + esc(String(l.phone).replace(/[^\d+]/g, '')) + '">' + esc(l.phone) + '</a>' : '');
-        return '<tr><td>' + new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td>' + from + '</td><td>' + contact + '</td><td>' + esc(l.home) + '</td><td>' + esc(l.moveIn || '—') + '</td><td style="max-width:260px;white-space:normal">' + esc(l.message) + '</td><td><button class="btn btn-sm btn-secondary" data-ai-reply="' + l.id + '" data-email="' + esc(l.email) + '" data-name="' + esc(l.name) + '">✨ Draft reply</button></td></tr>';
+        return '<tr><td>' + new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td>' + from + '</td><td>' + contact + '</td><td>' + esc(l.home) + '</td><td>' + esc(l.moveIn || '—') + '</td><td style="max-width:260px;white-space:normal">' + esc(l.message) + '</td><td><button class="btn btn-sm btn-secondary" data-ai-reply="' + l.id + '" data-email="' + esc(l.email) + '" data-name="' + esc(l.name) + '">Draft reply</button></td></tr>';
       }).join('');
     }).catch(function(err) { leadsBody.innerHTML = '<tr><td colspan="7" class="empty-state">' + esc(err.message) + '</td></tr>'; });
   }
@@ -233,13 +233,13 @@
   }
   function shareCaption(l) {
     var baths = l.full_baths + (l.half_baths ? 0.5 : 0);
-    var lines = ['🏠 For rent in ' + l.city + ': ' + (l.bedrooms ? l.bedrooms + ' bd' : 'Studio') + ' / ' + baths + ' ba ' + (TYPE_WORDS[l.property_type] || 'home') + ' · ' + money(l.rent) + '/mo'];
+    var lines = ['For rent in ' + l.city + ': ' + (l.bedrooms ? l.bedrooms + ' bd' : 'Studio') + ' / ' + baths + ' ba ' + (TYPE_WORDS[l.property_type] || 'home') + ' · ' + money(l.rent) + '/mo'];
     var facts = [availableText(l.date_available)];
     if (l.square_feet) facts.push(Number(l.square_feet).toLocaleString('en-US') + ' sq ft');
     if (l.cats_allowed || l.small_dogs_allowed || l.large_dogs_allowed) facts.push('pets considered');
     if (l.laundry === 'in_unit') facts.push('in-unit laundry');
     if (l.parking_type === 'garageAttached' || l.parking_type === 'garageLot') facts.push('garage');
-    lines.push('📍 ' + l.street + ', ' + l.city + ' · ' + facts.join(' · '));
+    lines.push(l.street + ', ' + l.city + ' · ' + facts.join(' · '));
     if (l.title) lines.push(l.title);
     lines.push('See photos, ask questions any time and apply online: ' + shareUrl);
     lines.push('#' + String(l.city).replace(/[^A-Za-z]/g, '') + 'Rentals #ForRent #EqualHousingOpportunity');

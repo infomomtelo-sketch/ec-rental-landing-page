@@ -27,7 +27,7 @@
     if (!token()) return;
     api('/inspections').then(function(rows) {
       list = rows;
-      if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon">🔍</div>No inspections yet. Click "+ New Inspection" to start one.</td></tr>'; return; }
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>No inspections yet. Click "+ New Inspection" to start one.</td></tr>'; return; }
       body.innerHTML = rows.map(function(i) {
         var cond = i.status === 'completed' ? '<span class="badge ' + (OVERALL_BADGE[i.overall_condition] || 'badge-gray') + '">' + esc(i.overall_condition || '-') + '</span>' : '<span class="badge badge-gray">In progress</span>';
         return '<tr><td>' + esc(i.property_address) + '</td><td>' + esc(TYPES[i.type] || 'Inspection') + '</td><td>' + esc(i.inspection_date) + '</td><td>' + cond + '</td><td>' + (i.item_count || 0) + '</td><td style="white-space:nowrap"><button class="btn btn-sm" data-open="' + i.id + '">Open</button> <a class="btn btn-sm btn-secondary" href="/inspection-report?id=' + i.id + '" target="_blank" rel="noopener">Report</a> <button class="btn btn-sm btn-danger" data-del="' + i.id + '">Delete</button></td></tr>';
@@ -108,7 +108,7 @@
       '<input data-f="repair_item" placeholder="Repair (e.g. patch hole in wall)" value="' + esc(it.repair_item) + '" style="flex:1;min-width:160px;padding:0.35rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem' + (it.repair_needed ? '' : ';display:none') + '" /></div>' +
       '<textarea data-f="notes" rows="2" placeholder="Notes" style="width:100%;font:inherit;font-size:0.88rem;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px">' + esc(it.notes) + '</textarea>' +
       '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">' +
-      (it.repair_needed ? (it.maintenance_id ? '<span class="badge badge-green">Maintenance request created</span>' : '<button type="button" class="btn btn-sm btn-secondary" data-act="maint">🛠 Create maintenance request</button>') : '') +
+      (it.repair_needed ? (it.maintenance_id ? '<span class="badge badge-green">Maintenance request created</span>' : '<button type="button" class="btn btn-sm btn-secondary" data-act="maint">Create maintenance request</button>') : '') +
       '<button type="button" class="btn btn-sm btn-danger" data-act="del">Remove photo</button><small data-msg style="color:var(--gray)"></small></div></div></div>';
   }
 

@@ -22,7 +22,7 @@ function available(d: string): string {
 function phone(p: string): string { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p; }
 
 const RULES = [
-  "Answer in 1 to 4 short sentences of plain text, no markdown or lists. Be warm and direct.",
+  "Answer in 1 to 4 short sentences of plain text, no markdown, lists or emojis. Be warm and direct.",
   "Use only the facts given here. If something isn't in them (utilities, HOA, schools, exact move-in costs beyond rent and deposit, whether a specific pet breed is OK), say you don't have that detail and that the landlord can answer it, and suggest requesting a showing.",
   "Never promise approval, never say who will or won't qualify, never ask for a Social Security number, income, birth date or other screening information, and don't discuss anyone's personal characteristics. Applicants are screened the same way through the online application.",
   "If the renter asks about anything unrelated to renting these homes, politely steer back.",
@@ -84,6 +84,6 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
   const picked = Array.from(new Set(Array.from(reply.matchAll(/\[LISTING:(\d+)\]/gi), (m) => Number(m[1]))));
   const listings = picked.map((id) => found.find((l) => l.id === id)).filter((l): l is ListingFactsRow => !!l).slice(0, 3)
     .map((l) => ({ id: l.id, label: `${l.bedrooms ? l.bedrooms + " bd" : "Studio"} · $${Math.round(l.rent).toLocaleString("en-US")}/mo · ${l.street}${l.unit ? " #" + l.unit : ""}` }));
-  reply = reply.replace(/\[(TOUR|APPLY|LISTING:\d+)\]/gi, "").replace(/[ \t]+([.,!?])/g, "$1").replace(/[ \t]{2,}/g, " ").trim();
+  reply = reply.replace(/\[(TOUR|APPLY|LISTING:\d+)\]/gi, "").replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").replace(/[ \t]+([.,!?])/g, "$1").replace(/[ \t]{2,}/g, " ").trim();
   return json({ reply, tour, apply, listings });
 }

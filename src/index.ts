@@ -15,6 +15,7 @@ Company info:
 - AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. Launch bonus: a landlord's first in-person inspection is free once their plan is paid (Fresno and Clovis); they book it from the dashboard Inspections page.
 Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
+- Write in a professional tone. Never use emojis.
 - Never use more than 40 words unless absolutely necessary.
 - Only answer about EC Rental, property management, or Fresno rentals.
 - Don't make up URLs, buttons, or features that don't exist on the site.
@@ -28,7 +29,7 @@ Always give a real answer first, then include the tag. Never just say "contact u
 
 // Added to the system prompt when Tello is opened inside the signed-in landlord dashboard.
 const DASHBOARD_GUIDE = `
-The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the ☰ button at the top left. You can't see or change their data.
+The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the menu button (three lines) at the top left. You can't see or change their data.
 Dashboard pages (left menu):
 - Overview: totals for properties, occupancy, rent this month and open maintenance.
 - Properties: "+ Add Property", then Edit or Delete on each row.
@@ -142,7 +143,7 @@ export default {
         const aiResponse = image
           ? await env.AI.run(CHAT_VISION_MODEL as Parameters<Ai["run"]>[0], { messages, image, max_tokens: 700 } as never)
           : await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
-        return json({ response: (aiResponse as { response?: string }).response || "I'm sorry, I couldn't generate a response right now." });
+        return json({ response: ((aiResponse as { response?: string }).response || "").replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").trim() || "I'm sorry, I couldn't generate a response right now." });
       } catch { return json({ error: "Something went wrong." }, 500); }
     }
 
