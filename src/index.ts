@@ -2,7 +2,7 @@
  * EC Rental Property Management LLC — Worker
  * Powered by Tello (branded), running on Cloudflare Workers AI.
  */
-interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; context?: string; }
+interface ChatRequest { message: string; history?: { role: "user" | "assistant"; content: string }[]; context?: string; image?: string; }
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
@@ -52,6 +52,17 @@ Dashboard pages (left menu):
   - Fees: about 0.8% capped at $5 for a bank transfer, 2.9% + 30 cents for a card, taken by Stripe from each payment. EC Rental charges no extra fee. Bank transfers take a few business days to clear.
   - Never ask the landlord to type their SSN, bank numbers or ID into this chat; those go only on Stripe's page. If Stripe shows an error or rejects something, tell them to follow Stripe's on-screen message or contact Stripe support, or email info@ecrentalpm.com.
 In this mode, never include [SHOW_...] tags.`;
+
+// A picture attached in the Tello chat (screenshot or photo), sent as a data URL. Read once and never stored.
+const CHAT_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+const CHAT_IMAGE_GUIDE = `
+The person attached a picture to this message, often a screenshot of the EC Rental dashboard or a Stripe page, or a photo of their rental. Look at it closely, say briefly what you see that matters to their question, then tell them the next step. If you can't make something out, say so and ask them to describe it. If the picture shows a Social Security number, bank or card number, password or ID document, never repeat those details and remind them not to share them in chat.`;
+function chatImage(value: unknown): number[] | null {
+  if (typeof value !== "string") return null;
+  const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(value);
+  if (!m || m[2].length > 5_600_000) return null;
+  try { const bin = atob(m[2]); const out = new Array<number>(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out.length ? out : null; } catch { return null; }
+}
 
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
@@ -122,10 +133,15 @@ export default {
       try {
         if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as ChatRequest;
-        const userMessage = body.message?.trim().slice(0, 2000);
+        const image = chatImage(body.image);
+        if (body.image && !image) return json({ error: "That picture couldn't be read. Please try a JPG or PNG under 4 MB." }, 400);
+        const userMessage = (typeof body.message === "string" ? body.message.trim().slice(0, 2000) : "") || (image ? "What do you see in this picture, and what should I do next?" : "");
         if (!userMessage) return json({ error: "Message is required" }, 400);
-        const messages = [{ role: "system", content: SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE : "") }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
-        const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
+        const system = SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE : "") + (image ? CHAT_IMAGE_GUIDE : "");
+        const messages = [{ role: "system", content: system }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
+        const aiResponse = image
+          ? await env.AI.run(CHAT_VISION_MODEL as Parameters<Ai["run"]>[0], { messages, image, max_tokens: 700 } as never)
+          : await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
         return json({ response: (aiResponse as { response?: string }).response || "I'm sorry, I couldn't generate a response right now." });
       } catch { return json({ error: "Something went wrong." }, 500); }
     }
