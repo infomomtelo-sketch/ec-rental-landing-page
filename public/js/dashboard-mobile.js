@@ -24,9 +24,25 @@
     });
   });
 
-  // Close the phone menu after picking a page.
-  var sidebar = document.querySelector('.sidebar');
-  if (sidebar) sidebar.addEventListener('click', function(e) { if (e.target.closest('a[data-page]')) sidebar.classList.remove('open'); });
+  // Phone menu: the button opens and closes it (its icon turns into an X), tapping outside or picking a page
+  // closes it, and the page behind stays still while it is open.
+  var sidebar = document.getElementById('sidebar'), menuBtn = document.getElementById('menuToggle'), backdrop = document.getElementById('sidebarBackdrop');
+  if (sidebar && menuBtn) {
+    var menuIcon = menuBtn.querySelector('path');
+    var setMenu = function(open) { sidebar.classList.toggle('open', open); };
+    menuBtn.addEventListener('click', function() { setMenu(!sidebar.classList.contains('open')); });
+    if (backdrop) backdrop.addEventListener('click', function() { setMenu(false); });
+    sidebar.addEventListener('click', function(e) { if (e.target.closest('a[data-page]')) setMenu(false); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') setMenu(false); });
+    new MutationObserver(function() {
+      var open = sidebar.classList.contains('open');
+      document.body.classList.toggle('menu-open', open);
+      if (backdrop) backdrop.classList.toggle('open', open);
+      menuBtn.setAttribute('aria-expanded', String(open));
+      menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      if (menuIcon) menuIcon.setAttribute('d', open ? 'M6 6l12 12M18 6 6 18' : 'M4 6h16M4 12h16M4 18h16');
+    }).observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+  }
 
   // Ask Tello: floating button that opens the Tello helper in a panel.
   var btn = document.getElementById('telloFab'), panel = document.getElementById('telloPanel');
