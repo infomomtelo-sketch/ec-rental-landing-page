@@ -131,7 +131,11 @@ export async function handleConnectWebhook(request: Request, env: RentPaymentsEn
 export async function handleLandlordRentPayments(request: Request, env: RentPaymentsEnv, url: URL, user: RentUser): Promise<Response | null> {
   if (url.pathname !== "/api/rent-payments" && !url.pathname.startsWith("/api/rent-payments/")) return null;
   try { return await landlordRoutes(request, env, url, user); }
-  catch (err) { if (err instanceof ConnectOff) return json({ error: "Online rent payments aren't open for new landlords yet. Please try again later." }, 503); throw err; }
+  catch (err) {
+    // Show Stripe's own reason too: it names the step still missing in EC Rental's Stripe Connect setup.
+    if (err instanceof ConnectOff) return json({ error: "Online rent payments aren't open for new landlords yet. Please try again later." + (err.message ? "\n\nStripe says: " + err.message : "") }, 503);
+    throw err;
+  }
 }
 
 async function landlordRoutes(request: Request, env: RentPaymentsEnv, url: URL, user: RentUser): Promise<Response> {
@@ -159,7 +163,7 @@ async function landlordRoutes(request: Request, env: RentPaymentsEnv, url: URL, 
       }).catch((err: Error) => {
         // Stripe refuses until Connect is switched on for EC Rental's own Stripe account (one-time, in the Stripe dashboard).
         if (/connect/i.test(err.message)) console.error("[rent-payments] Stripe Connect isn't enabled:", err.message);
-        throw /connect/i.test(err.message) ? new ConnectOff() : err;
+        throw /connect/i.test(err.message) ? new ConnectOff(err.message.replace(/^Stripe \w+ \S+ \d+: /, "").slice(0, 400)) : err;
       });
       await env.DB.prepare("INSERT INTO payout_accounts (user_id, mode, account_id, charges_enabled, payouts_enabled, details_submitted, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(user.id, keyMode(env), acct.id, acct.charges_enabled ? 1 : 0, acct.payouts_enabled ? 1 : 0, acct.details_submitted ? 1 : 0, new Date().toISOString()).run();
