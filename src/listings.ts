@@ -34,6 +34,10 @@ function num(v: unknown): number { const n = Number(v); return Number.isFinite(n
 function int(v: unknown): number { return Math.floor(num(v)); }
 function bool(v: unknown): number { return v === true || v === 1 || v === "1" || v === "true" || v === "on" ? 1 : 0; }
 function oneOf(v: unknown, allowed: string[], fallback: string): string { const s = str(v); return allowed.includes(s) ? s : fallback; }
+// Address autocomplete can paste "194 N Willow Ave, Fresno, CA 93727, United States" into street; keep the street part only.
+function streetOnly(street: string, city: string): string { const i = city ? street.toLowerCase().indexOf(", " + city.toLowerCase()) : -1; return (i > 0 ? street.slice(0, i) : street).trim(); }
+// Drops quote marks wrapped around a whole description (left over from AI rewrites).
+function unquote(text: string): string { const q = /^["\u201C\u201D]+\s*|\s*["\u201C\u201D]+$/g; return /^["\u201C\u201D]/.test(text) && /["\u201C\u201D]$/.test(text) ? text.replace(q, "").trim() : text; }
 function digits(v: unknown): string { return str(v).replace(/\D/g, "").slice(0, 15); }
 
 /** Validates and normalizes listing input. Returns an error message or the clean record. */
@@ -42,14 +46,14 @@ function parseListing(body: Record<string, unknown>): { error: string } | { data
     property_id: body.property_id ? int(body.property_id) || null : null,
     title: str(body.title, 120),
     property_type: oneOf(body.property_type, PROPERTY_TYPES, "HOUSE"),
-    street: str(body.street, 200), unit: str(body.unit, 20), city: str(body.city, 100),
+    street: streetOnly(str(body.street, 200), str(body.city, 100)), unit: str(body.unit, 20), city: str(body.city, 100),
     state: str(body.state, 2).toUpperCase() || "CA", zip: str(body.zip, 10),
     rent: num(body.rent), deposit: num(body.deposit), application_fee: num(body.application_fee),
     bedrooms: int(body.bedrooms), full_baths: int(body.full_baths), half_baths: int(body.half_baths),
     square_feet: body.square_feet ? int(body.square_feet) || null : null,
     date_available: /^\d{4}-\d{2}-\d{2}$/.test(str(body.date_available)) ? str(body.date_available) : "",
     lease_term: oneOf(body.lease_term, LEASE_TERMS, "12 Months"),
-    description: str(body.description, 5000), amenities: str(body.amenities, 1000),
+    description: unquote(str(body.description, 5000)), amenities: str(body.amenities, 1000),
     laundry: oneOf(body.laundry, LAUNDRY_OPTIONS, ""), parking_type: oneOf(body.parking_type, PARKING_TYPES, ""),
     cats_allowed: bool(body.cats_allowed), small_dogs_allowed: bool(body.small_dogs_allowed), large_dogs_allowed: bool(body.large_dogs_allowed),
     smoking_allowed: bool(body.smoking_allowed), furnished: bool(body.furnished),
@@ -233,6 +237,8 @@ export const ZILLOW_COMPANY_ID = "ecrentalpm";
 
 /** Zillow Rentals "hotPadsItems" v2.1 feed, single-unit structure (HOUSE | CONDO | TOWNHOUSE). */
 export function buildZillowFeed(origin: string, listings: ListingRow[], photos: Record<number, PhotoRow[]>): string {
+  // Zillow fetches every URL in the feed; always hand it https links, even when the feed was opened over http.
+  origin = origin.replace(/^http:\/\/(?!localhost|127\.0\.0\.1)/, "https://");
   const out: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<hotPadsItems version="2.1">'];
   out.push(`<Company id="${ZILLOW_COMPANY_ID}">${el("name", "EC Rental Property Management LLC")}${el("website", origin)}${el("city", "Fresno")}${el("state", "CA")}</Company>`);
   for (const l of listings) {
@@ -240,10 +246,10 @@ export function buildZillowFeed(origin: string, listings: ListingRow[], photos: 
     p.push(`<listing id="ECR${l.id}" type="RENTAL" companyId="${ZILLOW_COMPANY_ID}" propertyType="${x(l.property_type)}">`);
     p.push(el("name", l.title));
     p.push(el("unit", l.unit));
-    p.push(`<street hide="false">${x(l.street)}</street>`, el("city", l.city), el("state", l.state), el("zip", l.zip), el("country", "US"));
+    p.push(`<street hide="false">${x(streetOnly(l.street, l.city))}</street>`, el("city", l.city), el("state", l.state), el("zip", l.zip), el("country", "US"));
     p.push(el("lastUpdated", l.updated_at));
     p.push(el("contactName", l.contact_name), el("contactEmail", l.contact_email), el("contactPhone", l.contact_phone));
-    const description = [l.description, l.amenities ? `Amenities: ${l.amenities}` : "", laundryText(l.laundry)].filter(Boolean).join("\n\n");
+    const description = [unquote(l.description), l.amenities ? `Amenities: ${l.amenities}` : "", laundryText(l.laundry)].filter(Boolean).join("\n\n");
     p.push(el("description", description));
     p.push(el("leaseTerm", l.lease_term));
     p.push(el("website", `${origin}/listing?id=${l.id}`));

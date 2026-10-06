@@ -129,6 +129,8 @@ interface User { id: number; name: string; company: string; email: string; plan:
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    // Send plain http visits to https so the site never shows "Not Secure".
+    if (url.protocol === "http:" && url.hostname.endsWith("ecrentalpm.com") && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     // Chat API

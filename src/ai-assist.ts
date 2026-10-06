@@ -50,7 +50,8 @@ export function listingFacts(b: Record<string, unknown>): string[] {
 
 export function aiText(out: unknown): string { return String((out as { response?: unknown })?.response ?? "").trim(); }
 // Models sometimes wrap the answer in quotes or a "Here is..." lead-in; keep only the text.
-export function clean(text: string): string { return text.replace(/^(here('s| is)[^\n]*:\s*)/i, "").replace(/^["']|["']$/g, "").trim(); }
+// Strips whole runs of quotes ("""text""" too), which used to leave "" at both ends of rewritten listings.
+export function clean(text: string): string { return text.trim().replace(/^(here('s| is)[^\n]*:\s*)/i, "").replace(/^["'\u201C\u201D]+\s*|\s*["'\u201C\u201D]+$/g, "").trim(); }
 
 export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, url: URL, user: { id: number; name: string; company: string }, allow: () => Promise<boolean>): Promise<Response | null> {
   if (!url.pathname.startsWith("/api/ai/") || request.method !== "POST") return null;
