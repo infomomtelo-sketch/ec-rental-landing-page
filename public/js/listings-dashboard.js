@@ -179,6 +179,18 @@
     }).catch(function(err) { aiMsg.style.color = '#991b1b'; aiMsg.textContent = err.message; }).then(function() { aiBtn.disabled = false; });
   });
 
+  // Writes a short headline from the same details.
+  var titleBtn = document.getElementById('listingTitleAiBtn'), titleMsg = document.getElementById('listingTitleAiMsg');
+  if (titleBtn) titleBtn.addEventListener('click', function() {
+    var data = {};
+    Array.prototype.forEach.call(form.elements, function(el) { if (el.name) data[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+    titleBtn.disabled = true; titleMsg.style.color = 'var(--gray)'; titleMsg.textContent = 'Writing...';
+    api('/ai/listing-title', 'POST', data).then(function(r) {
+      form.elements.title.value = r.title;
+      titleMsg.textContent = 'Written by AI. Click again for another option, or edit it.';
+    }).catch(function(err) { titleMsg.style.color = '#991b1b'; titleMsg.textContent = err.message; }).then(function() { titleBtn.disabled = false; });
+  });
+
   // Compares the rent with similar listings on EC Rental.
   var rentBtn = document.getElementById('listingRentBtn'), rentResult = document.getElementById('listingRentResult');
   if (rentBtn) rentBtn.addEventListener('click', function() {
