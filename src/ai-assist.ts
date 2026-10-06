@@ -58,6 +58,24 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
   if (!url.pathname.startsWith("/api/ai/") || request.method !== "POST") return null;
   if (!(await allow())) return json({ error: "Too many AI requests. Please wait a minute and try again." }, 429);
 
+  if (url.pathname === "/api/ai/listing-title") {
+    const body = await request.json() as Record<string, unknown>;
+    if (!num(body.rent) && !str(body.city)) return json({ error: "Fill in at least the city and rent first, so the AI has something to work with." }, 400);
+    const prompt = [
+      "Write one headline for a rental listing that will appear on our website and on Zillow.",
+      "Use only these facts. Don't invent features or landmarks:",
+      ...listingFacts({ ...body, title: "" }).map((f) => "- " + f),
+      "",
+      "Rules: 40 to 70 characters, Title Case, plain text, no emojis, no exclamation marks, no quotes, no street address, no price. If it's a room rental, say it's a room and whether the bathroom is private or shared. Reply with the headline only.",
+    ].join("\n");
+    try {
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write short, honest, appealing rental listing headlines for EC Rental Property Management in Fresno, California. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 60, temperature: 0.8 } as never);
+      const title = clean(aiText(out)).split("\n")[0].replace(/[!]+/g, "").replace(/\.$/, "").trim().slice(0, 120);
+      if (!title) return json({ error: "The AI didn't return a headline. Please try again." }, 502);
+      return json({ title });
+    } catch (err) { console.error("[ai] listing-title", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
+  }
+
   if (url.pathname === "/api/ai/listing-description") {
     const body = await request.json() as Record<string, unknown>;
     if (!num(body.rent) && !str(body.city)) return json({ error: "Fill in at least the city and rent first, so the AI has something to describe." }, 400);
