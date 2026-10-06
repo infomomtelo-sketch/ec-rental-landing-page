@@ -4,6 +4,7 @@
  * the active listings. It never invents facts, screens people or promises approval; tours go through
  * the listing's "Request a showing" inquiry, so they land in the landlord's Renter Inquiries.
  */
+import { LISTING_SELECT } from "./listings";
 import { aiText, clean, FAIR_HOUSING, listingFacts, MODEL } from "./ai-assist";
 
 interface ChatEnv { AI: Ai; DB: D1Database; }
@@ -42,7 +43,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
   const listingId = Number(body.listingId);
   let system: string, found: ListingFactsRow[] = [];
   if (Number.isInteger(listingId) && listingId > 0) {
-    const l = await env.DB.prepare("SELECT * FROM listings WHERE id = ? AND status = 'active'").bind(listingId).first<ListingFactsRow>();
+    const l = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE id = ? AND status = 'active'`).bind(listingId).first<ListingFactsRow>();
     if (!l) return json({ error: "This listing is no longer available." }, 404);
     system = [
       "You are Tello, the EC Rental assistant on the web page for one rental home, answering renters' questions about it for EC Rental Property Management in Fresno, California.",
@@ -57,7 +58,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
       RULES,
     ].join("\n");
   } else {
-    const rows = await env.DB.prepare("SELECT * FROM listings WHERE status = 'active' ORDER BY rent LIMIT 40").all<ListingFactsRow>();
+    const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE status = 'active' ORDER BY rent LIMIT 40`).all<ListingFactsRow>();
     found = rows.results;
     const lines = rows.results.map((l) => {
       const pets = [l.cats_allowed && "cats", l.small_dogs_allowed && "small dogs", l.large_dogs_allowed && "large dogs"].filter(Boolean).join(", ") || "no pets";

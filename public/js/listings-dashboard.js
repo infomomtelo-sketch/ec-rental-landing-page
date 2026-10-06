@@ -238,6 +238,7 @@
     if (l.square_feet) facts.push(Number(l.square_feet).toLocaleString('en-US') + ' sq ft');
     if (l.cats_allowed || l.small_dogs_allowed || l.large_dogs_allowed) facts.push('pets considered');
     if (l.laundry === 'in_unit') facts.push('in-unit laundry');
+    if (l.bathroom === 'private' || l.bathroom === 'shared') facts.push(l.bathroom + ' bathroom');
     if (l.parking_type === 'garageAttached' || l.parking_type === 'garageLot') facts.push('garage');
     lines.push(l.street + ', ' + l.city + ' · ' + facts.join(' · '));
     if (l.title) lines.push(l.title);
