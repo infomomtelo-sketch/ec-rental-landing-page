@@ -38,6 +38,7 @@ export function listingFacts(b: Record<string, unknown>): string[] {
   if (str(b.lease_term)) facts.push(`Lease: ${str(b.lease_term) === "monthly" ? "month to month" : str(b.lease_term) === "contactForDetails" ? "contact for details" : str(b.lease_term, 20)}`);
   if (PARKING[str(b.parking_type)]) facts.push(`Parking: ${PARKING[str(b.parking_type)]}`);
   if (LAUNDRY[str(b.laundry)]) facts.push(`Laundry: ${LAUNDRY[str(b.laundry)]}`);
+  if (str(b.bathroom) === "private" || str(b.bathroom) === "shared") facts.push(`Bathroom: ${str(b.bathroom)} (room rental)`);
   const yes = (v: unknown) => v === true || v === 1 || v === "1" || v === "true" || v === "on";
   const pets = [yes(b.cats_allowed) && "cats", yes(b.small_dogs_allowed) && "small dogs", yes(b.large_dogs_allowed) && "large dogs"].filter(Boolean);
   facts.push(pets.length ? `Pets allowed: ${pets.join(", ")}` : "Pets: not allowed");

@@ -15,13 +15,16 @@ interface ListingRow {
   square_feet: number | null; date_available: string; lease_term: string; description: string; amenities: string;
   laundry: string; parking_type: string; cats_allowed: number; small_dogs_allowed: number; large_dogs_allowed: number;
   smoking_allowed: number; furnished: number; contact_name: string; contact_email: string; contact_phone: string;
-  status: string; syndicate_zillow: number; created_at: string; updated_at: string;
+  status: string; syndicate_zillow: number; created_at: string; updated_at: string; bathroom: string;
 }
 interface PhotoRow { id: number; listing_id: number; r2_key: string; caption: string; sort_order: number; }
 
 export const PROPERTY_TYPES = ["HOUSE", "CONDO", "TOWNHOUSE"];
 const STATUSES = ["draft", "active", "rented"];
 const LEASE_TERMS = ["12 Months", "6 Months", "monthly", "contactForDetails"];
+const BATHROOM_TYPES = ["", "private", "shared"];
+// Listings plus their extra details; use as "SELECT ${LISTING_SELECT} WHERE ...".
+export const LISTING_SELECT = "listings.*, COALESCE(listing_details.bathroom, '') AS bathroom FROM listings LEFT JOIN listing_details ON listing_details.listing_id = listings.id";
 const PARKING_TYPES = ["", "garageAttached", "garageLot", "coveredLot", "street", "surfaceLot", "other", "none"];
 const LAUNDRY_OPTIONS = ["", "in_unit", "shared", "hookups", "none"];
 const MAX_PHOTOS = 25;
@@ -59,6 +62,7 @@ function parseListing(body: Record<string, unknown>): { error: string } | { data
     smoking_allowed: bool(body.smoking_allowed), furnished: bool(body.furnished),
     contact_name: str(body.contact_name, 100), contact_email: str(body.contact_email, 200).toLowerCase(), contact_phone: digits(body.contact_phone),
     status: oneOf(body.status, STATUSES, "draft"), syndicate_zillow: bool(body.syndicate_zillow),
+    bathroom: oneOf(body.bathroom, BATHROOM_TYPES, ""),
   };
   if (!data.street || !data.city || !data.zip) return { error: "Street, city and ZIP are required." };
   if (!/^[A-Z]{2}$/.test(data.state)) return { error: "State must be a two-letter code, like CA." };
@@ -69,6 +73,10 @@ function parseListing(body: Record<string, unknown>): { error: string } | { data
 }
 
 const LISTING_COLUMNS = ["property_id", "title", "property_type", "street", "unit", "city", "state", "zip", "rent", "deposit", "application_fee", "bedrooms", "full_baths", "half_baths", "square_feet", "date_available", "lease_term", "description", "amenities", "laundry", "parking_type", "cats_allowed", "small_dogs_allowed", "large_dogs_allowed", "smoking_allowed", "furnished", "contact_name", "contact_email", "contact_phone", "status", "syndicate_zillow"] as const;
+
+async function saveDetails(env: ListingsEnv, id: number, bathroom: string): Promise<void> {
+  await env.DB.prepare("INSERT INTO listing_details (listing_id, bathroom) VALUES (?, ?) ON CONFLICT(listing_id) DO UPDATE SET bathroom = excluded.bathroom").bind(id, bathroom).run();
+}
 
 async function photosFor(env: ListingsEnv, listingIds: number[]): Promise<Record<number, PhotoRow[]>> {
   const out: Record<number, PhotoRow[]> = {};
@@ -105,7 +113,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
   const origin = url.origin;
 
   if (path === "/api/listings" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT * FROM listings WHERE user_id = ? ORDER BY updated_at DESC").bind(user.id).all<ListingRow>();
+    const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE user_id = ? ORDER BY updated_at DESC`).bind(user.id).all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
     return json(rows.results.map((l) => withZillow(origin, l, photos[l.id])));
   }
@@ -117,13 +125,14 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
     const now = new Date().toISOString();
     const result = await env.DB.prepare(`INSERT INTO listings (user_id, ${LISTING_COLUMNS.join(", ")}, created_at, updated_at) VALUES (?, ${LISTING_COLUMNS.map(() => "?").join(", ")}, ?, ?)`)
       .bind(user.id, ...LISTING_COLUMNS.map((c) => parsed.data[c]), now, now).run();
+    await saveDetails(env, Number(result.meta.last_row_id), parsed.data.bathroom);
     return json({ success: true, id: result.meta.last_row_id });
   }
 
   const one = path.match(/^\/api\/listings\/(\d+)$/);
   if (one) {
     const id = parseInt(one[1]);
-    const listing = await env.DB.prepare("SELECT * FROM listings WHERE id = ? AND user_id = ?").bind(id, user.id).first<ListingRow>();
+    const listing = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE id = ? AND user_id = ?`).bind(id, user.id).first<ListingRow>();
     if (!listing) return json({ error: "Not found" }, 404);
     if (request.method === "GET") { const photos = await photosFor(env, [id]); return json(withZillow(origin, listing, photos[id])); }
     if (request.method === "PUT") {
@@ -132,6 +141,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
       if (parsed.data.property_id && !(await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(parsed.data.property_id, user.id).first())) return json({ error: "Property not found" }, 404);
       await env.DB.prepare(`UPDATE listings SET ${LISTING_COLUMNS.map((c) => `${c} = ?`).join(", ")}, updated_at = ? WHERE id = ? AND user_id = ?`)
         .bind(...LISTING_COLUMNS.map((c) => parsed.data[c]), new Date().toISOString(), id, user.id).run();
+      await saveDetails(env, id, parsed.data.bathroom);
       return json({ success: true });
     }
     if (request.method === "DELETE") {
@@ -139,7 +149,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
       if (apps && apps.n > 0) return json({ error: "This listing has applications, so it can't be deleted. Set its status to Rented to hide it instead." }, 409);
       const photos = await env.DB.prepare("SELECT r2_key FROM listing_photos WHERE listing_id = ?").bind(id).all<{ r2_key: string }>();
       if (env.PHOTOS && photos.results.length) await env.PHOTOS.delete(photos.results.map((p) => p.r2_key));
-      await env.DB.batch([env.DB.prepare("DELETE FROM listing_photos WHERE listing_id = ?").bind(id), env.DB.prepare("DELETE FROM listings WHERE id = ? AND user_id = ?").bind(id, user.id)]);
+      await env.DB.batch([env.DB.prepare("DELETE FROM listing_photos WHERE listing_id = ?").bind(id), env.DB.prepare("DELETE FROM listing_details WHERE listing_id = ?").bind(id), env.DB.prepare("DELETE FROM listings WHERE id = ? AND user_id = ?").bind(id, user.id)]);
       return json({ success: true });
     }
   }
@@ -184,7 +194,7 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   const origin = url.origin;
 
   if (path === "/api/public/listings" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT * FROM listings WHERE status = 'active' ORDER BY updated_at DESC LIMIT 200").all<ListingRow>();
+    const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE status = 'active' ORDER BY updated_at DESC LIMIT 200`).all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
     return json(rows.results.map((l) => publicListing(origin, l, photos[l.id])));
   }
@@ -192,7 +202,7 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   const one = path.match(/^\/api\/public\/listings\/(\d+)$/);
   if (one && request.method === "GET") {
     const id = parseInt(one[1]);
-    const l = await env.DB.prepare("SELECT * FROM listings WHERE id = ? AND status = 'active'").bind(id).first<ListingRow>();
+    const l = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE id = ? AND status = 'active'`).bind(id).first<ListingRow>();
     if (!l) return json({ error: "This listing is no longer available." }, 404);
     const photos = await photosFor(env, [id]);
     return json(publicListing(origin, l, photos[id]));
@@ -221,7 +231,7 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   }
 
   if (path === "/feeds/zillow.xml" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT * FROM listings WHERE status = 'active' AND syndicate_zillow = 1 ORDER BY id").all<ListingRow>();
+    const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE status = 'active' AND syndicate_zillow = 1 ORDER BY id`).all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
     const ready = rows.results.filter((l) => zillowIssues(l, (photos[l.id] || []).length).length === 0);
     return new Response(buildZillowFeed(origin, ready, photos), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });
@@ -249,7 +259,7 @@ export function buildZillowFeed(origin: string, listings: ListingRow[], photos: 
     p.push(`<street hide="false">${x(streetOnly(l.street, l.city))}</street>`, el("city", l.city), el("state", l.state), el("zip", l.zip), el("country", "US"));
     p.push(el("lastUpdated", l.updated_at));
     p.push(el("contactName", l.contact_name), el("contactEmail", l.contact_email), el("contactPhone", l.contact_phone));
-    const description = [unquote(l.description), l.amenities ? `Amenities: ${l.amenities}` : "", laundryText(l.laundry)].filter(Boolean).join("\n\n");
+    const description = [unquote(l.description), l.amenities ? `Amenities: ${l.amenities}` : "", laundryText(l.laundry), bathroomText(l.bathroom)].filter(Boolean).join("\n\n");
     p.push(el("description", description));
     p.push(el("leaseTerm", l.lease_term));
     p.push(el("website", `${origin}/listing?id=${l.id}`));
@@ -279,4 +289,5 @@ export function buildZillowFeed(origin: string, listings: ListingRow[], photos: 
 function fee(amount: number, type: string, timing: string, refundable: string): string {
   return `<fee><feeCalculationType value="${Math.round(amount)}" valueType="flatFee" /><feeType>${type}</feeType><feeTimingType>${timing}</feeTimingType><feeRequirementType>mandatory</feeRequirementType><feeRefundableType>${refundable}</feeRefundableType></fee>`;
 }
+function bathroomText(v: string): string { return v === "private" ? "Bathroom: private" : v === "shared" ? "Bathroom: shared" : ""; }
 function laundryText(v: string): string { return ({ in_unit: "Laundry: in unit", shared: "Laundry: shared on site", hookups: "Laundry: washer/dryer hookups", none: "" } as Record<string, string>)[v] || ""; }
