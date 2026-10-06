@@ -21,7 +21,7 @@ const MAX_ITEMS = 150;
 
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 function str(v: unknown, max = 500): string { return v === undefined || v === null ? "" : String(v).trim().slice(0, max); }
-function typeLabel(t: string): string { return ({ move_in: "move-in", move_out: "move-out", routine: "routine", annual: "annual" } as Record<string, string>)[t] || "routine"; }
+export function typeLabel(t: string): string { return ({ move_in: "move-in", move_out: "move-out", routine: "routine", annual: "annual" } as Record<string, string>)[t] || "routine"; }
 
 /** Pulls the first JSON object or array out of a model reply ("Sure! {...}"). */
 function parseJson<T>(text: string, open: "{" | "["): T | null {
@@ -36,7 +36,7 @@ async function ownedInspection(env: InspectionEnv, userId: number, id: number): 
 }
 
 /** Reads one photo with the vision model. Never throws: a failed read leaves the fields for the inspector. */
-async function readPhoto(env: InspectionEnv, room: string, type: string, bytes: ArrayBuffer): Promise<{ condition: string; notes: string; repair_needed: number; repair_item: string }> {
+export async function readPhoto(env: { AI: Ai }, room: string, type: string, bytes: ArrayBuffer): Promise<{ condition: string; notes: string; repair_needed: number; repair_item: string }> {
   const prompt = [
     `This photo is from the ${room} during a ${typeLabel(type)} inspection of a rental home.`,
     "Describe only what is visible, objectively, like a home inspector writing a condition report: walls, floors, ceiling, fixtures, appliances, windows, doors. Note specific marks, stains, holes, cracks, leaks, missing or broken parts and their location. Don't guess at causes or things you can't see, and don't describe people.",
@@ -57,7 +57,7 @@ async function readPhoto(env: InspectionEnv, room: string, type: string, bytes: 
   }
 }
 
-function overallFrom(items: ItemRow[]): string {
+export function overallFrom(items: { condition: string; repair_needed: number }[]): string {
   const repairs = items.filter((i) => i.repair_needed).length;
   if (items.some((i) => i.condition === "damaged") || repairs > 2) return "Needs Attention";
   if (repairs > 0 || items.some((i) => i.condition === "poor")) return "Fair";

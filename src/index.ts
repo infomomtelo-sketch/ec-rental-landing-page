@@ -72,6 +72,7 @@ import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
+import { handleRemoteInspections } from "./remote-inspections";
 import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
@@ -278,6 +279,7 @@ export default {
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
+    try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
@@ -355,7 +357,7 @@ export default {
 
     // Chat Leads API (admin only): tenant applications and maintenance requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
-    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
+    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request', 'ai_inspection') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
     if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
