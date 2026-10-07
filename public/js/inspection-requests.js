@@ -19,7 +19,7 @@
   var bookBtn = document.createElement('button');
   bookBtn.className = 'btn btn-secondary'; bookBtn.type = 'button'; bookBtn.id = 'bookInspectionBtn';
   bookBtn.textContent = 'Book in-person inspection';
-  var btnWrap = document.createElement('div'); btnWrap.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap';
+  var btnWrap = document.createElement('div'); btnWrap.className = 'header-actions'; btnWrap.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap';
   newBtn.parentNode.insertBefore(btnWrap, newBtn); btnWrap.appendChild(bookBtn); btnWrap.appendChild(newBtn);
 
   // Launch bonus banner + the landlord's requests
