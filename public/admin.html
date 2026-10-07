@@ -45,6 +45,15 @@
     select, input[type="search"] { padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; background: var(--white); }
     input[type="search"] { min-width: 220px; }
     .empty { text-align: center; padding: 2.5rem; color: var(--gray); }
+    .vchart { display: flex; align-items: flex-end; gap: 3px; height: 180px; padding: 1.25rem 1.25rem 0.5rem; }
+    .vchart .bar { flex: 1; min-width: 3px; background: linear-gradient(180deg, #2f8a55, var(--primary)); border-radius: 4px 4px 0 0; position: relative; }
+    .vchart .bar:hover { background: var(--accent); }
+    .vchart-axis { display: flex; justify-content: space-between; padding: 0 1.25rem 1rem; font-size: 0.75rem; color: var(--gray); }
+    .vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .vgrid .data-card { margin-bottom: 0; }
+    .meter { height: 6px; background: #eef4ee; border-radius: 3px; margin-top: 0.3rem; overflow: hidden; }
+    .meter i { display: block; height: 100%; background: var(--accent); }
+    @media (max-width: 800px) { .vgrid { grid-template-columns: 1fr; } }
     .page { display: none; }
     .page.active { display: block; }
     .gate { max-width: 420px; margin: 4rem auto; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 2rem; text-align: center; }
@@ -61,6 +70,7 @@
   <div id="app" style="display:none;">
     <div class="tabs" role="tablist">
       <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="visitors">Visitors</button>
       <button data-tab="accounts">Accounts</button>
       <button data-tab="listings">Listings</button>
       <button data-tab="leads">Leads</button>
@@ -71,6 +81,17 @@
         <div class="stat-cards" id="statCards"></div>
         <div class="data-card"><div class="data-card-header"><h2>Accounts by plan</h2></div><div class="table-scroll"><table><thead><tr><th>Plan</th><th>Accounts</th><th>Price</th><th>Plan value / mo</th></tr></thead><tbody id="planBody"></tbody></table></div></div>
         <p class="muted">Plan value is what every account would pay at list price. "Paying in Stripe" counts subscriptions Stripe reports as active.</p>
+      </section>
+      <section class="page" id="page-visitors">
+        <h1>Visitors</h1><p class="sub">Who visits the public site and where they come from. Your own visits are not counted on this browser.</p>
+        <div class="data-card-header" style="padding:0 0 1rem;border:none"><select id="visitDays" aria-label="Time range"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
+        <div class="stat-cards" id="visitCards"></div>
+        <div class="data-card"><div class="data-card-header"><h2>Visitors per day</h2></div><div class="vchart" id="visitChart"></div><div class="vchart-axis" id="visitAxis"></div></div>
+        <div class="vgrid">
+          <div class="data-card"><div class="data-card-header"><h2>Where they come from</h2></div><div class="table-scroll"><table><thead><tr><th>Source</th><th>Visitors</th></tr></thead><tbody id="sourceBody"></tbody></table></div></div>
+          <div class="data-card"><div class="data-card-header"><h2>Most viewed pages</h2></div><div class="table-scroll"><table><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody id="pageBody"></tbody></table></div></div>
+        </div>
+        <p class="muted" style="margin-top:1rem">Counting started when this page went live, so earlier days show nothing. A visitor is one browser on one day. Search engines and bots are left out.</p>
       </section>
       <section class="page" id="page-accounts">
         <h1>Landlord accounts</h1><p class="sub">Every landlord and property manager who signed up. Changing a plan changes how many properties they can add.</p>

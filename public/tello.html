@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Tello — EC Rental's AI assistant</title>
-  <meta name="description" content="Ask Tello anything about renting in Fresno and Clovis: available homes, showings, applying, or managing your rental with EC Rental Property Management." />
+  <meta name="description" content="Ask Tello anything about renting: available homes, showings, applying, or managing your rental with EC Rental Property Management." />
   <link rel="canonical" href="https://ecrentalpm.com/tello" />
   <link rel="icon" href="/tello-icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/tello-apple-touch-icon.png" />
@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Ask Tello — EC Rental's AI assistant" />
-  <meta property="og:description" content="Find a Fresno rental, set up a showing, or get help managing your property. Ask Tello, any time." />
+  <meta property="og:description" content="Find a rental, set up a showing, or get help managing your property. Ask Tello, any time." />
   <meta property="og:url" content="https://ecrentalpm.com/tello" />
   <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -68,7 +68,7 @@
     <div class="hello">
       <img src="/tello-icon.svg" alt="Tello" />
       <h2>Hi, I'm Tello.</h2>
-      <p>Ask me anything about renting in Fresno and Clovis, or about managing your rental with EC Rental.</p>
+      <p>Ask me anything about renting a home, or about managing your rentals with EC Rental.</p>
       <div class="modes" role="group" aria-label="I am"><button type="button" data-mode="rent" aria-pressed="true">I'm looking to rent</button><button type="button" data-mode="own" aria-pressed="false">I'm a landlord</button></div>
     </div>
     <div class="chips" id="chips"></div>
@@ -150,5 +150,6 @@
       } else if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
     })();
   </script>
+<script src="/js/track.js" defer></script>
 </body>
 </html>

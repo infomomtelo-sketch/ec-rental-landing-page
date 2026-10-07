@@ -37,7 +37,7 @@
   window.addEventListener('resize', function () { if (window.innerWidth > 900 && menu && !menu.hidden) setMenu(false); });
 
   // Active section: highlight the matching link and slide the underline to it.
-  var ids = ['tello', 'services', 'tax-reporting', 'subscribe', 'about', 'contact'];
+  var ids = ['tour', 'tello', 'services', 'tax-reporting', 'subscribe', 'about', 'contact'];
   var sections = ids.map(function (id) { return document.getElementById(id); }).filter(Boolean);
   var current = null;
   function moveInk(a) {
@@ -80,6 +80,18 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', function () { var c = current; current = null; setActive(c); onScroll(); });
   onScroll();
+
+  // Product tour tabs: swap the dashboard screenshot.
+  var CAPS = { overview: 'Properties, occupancy, rent collected and open requests at a glance.', maintenance: 'Requests sorted by priority. Tello triages each one and suggests the next step.', reports: 'Rent, expenses and owner payouts per property, ready to export for tax season.' };
+  var tourBtns = document.querySelectorAll('.tour-tabs button');
+  tourBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.getAttribute('data-shot');
+      tourBtns.forEach(function (b) { var on = b === btn; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      document.querySelectorAll('.tour-shots img').forEach(function (img) { img.classList.toggle('on', img.getAttribute('data-shot') === key); });
+      var cap = document.getElementById('tourCap'); if (cap) cap.textContent = CAPS[key] || '';
+    });
+  });
 
   // Count the stats up the first time they come into view.
   var counters = document.querySelectorAll('[data-count]');

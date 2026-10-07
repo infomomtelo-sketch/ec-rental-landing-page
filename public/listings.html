@@ -70,5 +70,6 @@
       fetch('/api/public/listings').then(function(r) { return r.json(); }).then(function(d) { all = Array.isArray(d) ? d : []; render(); }).catch(function() { grid.innerHTML = '<p class="muted">Could not load rentals. Please refresh.</p>'; });
     })();
   </script>
+<script src="/js/track.js" defer></script>
 </body>
 </html>
