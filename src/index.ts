@@ -6,9 +6,9 @@ interface ChatRequest { message: string; history?: { role: "user" | "assistant";
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
-const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Management LLC in Fresno, California. If asked your name, you are Tello.
+const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Management LLC. If asked your name, you are Tello.
 Company info:
-- Locally owned property management in Fresno, CA serving the Central Valley including Clovis.
+- AI-powered property management software for independent landlords and property managers anywhere. The company is based in Fresno, CA, where it also manages rentals and does in-person inspections in Fresno and Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
 - Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited). Every plan starts with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime).
 - Contact: info@ecrentalpm.com, (559) 825-3038.
@@ -17,7 +17,7 @@ Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
 - Write in a professional tone. Never use emojis.
 - Never use more than 40 words unless absolutely necessary.
-- Only answer about EC Rental, property management, or Fresno rentals.
+- Only answer about EC Rental, property management, renting, or EC Rental's listings.
 - Don't make up URLs, buttons, or features that don't exist on the site.
 Special actions — include these tags in your response to trigger UI elements:
 - If asked about applying as tenant, renting, available properties, or becoming a renter: include [SHOW_TENANT_FORM] in your response.
@@ -73,6 +73,7 @@ import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
 import { handleRemoteInspections } from "./remote-inspections";
+import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
@@ -133,6 +134,8 @@ export default {
     // Send plain http visits to https so the site never shows "Not Secure".
     if (url.protocol === "http:" && url.hostname.endsWith("ecrentalpm.com") && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
+
+    const visit = await handleVisits(request, env, url); if (visit) return visit;
 
     // Chat API
     if (url.pathname === "/api/chat" && request.method === "POST") {

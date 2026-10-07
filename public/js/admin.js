@@ -123,12 +123,47 @@
   };
   document.getElementById('leadFilter').addEventListener('change', renderLeads);
 
+  // Visitors
+  var PAGE_NAMES = { '/': 'Home page', '/listings': 'Rentals', '/listing': 'A listing', '/apply': 'Rental application', '/rent-review': 'Free rent review', '/ai-inspection': 'Free AI home check', '/tello': 'Tello full screen', '/features/': 'Features', '/privacy': 'Privacy', '/terms': 'Terms' };
+  function pageName(p) { var k = p.replace(/\.html$/, '').replace(/\/index$/, '/'); return PAGE_NAMES[k] || (k.indexOf('/features/') === 0 ? 'Features: ' + k.slice(10) : k); }
+  function loadVisits() {
+    var days = parseInt(document.getElementById('visitDays').value, 10) || 30;
+    return api('/admin/visits?days=' + days).then(function(r) {
+      var v = r.data || {}; var res = v.results || {};
+      var phone = 0, all = 0; (v.devices || []).forEach(function(d) { all += d.visitors; if (d.device === 'phone') phone += d.visitors; });
+      var cards = [
+        ['Visitors', v.visitors || 0, (v.visitors7 || 0) + ' in the last 7 days'],
+        ['Page views', v.views || 0, (v.visitors ? (v.views / v.visitors).toFixed(1) : '0') + ' pages per visitor'],
+        ['On a phone', all ? Math.round(phone * 100 / all) + '%' : '-', 'The rest on a computer'],
+        ['New accounts', res.accounts || 0, v.visitors ? ((res.accounts || 0) * 100 / v.visitors).toFixed(1) + '% of visitors signed up' : 'Sign-ups in this range'],
+        ['Rental applications', res.applications || 0, 'Sent from listings'],
+        ['Free tools used', (res.aiChecks || 0) + (res.rentReviews || 0), (res.aiChecks || 0) + ' AI home checks, ' + (res.rentReviews || 0) + ' rent reviews'],
+      ];
+      document.getElementById('visitCards').innerHTML = cards.map(function(c) { return '<div class="stat-card"><div class="label">' + esc(c[0]) + '</div><div class="value">' + esc(c[1]) + '</div><div class="note">' + esc(c[2]) + '</div></div>'; }).join('');
+      // One bar per day, including days with no visits.
+      var byDay = {}; (v.daily || []).forEach(function(d) { byDay[d.day] = d; });
+      var series = [], max = 1;
+      for (var i = days - 1; i >= 0; i--) { var key = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10); var n = byDay[key] ? byDay[key].visitors : 0; series.push([key, n, byDay[key] ? byDay[key].views : 0]); if (n > max) max = n; }
+      document.getElementById('visitChart').innerHTML = series.map(function(d) { return '<div class="bar" style="height:' + Math.max(2, Math.round(d[1] * 100 / max)) + '%" title="' + esc(date(d[0] + 'T12:00:00') + ': ' + d[1] + ' visitors, ' + d[2] + ' views') + '"></div>'; }).join('');
+      document.getElementById('visitAxis').innerHTML = '<span>' + esc(date(series[0][0] + 'T12:00:00')) + '</span><span>Today</span>';
+      var srcMax = 1; (v.sources || []).forEach(function(s) { if (s.visitors > srcMax) srcMax = s.visitors; });
+      var sb = document.getElementById('sourceBody');
+      if (!(v.sources || []).length) empty(sb, 2, 'No visits counted yet.');
+      else sb.innerHTML = v.sources.map(function(s) { return '<tr><td>' + esc(s.source) + '<div class="meter"><i style="width:' + Math.round(s.visitors * 100 / srcMax) + '%"></i></div></td><td>' + s.visitors + '</td></tr>'; }).join('');
+      var pb = document.getElementById('pageBody');
+      if (!(v.pages || []).length) empty(pb, 2, 'No visits counted yet.');
+      else pb.innerHTML = v.pages.map(function(p) { return '<tr><td>' + esc(pageName(p.path)) + '</td><td>' + p.views + '</td></tr>'; }).join('');
+    });
+  }
+  document.getElementById('visitDays').addEventListener('change', loadVisits);
+
   if (!token) return gate('Sign in first', 'Sign in to your EC Rental dashboard, then open the Admin page from the menu.');
   api('/admin/overview').then(function(r) {
     if (r.status === 401) return gate('Sign in first', 'Your session has ended. Sign in to your EC Rental dashboard, then open the Admin page from the menu.');
     if (r.status === 403) return gate('Admins only', 'This page is only for the EC Rental site owner. Your account can keep using the dashboard as usual.', 'Back to dashboard');
     document.getElementById('app').style.display = 'block';
-    var start = (location.hash || '').slice(1); if (['overview', 'accounts', 'listings', 'leads'].indexOf(start) !== -1) showTab(start);
-    loadOverview(); loadAccounts(); loadListings(); loadLeads();
+    var start = (location.hash || '').slice(1); if (['overview', 'visitors', 'accounts', 'listings', 'leads'].indexOf(start) !== -1) showTab(start);
+    try { localStorage.setItem('ec_notrack', '1'); } catch (e) { /* storage blocked */ }
+    loadOverview(); loadVisits(); loadAccounts(); loadListings(); loadLeads();
   }).catch(function() { gate('Something went wrong', 'The admin page could not load. Please refresh and try again.'); });
 })();

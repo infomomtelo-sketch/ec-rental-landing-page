@@ -3,6 +3,8 @@
  * Admins are users with role 'admin', or whose email is in the ADMIN_EMAILS secret (comma-separated).
  */
 
+import { visitsReport } from "./visits";
+
 export interface AdminEnv { DB: D1Database; ADMIN_EMAILS?: string; }
 interface AdminUser { id: number; email: string; role: string; }
 
@@ -53,6 +55,11 @@ export async function handleAdminRoutes(request: Request, env: AdminEnv, url: UR
       paying: await count(env, "SELECT COUNT(*) AS n FROM billing WHERE status = 'active'"),
       trialing: await count(env, "SELECT COUNT(*) AS n FROM billing WHERE status = 'trialing'"),
     });
+  }
+
+  if (url.pathname === "/api/admin/visits" && request.method === "GET") {
+    const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days") || "30") || 30));
+    return visitsReport(env, days);
   }
 
   // Landlord accounts, with the phone and unit count from their sign-up form when there is one.

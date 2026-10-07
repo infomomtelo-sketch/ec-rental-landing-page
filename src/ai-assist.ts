@@ -69,7 +69,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
       "Rules: 40 to 70 characters, Title Case, plain text, no emojis, no exclamation marks, no quotes, no street address, no price. If it's a room rental, say it's a room and whether the bathroom is private or shared. Reply with the headline only.",
     ].join("\n");
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write short, honest, appealing rental listing headlines for EC Rental Property Management in Fresno, California. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 60, temperature: 0.8 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write short, honest, appealing rental listing headlines for landlords using EC Rental Property Management software. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 60, temperature: 0.8 } as never);
       const title = clean(aiText(out)).split("\n")[0].replace(/[!]+/g, "").replace(/\.$/, "").trim().slice(0, 120);
       if (!title) return json({ error: "The AI didn't return a headline. Please try again." }, 502);
       return json({ title });
@@ -89,7 +89,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
       "Write 110 to 170 words in 2 or 3 short paragraphs of plain text: no headings, bullet points, emojis, markdown or exclamation-mark overload. Lead with what makes the home appealing, then the practical details (rent, availability, lease, pets, parking, laundry). End with one sentence inviting renters to request a showing or apply online. Don't repeat the street address.",
     ].join("\n");
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write clear, honest, appealing rental listing descriptions for EC Rental Property Management in Fresno, California. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 500 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You write clear, honest, appealing rental listing descriptions for landlords using EC Rental Property Management software. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 500 } as never);
       const description = clean(aiText(out)).slice(0, 5000);
       if (!description) return json({ error: "The AI didn't return a description. Please try again." }, 502);
       return json({ description, photos_used: seen.length });
@@ -121,7 +121,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
       `Write the email reply, signed "${signer}". Warm, brief (under 150 words), plain text, no subject line. Answer their question directly, offer to set up a showing, and include the apply link. Don't promise approval, don't ask about their personal characteristics, and treat every renter the same.`,
     ].filter(Boolean).join("\n");
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a Fresno, California property manager answer renter inquiries by email. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 450 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a property manager answer renter inquiries by email. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 450 } as never);
       const reply = clean(aiText(out)).slice(0, 4000);
       if (!reply) return json({ error: "The AI didn't return a reply. Please try again." }, 502);
       return json({ reply, subject: "Re: " + home });
@@ -139,7 +139,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
       ? `Fix only spelling, grammar, punctuation and capitalization in this ${kind}. Keep the wording, meaning, facts, tone and paragraph breaks as they are. Return only the corrected text.`
       : `Rewrite this ${kind} so it reads clearly and professionally and is easy to scan. Keep every fact, number, link and name exactly; don't add new facts. Keep about the same length. Return only the rewritten text.`;
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You are a careful editor for a Fresno, California property manager. " + FAIR_HOUSING + " If the text has wording that breaks those rules, rephrase it to describe the home instead." }, { role: "user", content: task + "\n\nText:\n\"\"\"\n" + text + "\n\"\"\"" }], max_tokens: 1200 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You are a careful editor for a property manager. " + FAIR_HOUSING + " If the text has wording that breaks those rules, rephrase it to describe the home instead." }, { role: "user", content: task + "\n\nText:\n\"\"\"\n" + text + "\n\"\"\"" }], max_tokens: 1200 } as never);
       const result = clean(aiText(out)).replace(/^"""\s*|\s*"""$/g, "").slice(0, 5000);
       if (!result) return json({ error: "The AI didn't return any text. Please try again." }, 502);
       return json({ text: result });
@@ -164,7 +164,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
     const facts = [`Your rent: $${Math.round(rent)}/month`, `Similar listings (${sorted.length}, ${comps.area}): typical range $${Math.round(low)} to $${Math.round(high)}, median $${Math.round(median)}`, `Difference from median: ${diff > 0 ? "+" : ""}${diff}%`, ...(sqft ? [`Your price per square foot: $${(rent / sqft).toFixed(2)}`] : []), ...listingFacts(body).filter((f) => !f.startsWith("Rent:") && !f.startsWith("Landlord's notes") && !f.startsWith("Headline"))];
     let advice = "";
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a Fresno, California landlord price a rental. Use only the numbers given; never invent market data. 2 or 3 short sentences, plain text." }, { role: "user", content: facts.join("\n") + `\n\nThe rent is ${position} similar listings. Say whether it looks reasonable, and which of the home's listed features could justify a higher or lower price.` }], max_tokens: 200 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You help a landlord price a rental. Use only the numbers given; never invent market data. 2 or 3 short sentences, plain text." }, { role: "user", content: facts.join("\n") + `\n\nThe rent is ${position} similar listings. Say whether it looks reasonable, and which of the home's listed features could justify a higher or lower price.` }], max_tokens: 200 } as never);
       advice = clean(aiText(out)).slice(0, 800);
     } catch (err) { console.error("[ai] rent-check", err instanceof Error ? err.message : err); }
     return json({ count: sorted.length, area: comps.area, low: Math.round(low), median: Math.round(median), high: Math.round(high), diff_percent: diff, position, advice });
@@ -209,7 +209,7 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
     if (!m) return json({ error: "Request not found." }, 404);
     const prompt = `A tenant at ${str(m.address, 200)} reported: """${str(m.description, 2000)}"""\n\nReturn only JSON: {"priority":"emergency|high|normal|low","category":"plumbing|electrical|heating/cooling|appliance|pest|structural|safety|other","why":"one sentence","next_steps":["2 to 4 short steps for the landlord"],"tenant_reply":"a short, kind message to the tenant (under 80 words) saying it's received and what happens next, with any safety step they should take now"}\nEmergency means risk to people or serious damage now (gas smell, flooding, no heat in freezing weather, fire or electrical hazard, sewage backup, broken lock on an outside door). California requires habitable conditions, so heat, hot water, plumbing and electrical outages are at least high.`;
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You triage rental maintenance requests for a Fresno, California property manager. Be practical and safety-first. Output valid JSON only." }, { role: "user", content: prompt }], max_tokens: 500 } as never);
+      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: "You triage rental maintenance requests for a property manager. Be practical and safety-first. Output valid JSON only." }, { role: "user", content: prompt }], max_tokens: 500 } as never);
       const raw = aiText(out);
       const match = raw.match(/\{[\s\S]*\}/);
       let t: Record<string, unknown> = {};
