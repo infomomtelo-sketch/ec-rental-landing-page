@@ -27,6 +27,8 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -73,3 +75,21 @@ jobs:
           fi
       - name: Deploy
         run: npx wrangler deploy
+      # Tells Bing, Yandex and other IndexNow search engines which pages this push changed, so new guides
+      # get crawled within hours instead of weeks. The key file is public/1842a03c0db4f7bd68c1e491cb74e176.txt. Google doesn't use
+      # IndexNow; it reads /sitemap.xml once the site is added to Google Search Console.
+      - name: Ping search engines about changed pages (IndexNow)
+        continue-on-error: true
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only "$BEFORE" HEAD -- 'public/*.html' | grep -v -E '^public/(admin|dashboard|tenant|document|inspection-report|ai-inspection)\.html$' || true)
+          else
+            files="public/index.html"
+          fi
+          urls=$(for f in $files; do [ -f "$f" ] || continue; p="${f#public}"; p="${p%index.html}"; p="${p%.html}"; echo "https://ecrentalpm.com$p"; done)
+          if [ -z "$urls" ]; then echo "No public pages changed."; exit 0; fi
+          echo "$urls"
+          body=$(printf '%s\n' $urls | jq -R . | jq -s '{host: "ecrentalpm.com", key: "1842a03c0db4f7bd68c1e491cb74e176", keyLocation: "https://ecrentalpm.com/1842a03c0db4f7bd68c1e491cb74e176.txt", urlList: .}')
+          curl -sS -o /dev/null -w "IndexNow answered %{http_code}\n" -X POST https://api.indexnow.org/indexnow -H 'Content-Type: application/json; charset=utf-8' -d "$body"

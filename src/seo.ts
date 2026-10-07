@@ -9,7 +9,8 @@ interface SeoListing {
 }
 
 const SITE = "https://ecrentalpm.com";
-const PAGES = ["/", "/listings", "/fresno-property-management", "/fresno-rental-inspections", "/rent-review", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/privacy", "/terms"];
+// Blog URLs mirror scripts/blog-posts.json (written by scripts/build-blog.py); add new articles here too.
+const PAGES = ["/", "/listings", "/fresno-property-management", "/fresno-rental-inspections", "/rent-review", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/blog/", "/blog/move-in-inspection-checklist", "/blog/california-security-deposit-rules", "/blog/california-rent-increase-limits-ab-1482", "/blog/remote-home-inspection-photos", "/blog/how-to-price-your-rental", "/blog/rental-listing-that-rents-fast", "/privacy", "/terms"];
 const TYPE_NAMES: Record<string, string> = { HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" };
 const SCHEMA_TYPES: Record<string, string> = { HOUSE: "SingleFamilyResidence", CONDO: "Apartment", TOWNHOUSE: "House" };
 
