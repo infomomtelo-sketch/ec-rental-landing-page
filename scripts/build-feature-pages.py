@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Builds the feature landing pages in public/features/ from the content below.
+scripts/build-blog.py imports head(), nav(), footer() and icon() from here for the /blog pages.
 
 Run from the repo root after editing:  python3 scripts/build-feature-pages.py
 Every claim on these pages must match what the product actually does today.
@@ -306,12 +307,12 @@ def esc(s):
 
 
 def nav():
-    return f'''<header class="fnav"><div class="wrap"><a class="flogo" href="/">EC<span> Rental</span> PM</a><nav class="flinks"><a href="/features/">Features</a><a href="/listings">Rentals</a><a href="/tello">Tello</a><a href="/dashboard">Sign in</a><a class="btn btn-gold" href="/#subscribe">Get started</a></nav></div></header>'''
+    return f'''<header class="fnav"><div class="wrap"><a class="flogo" href="/">EC<span> Rental</span> PM</a><nav class="flinks"><a href="/features/">Features</a><a href="/blog/">Guides</a><a href="/listings">Rentals</a><a href="/tello">Tello</a><a href="/dashboard">Sign in</a><a class="btn btn-gold" href="/#subscribe">Get started</a></nav></div></header>'''
 
 
 def footer():
     links = "".join(f'<a href="/features/{s}">{esc(l)}</a>' for s, l, _ in NAV)
-    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/rent-review">Free rent review</a><a href="/fresno-property-management">Property management</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/blog/">Landlord guides</a><a href="/tello-inspect">Tello Inspect</a><a href="/rent-review">Free rent review</a><a href="/fresno-property-management">Property management</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
 <p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p>
 <p>Fresno, California · (559) 825-3038 · info@ecrentalpm.com · &copy; 2026 EC Rental Property Management LLC</p></div></footer>'''
 
@@ -442,8 +443,9 @@ def index():
 '''
 
 
-OUT.mkdir(parents=True, exist_ok=True)
-for slug, p in PAGES.items():
-    (OUT / f"{slug}.html").write_text(page(slug, p))
-(OUT / "index.html").write_text(index())
-print("wrote", len(PAGES) + 1, "pages to", OUT)
+if __name__ == "__main__":
+    OUT.mkdir(parents=True, exist_ok=True)
+    for slug, p in PAGES.items():
+        (OUT / f"{slug}.html").write_text(page(slug, p))
+    (OUT / "index.html").write_text(index())
+    print("wrote", len(PAGES) + 1, "pages to", OUT)
