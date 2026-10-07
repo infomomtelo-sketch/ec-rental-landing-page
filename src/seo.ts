@@ -9,7 +9,7 @@ interface SeoListing {
 }
 
 const SITE = "https://ecrentalpm.com";
-const PAGES = ["/", "/listings", "/fresno-property-management", "/fresno-rental-inspections", "/rent-review", "/ai-inspection", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/privacy", "/terms"];
+const PAGES = ["/", "/listings", "/fresno-property-management", "/fresno-rental-inspections", "/rent-review", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/privacy", "/terms"];
 const TYPE_NAMES: Record<string, string> = { HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" };
 const SCHEMA_TYPES: Record<string, string> = { HOUSE: "SingleFamilyResidence", CONDO: "Apartment", TOWNHOUSE: "House" };
 

@@ -2,7 +2,7 @@
 (function() {
   var token = null; try { token = localStorage.getItem('ec_token'); } catch (e) { /* storage blocked */ }
   var PLANS = [['solo', 'Solo Landlord', 29], ['manager', 'Property Manager', 79], ['portfolio', 'Portfolio', 199]];
-  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'AI home check' };
+  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'Tello Inspect' };
   var accounts = [], listings = [], leads = [];
 
   function api(path, method, body) {
@@ -124,7 +124,7 @@
   document.getElementById('leadFilter').addEventListener('change', renderLeads);
 
   // Visitors
-  var PAGE_NAMES = { '/': 'Home page', '/listings': 'Rentals', '/listing': 'A listing', '/apply': 'Rental application', '/rent-review': 'Free rent review', '/ai-inspection': 'Free AI home check', '/tello': 'Tello full screen', '/features/': 'Features', '/privacy': 'Privacy', '/terms': 'Terms' };
+  var PAGE_NAMES = { '/': 'Home page', '/listings': 'Rentals', '/listing': 'A listing', '/apply': 'Rental application', '/rent-review': 'Free rent review', '/tello-inspect': 'Tello Inspect', '/ai-inspection': 'Tello Inspect (old link)', '/tello': 'Tello full screen', '/features/': 'Features', '/privacy': 'Privacy', '/terms': 'Terms' };
   function pageName(p) { var k = p.replace(/\.html$/, '').replace(/\/index$/, '/'); return PAGE_NAMES[k] || (k.indexOf('/features/') === 0 ? 'Features: ' + k.slice(10) : k); }
   function loadVisits() {
     var days = parseInt(document.getElementById('visitDays').value, 10) || 30;
@@ -137,7 +137,7 @@
         ['On a phone', all ? Math.round(phone * 100 / all) + '%' : '-', 'The rest on a computer'],
         ['New accounts', res.accounts || 0, v.visitors ? ((res.accounts || 0) * 100 / v.visitors).toFixed(1) + '% of visitors signed up' : 'Sign-ups in this range'],
         ['Rental applications', res.applications || 0, 'Sent from listings'],
-        ['Free tools used', (res.aiChecks || 0) + (res.rentReviews || 0), (res.aiChecks || 0) + ' AI home checks, ' + (res.rentReviews || 0) + ' rent reviews'],
+        ['Free tools used', (res.aiChecks || 0) + (res.rentReviews || 0), (res.aiChecks || 0) + ' Tello Inspect reports, ' + (res.rentReviews || 0) + ' rent reviews'],
       ];
       document.getElementById('visitCards').innerHTML = cards.map(function(c) { return '<div class="stat-card"><div class="label">' + esc(c[0]) + '</div><div class="value">' + esc(c[1]) + '</div><div class="note">' + esc(c[2]) + '</div></div>'; }).join('');
       // One bar per day, including days with no visits.

@@ -1,5 +1,5 @@
 /**
- * Remote AI inspections (/ai-inspection page). Anyone (landlord, tenant, buyer, homeowner) fills in a short form,
+ * Tello Inspect, the free remote AI inspection (/tello-inspect page; /ai-inspection redirects there). Anyone (landlord, tenant, buyer, homeowner) fills in a short form,
  * adds photos room by room, and the vision model reads each photo the same way it does for dashboard inspections.
  * Finishing writes a summary, saves the request as a lead for EC Rental, and emails the requester a private report
  * link. Each inspection has a random token: the report and its photos are only readable with it, never public.
@@ -118,25 +118,25 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
 
     const now = new Date().toISOString();
     await env.DB.prepare("UPDATE remote_inspections SET status = 'done', overall = ?, summary = ?, finished_at = ? WHERE id = ?").bind(overall, summary, now, insp.id).run();
-    const reportUrl = `https://${url.host}/ai-inspection?id=${insp.id}&t=${insp.token}`;
+    const reportUrl = `https://${url.host}/tello-inspect?id=${insp.id}&t=${insp.token}`;
     const details = { source: "ai_inspection", inspection_id: insp.id, role: insp.role, type: insp.type, address: insp.address, photos: all.length, repairs: repairs.length, overall, notes: insp.notes };
     await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .bind(insp.name, "", insp.email, insp.phone || "", "1", "ai_inspection", JSON.stringify(details), "pending", now).run();
 
     if (notify) {
       const repairLines = repairs.slice(0, 10).map((i) => `${i.room}: ${i.repair_item || "repair needed"}`);
-      const userText = [`Hi ${insp.name},`, "", `Your AI home check is ready. Overall: ${overall}.`, "", summary, "", ...(repairLines.length ? ["Items that may need repair:", ...repairLines.map((l) => "- " + l), ""] : []),
+      const userText = [`Hi ${insp.name},`, "", `Your Tello Inspect report is ready. Overall: ${overall}.`, "", summary, "", ...(repairLines.length ? ["Items that may need repair:", ...repairLines.map((l) => "- " + l), ""] : []),
         `See the full report with photos: ${reportUrl}`, "", "This is an AI review of your photos, not a licensed home inspection. Want a certified home inspector to visit? Reply to this email.", "", "EC Rental Property Management"].join("\n");
-      const userHtml = `<p>Hi ${esc(insp.name)},</p><p>Your AI home check is ready. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
+      const userHtml = `<p>Hi ${esc(insp.name)},</p><p>Your Tello Inspect report is ready. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
         (repairLines.length ? `<p><strong>Items that may need repair</strong><br>${repairLines.map(esc).join("<br>")}</p>` : "") +
         `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of your photos, not a licensed home inspection. Want a certified home inspector to visit? Reply to this email.</p><p>EC Rental Property Management</p>`;
-      try { await notify(insp.email, "Your AI home check report", userHtml, userText); } catch (err) { console.error("[remote-inspection] email requester", err); }
+      try { await notify(insp.email, "Your Tello Inspect report", userHtml, userText); } catch (err) { console.error("[remote-inspection] email requester", err); }
       const lines = [`Name: ${insp.name}`, `Email: ${insp.email}`, `Phone: ${insp.phone || "not given"}`, `They are: ${ROLES[insp.role] || "Other"}`,
         `Address: ${insp.address || "not given"}`, `Type: ${typeLabel(insp.type)}`, `Photos: ${all.length}, repairs flagged: ${repairs.length}, overall: ${overall}`, ...(insp.notes ? [`Notes: ${insp.notes}`] : []), `Report: ${reportUrl}`];
       try {
-        await notify(NOTIFY_TO, `AI home check finished: ${insp.address || insp.name}`,
-          `<p>Someone ran a remote AI home check on ecrentalpm.com. They got the report by email. Follow up if they need repairs or an in-person inspection.</p><p>${lines.map(esc).join("<br>")}</p>`,
-          "Someone ran a remote AI home check on ecrentalpm.com. They got the report by email. Follow up if they need repairs or an in-person inspection.\n\n" + lines.join("\n"));
+        await notify(NOTIFY_TO, `Tello Inspect finished: ${insp.address || insp.name}`,
+          `<p>Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they need repairs or an in-person inspection.</p><p>${lines.map(esc).join("<br>")}</p>`,
+          "Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they need repairs or an in-person inspection.\n\n" + lines.join("\n"));
       } catch (err) { console.error("[remote-inspection] email EC Rental", err); }
     }
     return json({ success: true, overall, summary, report_url: reportUrl });
