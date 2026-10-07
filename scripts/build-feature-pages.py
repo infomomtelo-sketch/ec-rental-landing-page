@@ -181,6 +181,7 @@ PAGES = {
          ["Dated, photo-backed records", "Side-by-side move-in and move-out", "Private photos, never public", "Saved in your dashboard"]),
   faq=[("Who does the inspection?", "Inspections are led by a certified home inspector. Landlords can also run their own with the same tools."),
        ("Is there a free in-person inspection?", "Yes, as a launch bonus. Your first in-person inspection by a certified home inspector is free once your plan is paid (Fresno and Clovis area). Book it from the Inspections page in your dashboard."),
+       ("Can I try it without an account?", "Yes. Tello Inspect at ecrentalpm.com/tello-inspect is a free remote AI home inspection for landlords, homeowners, buyers and tenants. Send photos from your phone, no app needed, and get a condition report by email. It is not a licensed home inspection."),
        ("Can tenants see the photos?", "Inspection photos are private to the landlord's account and the printed report."),
        ("Is the AI always right?", "No. It drafts notes; the inspector reviews and corrects every one.")],
  ),
