@@ -67,14 +67,14 @@ NAV = [
 
 PAGES = {
  "tello": dict(
-  title="Tello, the AI rental assistant for Fresno landlords and renters",
+  title="Tello, the AI rental assistant for landlords and renters",
   desc="Meet Tello, EC Rental's AI assistant. Tello answers renters 24/7, writes listings, drafts replies, reads inspection photos and triages repairs, with a person making every final call.",
   eyebrow="Tello AI", h1='Your rentals, run by <span class="grad">a tireless AI teammate.</span>',
   lede="Tello works inside every part of EC Rental. It answers renters at midnight, writes your listing from a few facts, reads inspection photos and sorts repairs by urgency. You stay in charge of every decision.",
   cta=("Talk to Tello", "/tello"),
   stats=[("24/7", "answers for renters"), ("8", "AI tools built in"), ("1", "person makes the final call")],
   mock="""<div class="row" style="justify-content:flex-start;gap:10px"><img src="/tello-icon.svg" alt="" style="width:28px;height:28px;border-radius:8px"><div><b>Tello</b><small>AI rental assistant</small></div></div>
-<div class="bubble me">Is the studio on Tisha still available?</div>
+<div class="bubble me">Is the studio on Maple still available?</div>
 <div class="bubble ai">Yes, it's available now for $1,200 a month. Want me to set up a showing?</div>
 <div class="bubble me">Saturday morning works</div>
 <div class="bubble ai">Great. Share your name and phone and the landlord will confirm a time.</div>""",
@@ -99,12 +99,12 @@ PAGES = {
  ),
  "listings": dict(
   title="Rental listings with a Zillow-ready feed | EC Rental",
-  desc="List a Fresno rental once and share it everywhere: a listing page with photos and map, a Zillow-ready feed, a ready-made post for Facebook and Marketplace, and 24/7 renter chat.",
+  desc="List a rental once and share it everywhere: a listing page with photos and map, a Zillow-ready feed, a ready-made post for Facebook and Marketplace, and 24/7 renter chat.",
   eyebrow="Listings", h1='List once. <span class="grad">Get seen everywhere.</span>',
   lede="Every home gets its own fast listing page with photos, a map and an Apply button. Tello writes the description, checks your rent and answers renters around the clock.",
   cta=("List a rental", "/dashboard"),
   stats=[("1 tap", "to share on Facebook"), ("24/7", "renter chat"), ("Zillow", "-ready feed")],
-  mock="""<div class="row"><div><b>5287 N Tisha Ave · Studio 1</b><small>Fresno, CA · Studio / 1 ba</small></div><span class="pill p-green">Active</span></div>
+  mock="""<div class="row"><div><b>123 Maple Ave · Studio 1</b><small>Sample listing · Studio / 1 ba</small></div><span class="pill p-green">Active</span></div>
 <div class="row"><div><small>Rent</small><b>$1,200/mo</b></div><span class="pill p-green">On Zillow feed</span></div>
 <div class="row"><div><b>Write with AI</b><small>Reads your photos and drafts the description</small></div></div>
 <div class="mbtn gold">Share: Facebook · Marketplace · Text</div>""",
@@ -126,13 +126,13 @@ PAGES = {
        ("Can I take a listing down?", "Yes. Mark it rented or move it back to draft and it leaves the site and the feed.")],
  ),
  "applications": dict(
-  title="Online rental applications for Fresno rentals | EC Rental",
+  title="Online rental applications for your rentals | EC Rental",
   desc="Renters apply online from their phone in minutes. Landlords review applications in one dashboard with an AI summary, without collecting Social Security numbers on the form.",
   eyebrow="Applications", h1='Applications in minutes, <span class="grad">not paperwork runs.</span>',
   lede="Renters apply from any listing on their phone. You see every application in one place, with a quick AI summary to help you review, and the decision always stays with you.",
   cta=("See a listing", "/listings"),
   stats=[("Minutes", "to apply"), ("1", "dashboard for all"), ("0", "SSNs on the form")],
-  mock="""<div class="row"><div><b>Rental application</b><small>5287 N Tisha Ave · Studio 1</small></div><span class="pill p-gold">New</span></div>
+  mock="""<div class="row"><div><b>Rental application</b><small>123 Maple Ave · Studio 1</small></div><span class="pill p-gold">New</span></div>
 <div class="row"><div><small>Monthly income</small><b>$4,800</b></div><div><small>Move-in</small><b>Nov 1</b></div></div>
 <div class="row"><div><b>AI summary</b><small>Income is about 4x rent. Two years at current job. Prior landlord listed.</small></div></div>
 <div class="mbtn">Review application</div>""",
@@ -154,7 +154,7 @@ PAGES = {
        ("Does the AI approve renters?", "Never. It only summarizes. The landlord decides.")],
  ),
  "inspections": dict(
-  title="AI rental inspections with photo proof | EC Rental Fresno",
+  title="AI rental inspections with photo proof | EC Rental",
   desc="Move-in, move-out, routine and annual inspections led by a certified home inspector. Tello reads every photo, flags repairs and compares move-out with move-in.",
   eyebrow="AI inspections", h1='Every room documented. <span class="grad">Every deposit protected.</span>',
   lede="Snap photos room by room. Tello fills in the condition and notes, a certified home inspector reviews every one, and you get a printable report ready to sign.",
@@ -214,13 +214,13 @@ PAGES = {
        ("What about emergencies?", "Tell tenants to call 911 for fire, gas or danger first. Tello's triage flags emergencies so you see them right away.")],
  ),
  "tenant-portal": dict(
-  title="Tenant portal for Fresno renters | EC Rental",
+  title="Tenant portal for renters | EC Rental",
   desc="Invite tenants by email to their own portal to see their home, lease, recorded rent payments and shared documents, and to send maintenance requests.",
   eyebrow="Tenant portal", h1='One home base <span class="grad">for every tenant.</span>',
   lede="Invite your tenant by email. They get their own secure portal with their home, lease dates, recorded rent payments, shared documents and a one-tap way to request repairs.",
   cta=("Tenant sign in", "/tenant"),
   stats=[("Free", "for tenants"), ("1 email", "to invite"), ("7 days", "invite link")],
-  mock="""<div class="row"><div><b>My home</b><small>5287 N Tisha Ave · Studio 1</small></div><span class="pill p-green">Active</span></div>
+  mock="""<div class="row"><div><b>My home</b><small>123 Maple Ave · Studio 1</small></div><span class="pill p-green">Active</span></div>
 <div class="row"><div><small>Lease</small><b>Nov 1, 2026 to Oct 31, 2027</b></div></div>
 <div class="row"><div><small>October rent</small><b>$1,200 recorded</b></div><span class="pill p-green">Paid</span></div>
 <div class="mbtn">Send a maintenance request</div>""",
@@ -248,7 +248,7 @@ PAGES = {
   lede="Pick a California template and EC Rental fills in the property, tenant and rent details. Edit, print or save as PDF, and share it to your tenant's portal.",
   cta=("Create a document", "/dashboard"),
   stats=[("6", "California templates"), ("Auto", "filled from your data"), ("1 tap", "share to tenant")],
-  mock="""<div class="row"><div><b>Rental agreement</b><small>Month-to-month · 5287 N Tisha Ave</small></div><span class="pill p-gray">Draft</span></div>
+  mock="""<div class="row"><div><b>Rental agreement</b><small>Month-to-month · 123 Maple Ave</small></div><span class="pill p-gray">Draft</span></div>
 <div class="row"><div><b>3-day notice to pay or quit</b><small>Filled from the property</small></div><span class="pill p-gold">Ready</span></div>
 <div class="row"><div><b>Rent receipt · October</b><small>Shared with tenant</small></div><span class="pill p-green">Shared</span></div>
 <div class="mbtn">Print or save PDF</div>""",
@@ -270,13 +270,13 @@ PAGES = {
        ("Which state?", "The templates are written for California rentals.")],
  ),
  "accounting": dict(
-  title="Rent tracking and rental tax reports | EC Rental Fresno",
+  title="Rent tracking and rental tax reports | EC Rental",
   desc="Record rent, expenses and owner payments per property and export a per-property tax summary as CSV, ready for your accountant at tax time.",
   eyebrow="Rent + tax reports", h1='Tax season, <span class="grad">already sorted.</span>',
   lede="Record rent, expenses and owner payments as they happen. EC Rental totals everything per property and exports a clean CSV for your accountant.",
   cta=("Start tracking", "/#subscribe"),
   stats=[("Per", "property totals"), ("CSV", "export"), ("1", "place for it all")],
-  mock="""<div class="row"><div><small>Rent collected · 2026</small><b>$14,400</b></div><span class="pill p-green">5287 N Tisha</span></div>
+  mock="""<div class="row"><div><small>Rent collected · 2026</small><b>$14,400</b></div><span class="pill p-green">123 Maple Ave</span></div>
 <div class="row"><div><small>Expenses</small><b>$1,860</b></div><div><small>Paid to owner</small><b>$11,100</b></div></div>
 <div class="row"><div><b>Plumber · kitchen sink</b><small>Oct 12 · expense</small></div><b>−$240</b></div>
 <div class="mbtn gold">Export CSV</div>""",
@@ -401,7 +401,7 @@ def page(slug, p):
     </div></section>
 
     <section class="band" style="padding-top:0"><div class="wrap">
-      <div class="ctaband"><h2>Run your Fresno rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Every plan starts with a 14-day free trial.</p>
+      <div class="ctaband"><h2>Run your rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Every plan starts with a 14-day free trial.</p>
       <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
       <div class="kicker" style="margin-top:56px">Explore more</div>
       <div class="more">{more}</div>
@@ -409,6 +409,7 @@ def page(slug, p):
   </main>
   {footer()}
   <script type="application/ld+json">{ld_json}</script>
+<script src="/js/track.js" defer></script>
 </body>
 </html>
 '''
@@ -416,8 +417,8 @@ def page(slug, p):
 
 def index():
     url = f"{SITE}/features/"
-    title = "Features | EC Rental Property Management, Fresno"
-    desc = "Everything EC Rental does for Fresno landlords and renters: Tello AI, listings with a Zillow-ready feed, online applications, AI inspections, maintenance, tenant portal, documents and tax reports."
+    title = "Features | EC Rental Property Management"
+    desc = "Everything EC Rental does for landlords and renters: Tello AI, listings with a Zillow-ready feed, online applications, AI inspections, maintenance, tenant portal, documents and tax reports."
     cards = "".join(f'<a class="card" href="/features/{s}" style="text-decoration:none"><div class="ic">{icon(i)}</div><h3>{esc(l)}</h3><p>{esc(PAGES[s]["lede"])}</p></a>' for s, l, i in NAV)
     return f'''{head(title, desc, url)}
 <body>
@@ -427,13 +428,14 @@ def index():
       <div style="text-align:center;max-width:820px;margin:0 auto">
         <span class="eyebrow">{TELLO} The EC Rental platform</span>
         <h1>Everything your rentals need. <span class="grad">Tello built in.</span></h1>
-        <p class="lede" style="margin:0 auto">Eight tools that work together, from the first listing to tax season, for Fresno and Clovis landlords and the renters they serve.</p>
+        <p class="lede" style="margin:0 auto">Eight tools that work together, from the first listing to tax season, for landlords and the renters they serve, wherever the rentals are.</p>
         <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Start 14-day free trial →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
       </div>
     </div></section>
     <section class="band alt"><div class="wrap"><div class="grid">{cards}</div></div></section>
   </main>
   {footer()}
+<script src="/js/track.js" defer></script>
 </body>
 </html>
 '''
