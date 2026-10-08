@@ -60,3 +60,5 @@ CREATE INDEX IF NOT EXISTS idx_remote_inspection_items ON remote_inspection_item
 CREATE TABLE IF NOT EXISTS page_views (day TEXT NOT NULL, path TEXT NOT NULL, source TEXT NOT NULL, device TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, visitors INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, path, source, device));
 -- Business landing pages (src/business-pages.ts): each landlord's public page at /rentals/<slug> under their business name.
 CREATE TABLE IF NOT EXISTS business_pages (user_id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, business_name TEXT NOT NULL, tagline TEXT DEFAULT '', about TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '', service_area TEXT DEFAULT '', published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+-- Schedule E expense category for each expense transaction (src/finance.ts), kept beside transactions so that table never needs ALTER.
+CREATE TABLE IF NOT EXISTS transaction_categories (transaction_id INTEGER PRIMARY KEY, category TEXT NOT NULL, FOREIGN KEY (transaction_id) REFERENCES transactions(id));

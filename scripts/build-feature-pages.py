@@ -230,7 +230,7 @@ PAGES = {
   features=[
    ("mail", "Invite by email", "Send an invite from the Tenants page. The secure link works for 7 days."),
    ("home", "Their home", "Address, rent and lease dates in one place."),
-   ("cash", "Rent history", "Rent payments you record show up in the tenant's portal."),
+   ("cash", "Rent, online or recorded", "Tenants can pay rent online, and payments you record show up in their portal too."),
    ("file", "Shared documents", "Share a lease, notice or receipt with the tenant from your Documents page."),
    ("wrench", "Repair requests", "Tenants send maintenance requests and see their status."),
    ("lock", "Private by design", "Tenants only see their own home, from their own move-in date onward."),
@@ -239,7 +239,7 @@ PAGES = {
          ("Share", "Share documents and record rent."), ("Stay connected", "Requests and updates in one place.")],
   split=("Less back-and-forth", "Answers before they have to ask.", "Most tenant questions are about dates, payments and paperwork. The portal answers them without a phone call.",
          ["Works on any phone", "No app to download", "Separate from the landlord dashboard", "Resend or remove an invite any time"]),
-  faq=[("Can tenants pay rent online?", "Not yet. Today the portal shows rent payments the landlord records. Online payments are planned."),
+  faq=[("Can tenants pay rent online?", "Yes, once you connect your own Stripe account in Settings. Tenants pay by bank transfer or card, the money goes to your bank, and each payment shows in their rent history."),
        ("What does it cost tenants?", "Nothing. The portal is free for tenants."),
        ("What happens when they move out?", "Remove them from the Tenants page and their access to that home ends.")],
  ),
@@ -273,30 +273,30 @@ PAGES = {
  ),
  "accounting": dict(
   title="Rent tracking and rental tax reports | EC Rental",
-  desc="Record rent, expenses and owner payments per property and export a per-property tax summary as CSV, ready for your accountant at tax time.",
+  desc="Record rent and expenses per property, sorted into Schedule E categories, and get a yearly tax summary you can export or print for your tax preparer.",
   eyebrow="Rent + tax reports", h1='Tax season, <span class="grad">already sorted.</span>',
-  lede="Record rent, expenses and owner payments as they happen. EC Rental totals everything per property and exports a clean CSV for your accountant.",
+  lede="Record rent and expenses as they happen. EC Rental sorts expenses into Schedule E categories and builds a yearly summary per property, ready to export or print for your tax preparer.",
   cta=("Start tracking", "/#subscribe"),
-  stats=[("Per", "property totals"), ("CSV", "export"), ("1", "place for it all")],
+  stats=[("Sch. E", "categories"), ("Per", "property and year"), ("CSV", "or PDF export")],
   mock="""<div class="row"><div><small>Rent collected · 2026</small><b>$14,400</b></div><span class="pill p-green">123 Maple Ave</span></div>
-<div class="row"><div><small>Expenses</small><b>$1,860</b></div><div><small>Paid to owner</small><b>$11,100</b></div></div>
-<div class="row"><div><b>Plumber · kitchen sink</b><small>Oct 12 · expense</small></div><b>−$240</b></div>
-<div class="mbtn gold">Export CSV</div>""",
+<div class="row"><div><small>Expenses</small><b>$1,860</b></div><div><small>Net income</small><b>$12,540</b></div></div>
+<div class="row"><div><b>Plumber · kitchen sink</b><small>Oct 12 · Repairs (line 14)</small></div><b>−$240</b></div>
+<div class="mbtn gold">Export for my tax preparer</div>""",
   chips=("Rent recorded", "Report ready for your CPA"),
   features=[
-   ("cash", "Record rent", "Log rent as it comes in. It shows in the tenant's portal too."),
-   ("receipt", "Track expenses", "Repairs, fees and other costs, tied to the property."),
-   ("bank", "Owner payments", "Record distributions paid to owners."),
-   ("files", "Tax summary", "Rent collected, expenses, management fee and paid to owner, per property."),
-   ("download", "Export CSV", "One click for a file your accountant can open."),
-   ("chart", "Overview", "Rent collected this month and open repairs at a glance."),
+   ("cash", "Record rent", "Log rent as it comes in, or let tenants pay online and it records itself. It shows in the tenant's portal too."),
+   ("receipt", "Track expenses", "Each expense gets a Schedule E category, like repairs, utilities or insurance. EC Rental suggests one for you."),
+   ("bank", "Owner draws", "Record money paid out to owners. It is kept off your expenses."),
+   ("files", "Yearly tax summary", "Pick the tax year: rents received, expenses by Schedule E line and net income, per property."),
+   ("download", "Export or print", "A CSV with the summary and every transaction, or print it as a PDF for your tax preparer."),
+   ("chart", "Month by month", "Rent, expenses and net for each month of the year at a glance."),
   ],
   steps=[("Add properties", "Each home or unit you manage."), ("Record activity", "Rent, expenses and owner payments."),
-         ("Review", "See totals per property any time."), ("Export", "Download the CSV at tax time.")],
+         ("Review", "Pick the tax year and check the totals."), ("Export", "Download or print it at tax time.")],
   split=("Simple bookkeeping", "Built for small landlords.", "No accounting degree needed. Enter what happened and EC Rental keeps the totals straight.",
          ["Per-property totals", "Works for 1 home or many", "Ready for Schedule E prep", "Your data, exportable any time"]),
-  faq=[("Do you collect rent online?", "Not yet. You record rent you've received. Online rent payments are planned."),
-       ("Is this tax advice?", "No. It organizes your numbers. Your tax professional files your return."),
+  faq=[("Do you collect rent online?", "Yes. Once you connect your own Stripe account, tenants can pay rent online and each payment is recorded for you."),
+       ("Is this tax advice?", "No. It organizes your numbers by Schedule E line. Depreciation isn't included, and your tax professional files your return."),
        ("Can I import from my bank?", "Not today. Entries are added by hand.")],
  ),
 }
