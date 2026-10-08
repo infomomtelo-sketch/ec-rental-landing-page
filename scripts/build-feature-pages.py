@@ -156,35 +156,33 @@ PAGES = {
  ),
  "inspections": dict(
   title="AI rental inspections with photo proof | EC Rental",
-  desc="Move-in, move-out, routine and annual inspections led by a certified home inspector. Tello reads every photo, flags repairs and compares move-out with move-in.",
+  desc="Move-in, move-out, routine and annual inspections from your phone. Tello reads every photo, flags repairs and compares move-out with move-in.",
   eyebrow="AI inspections", h1='Every room documented. <span class="grad">Every deposit protected.</span>',
-  lede="Snap photos room by room. Tello fills in the condition and notes, a certified home inspector reviews every one, and you get a printable report ready to sign.",
+  lede="Snap photos room by room. Tello fills in the condition and notes, you review them, and you get a printable report ready to sign.",
   cta=("Start for $3", "/#subscribe"),
-  stats=[("4", "inspection types"), ("Every", "photo reviewed"), ("1 tap", "repair → work order")],
+  stats=[("4", "inspection types"), ("Every", "photo read by AI"), ("1 tap", "repair → work order")],
   mock="""<div class="row"><div><b>Move-out inspection</b><small>Compared with move-in</small></div><span class="pill p-gold">In progress</span></div>
 <div class="row"><div><b>Living room carpet</b><small>Light wear since move-in</small></div><span class="pill p-green">Wear and tear</span></div>
 <div class="row"><div><b>Bedroom wall</b><small>New hole behind the door</small></div><span class="pill p-red">Looks like damage</span></div>
 <div class="mbtn gold">Create maintenance request</div>""",
-  chips=("Photo read by Tello", "Reviewed by a certified inspector"),
+  chips=("Photo read by Tello", "You review every note"),
   video="inspections",
   features=[
    ("camera", "Room by room", "Move-in, move-out, routine and annual inspections, captured from a phone."),
    ("chip", "AI photo reading", "Tello pre-fills condition and notes for each photo. You correct anything it got wrong."),
-   ("award", "Certified inspector", "Led by a certified home inspector, trained through Home Inspectors of America."),
    ("scale", "Move-out vs move-in", "Tello drafts which changes look like wear and tear and which look like damage, for you to review."),
    ("wrench", "Repairs in one tap", "Turn any flagged item into a maintenance request."),
    ("printer", "Signed reports", "A printable photo report with landlord and tenant signature lines. Photos stay private."),
-   ("gift", "First visit free", "Launch bonus: your first in-person inspection is free once your monthly plan starts. Fresno and Clovis area."),
+   ("gift", "Try it free", "Tello Inspect lets anyone run a free remote AI inspection with no account. It is an AI review of photos, not a licensed home inspection."),
   ],
   steps=[("Start", "Pick the property and inspection type."), ("Snap photos", "Room by room, from your phone."),
          ("Review", "Check Tello's notes and correct them."), ("Sign", "Print or save the report and sign it.")],
   split=("Why it matters in California", "Deposit decisions, backed by photos.", "California Civil Code 1950.5 allows deductions for damage beyond ordinary wear and tear and requires an itemized statement. Dated photo reports make those calls clearer and fairer.",
          ["Dated, photo-backed records", "Side-by-side move-in and move-out", "Private photos, never public", "Saved in your dashboard"]),
-  faq=[("Who does the inspection?", "Inspections are led by a certified home inspector. Landlords can also run their own with the same tools."),
-       ("Is there a free in-person inspection?", "Yes, as a launch bonus. Your first in-person inspection by a certified home inspector is free once your monthly plan starts (Fresno and Clovis area). Book it from the Inspections page in your dashboard."),
+  faq=[("Who does the inspection?", "You do, from your phone. Tello reads the photos and drafts the notes, and you review and correct them. It is not a licensed home inspection."),
        ("Can I try it without an account?", "Yes. Tello Inspect at ecrentalpm.com/tello-inspect is a free remote AI home inspection for landlords, homeowners, buyers and tenants. Send photos from your phone, no app needed, and get a condition report by email. It is not a licensed home inspection."),
        ("Can tenants see the photos?", "Inspection photos are private to the landlord's account and the printed report."),
-       ("Is the AI always right?", "No. It drafts notes; the inspector reviews and corrects every one.")],
+       ("Is the AI always right?", "No. It drafts notes from the photos; you review and correct every one.")],
  ),
  "maintenance": dict(
   title="Rental maintenance requests, handled fast | EC Rental",
@@ -312,7 +310,7 @@ def nav():
 
 def footer():
     links = "".join(f'<a href="/features/{s}">{esc(l)}</a>' for s, l, _ in NAV)
-    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/blog/">Landlord guides</a><a href="/tello-inspect">Tello Inspect</a><a href="/rent-review">Free rent review</a><a href="/fresno-property-management">Property management</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/blog/">Landlord guides</a><a href="/tello-inspect">Tello Inspect</a><a href="/rent-review">Free rent review</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
 <p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p>
 <p>Fresno, California · (559) 825-3038 · info@ecrentalpm.com · &copy; 2026 EC Rental Property Management LLC</p></div></footer>'''
 
