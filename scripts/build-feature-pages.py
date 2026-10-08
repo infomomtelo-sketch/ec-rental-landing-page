@@ -312,7 +312,7 @@ def nav():
 
 def footer():
     links = "".join(f'<a href="/features/{s}">{esc(l)}</a>' for s, l, _ in NAV)
-    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/blog/">Landlord guides</a><a href="/tello-inspect">Tello Inspect</a><a href="/rent-review">Free rent review</a><a href="/fresno-property-management">Property management</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    return f'''<footer class="ffoot"><div class="wrap"><nav>{links}<a href="/blog/">Landlord guides</a><a href="/tello-inspect">Tello Inspect</a><a href="/rent-review">Free rent review</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
 <p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p>
 <p>Fresno, California · (559) 825-3038 · info@ecrentalpm.com · &copy; 2026 EC Rental Property Management LLC</p></div></footer>'''
 

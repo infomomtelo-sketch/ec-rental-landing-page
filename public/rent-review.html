@@ -59,7 +59,7 @@
     </form>
     <div id="reviewDone" class="done" hidden></div>
   </main>
-  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/fresno-property-management">Property management</a> · <a href="/fresno-rental-inspections">Rental inspections</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/fresno-rental-inspections">Rental inspections</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
   <script>
     (function() {
       var form = document.getElementById('reviewForm'), btn = document.getElementById('reviewBtn'), msg = document.getElementById('reviewMsg'), done = document.getElementById('reviewDone');
@@ -76,7 +76,7 @@
             var c = d.comps;
             done.innerHTML = '<h2 style="margin-top:0">Thanks, ' + esc(String(data.name).split(' ')[0]) + '! Your request is in.</h2>' +
               (c ? '<p>Here\'s what similar ' + (Number(data.bedrooms) ? esc(data.bedrooms) + '-bedroom ' : '') + 'homes on EC Rental in ' + esc(c.area) + ' rent for (' + c.count + ' listings):</p><div class="range"><div><small>Lower</small><b>' + money(c.low) + '</b></div><div><small>Typical</small><b>' + money(c.median) + '</b></div><div><small>Higher</small><b>' + money(c.high) + '</b></div></div><p class="muted small">This is a starting point from our own listings, not an appraisal. Your full review will look at your home\'s features too.</p>' : '<p>We\'re preparing your rent review now. You\'ll get a suggested rent range and tips to rent faster within 1 business day.</p>') +
-              '<p>Questions sooner? Call <a href="tel:+15598253038">(559) 825-3038</a> or email <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a>.</p><p><a class="primary-btn" href="/fresno-property-management" style="text-decoration:none">See how we manage rentals</a></p>';
+              '<p>Questions sooner? Call <a href="tel:+15598253038">(559) 825-3038</a> or email <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a>.</p><p><a class="primary-btn" href="/features/" style="text-decoration:none">See what the software does</a></p>';
             form.hidden = true; done.hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' });
           })
           .catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my free rent review'; });
