@@ -15,7 +15,10 @@
   function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; } }
   // Whole days until the trial ends, counting today's remainder as a day (so it reads 14 on signup day).
   function daysLeft(iso) { var ms = new Date(iso).getTime() - Date.now(); return isNaN(ms) ? null : Math.max(0, Math.ceil(ms / 86400000)); }
-  function trialText(b) { var d = daysLeft(b.trialEnd); return d === null ? 'Free trial' : d === 0 ? 'Free trial, ends today' : 'Free trial, ' + d + (d === 1 ? ' day' : ' days') + ' left'; }
+  // Solo Landlord's trial is the paid intro offer ($3 for the first 3 months); the bigger plans have a free trial.
+  function trialName(b) { return b.plan === 'solo' ? 'Intro offer' : 'Free trial'; }
+  function trialText(b) { var n = trialName(b), d = daysLeft(b.trialEnd); return d === null ? n : d === 0 ? n + ', ends today' : n + ', ' + d + (d === 1 ? ' day' : ' days') + ' left'; }
+  function introText(b) { return b.intro ? '$' + b.intro.price + ' for your first ' + b.intro.months + ' months' : ''; }
   var GOOD = ['active', 'trialing'];
   var STATUS_TEXT = { active: 'Active', trialing: 'Free trial', past_due: 'Payment failed', unpaid: 'Unpaid', canceled: 'Canceled', incomplete: 'Waiting for payment', incomplete_expired: 'Checkout expired', paused: 'Paused', none: 'Not started' };
 
@@ -32,6 +35,7 @@
     if (!b.enabled || b.exempt || GOOD.indexOf(b.status) !== -1) return;
     var msg = b.status === 'past_due' || b.status === 'unpaid' ? 'Your last payment didn’t go through. Update your card to keep your plan.'
       : b.status === 'canceled' ? 'Your plan has ended. Restart it any time to keep using EC Rental.'
+      : b.intro ? 'Finish setting up your plan. Solo Landlord starts at ' + introText(b) + ', then $29/month.'
       : 'Finish setting up your plan' + (b.trialDays ? ' to start your ' + b.trialDays + '-day free trial.' : '.');
     var box = el('div', { id: 'billingBanner', style: 'background:#fff7e6;border:1px solid #f0c36d;color:#7a4b00;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1rem;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap' });
     box.appendChild(el('span', { style: 'flex:1;min-width:200px' }, msg));
@@ -49,7 +53,7 @@
     if (b.exempt) { c.appendChild(el('p', { style: 'color:var(--gray)' }, 'Admin account: no subscription needed.')); return; }
     var good = GOOD.indexOf(b.status) !== -1;
     var line = 'Status: ' + (STATUS_TEXT[b.status] || b.status);
-    if (b.status === 'trialing' && b.trialEnd) line = 'Status: ' + trialText(b) + ' (first charge on ' + fmtDate(b.trialEnd) + ')';
+    if (b.status === 'trialing' && b.trialEnd) line = 'Status: ' + trialText(b) + ' (' + (b.plan === 'solo' ? 'monthly billing starts' : 'first charge') + ' on ' + fmtDate(b.trialEnd) + ')';
     else if (good && b.periodEnd) line += b.cancelAtPeriodEnd ? ', ends on ' + fmtDate(b.periodEnd) : ', renews on ' + fmtDate(b.periodEnd);
     c.appendChild(el('p', { style: 'margin-bottom:1rem;color:var(--gray)' }, line));
     var grid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.75rem;margin-bottom:1rem' });
@@ -57,12 +61,15 @@
       var current = good && b.plan === p.id;
       var box = el('div', { style: 'border:1px solid ' + (current ? 'var(--primary)' : '#e5e7eb') + ';border-radius:10px;padding:1rem;' + (current ? 'background:#f0f7f3' : '') });
       box.appendChild(el('strong', null, p.name));
-      box.appendChild(el('div', { style: 'font-size:1.4rem;font-weight:700;margin:0.3rem 0' }, '$' + p.price + '/mo'));
+      var intro = !good && b.intro && b.intro.plan === p.id;
+      box.appendChild(el('div', { style: 'font-size:1.4rem;font-weight:700;margin:0.3rem 0' }, intro ? '$' + b.intro.price + ' for ' + b.intro.months + ' months' : '$' + p.price + '/mo'));
+      box.appendChild(el('div', { style: 'color:var(--gray);font-size:0.8rem;margin-bottom:0.5rem' }, (intro ? 'Then $' + p.price + '/mo. ' : '') + (p.limit >= 999999 ? 'Unlimited properties' : 'Up to ' + p.limit + ' properties')));
       if (current) box.appendChild(el('span', { class: 'badge badge-green' }, 'Your plan'));
       else {
-        var btn = el('button', { class: 'btn btn-sm', type: 'button' }, good ? 'Switch' : (b.trialDays ? 'Start free trial' : 'Choose'));
+        var btn = el('button', { class: 'btn btn-sm', type: 'button' }, good ? 'Switch' : intro ? 'Start for $' + b.intro.price : (b.trialDays ? 'Start free trial' : 'Choose'));
         btn.addEventListener('click', function () {
-          if (good && !confirm('Switch to ' + p.name + ' ($' + p.price + '/mo)? Stripe adjusts your next bill for the change.')) return;
+          var endsIntro = b.status === 'trialing' && b.plan === 'solo';
+          if (good && !confirm('Switch to ' + p.name + ' ($' + p.price + '/mo)? ' + (endsIntro ? 'This ends your intro offer and starts monthly billing today.' : 'Stripe adjusts your next bill for the change.'))) return;
           go(good ? '/billing/change' : '/billing/checkout', { plan: p.id }, btn);
         });
         box.appendChild(btn);

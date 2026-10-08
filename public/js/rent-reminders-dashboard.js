@@ -31,7 +31,7 @@
     c.appendChild(el('h2', { style: 'color:var(--primary);margin-bottom:0.5rem;' }, 'Rent reminders'));
     c.appendChild(el('p', { style: 'color:var(--gray);margin-bottom:1rem;' }, 'Email your tenants a reminder before rent is due, and a friendly notice if a month\'s rent isn\'t recorded a few days after. Tenants need to have accepted their portal invite. Rent you add in Transactions as Rent Collected, or rent paid online, stops the reminders for that month.'));
     if (d.planOk === false) {
-      c.appendChild(el('p', { style: 'color:#7a4b00;' }, 'Rent reminders come with an EC Rental plan. Start your free trial in Plan & Billing above, then come back here.'));
+      c.appendChild(el('p', { style: 'color:#7a4b00;' }, 'Rent reminders come with an EC Rental plan. Choose a plan in Plan & Billing above, then come back here.'));
       return;
     }
     var on = el('input', { type: 'checkbox', id: 'remEnabled' }); on.checked = !!d.enabled;

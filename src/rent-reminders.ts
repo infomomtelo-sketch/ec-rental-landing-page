@@ -43,7 +43,7 @@ export async function handleRentReminderRoutes(request: Request, env: RemindersE
   if (request.method === "PUT") {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const s: Settings = { enabled: body.enabled ? 1 : 0, due_day: clampInt(body.due_day, 1, 28, 1), days_before: clampInt(body.days_before, 1, 10, 3), late_after: clampInt(body.late_after, 1, 15, 5) };
-    if (s.enabled && !(await hasActivePlan(env, user.id))) return json({ error: "Rent reminders come with an EC Rental plan. Start your free trial in Plan & Billing first." }, 402);
+    if (s.enabled && !(await hasActivePlan(env, user.id))) return json({ error: "Rent reminders come with an EC Rental plan. Choose a plan in Plan & Billing first." }, 402);
     await env.DB.prepare("INSERT INTO rent_reminder_settings (user_id, enabled, due_day, days_before, late_after, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET enabled = excluded.enabled, due_day = excluded.due_day, days_before = excluded.days_before, late_after = excluded.late_after, updated_at = excluded.updated_at")
       .bind(user.id, s.enabled, s.due_day, s.days_before, s.late_after, new Date().toISOString()).run();
     return json({ ...s, planOk: true });

@@ -1,5 +1,5 @@
 // "Book in-person inspection" on the dashboard Inspections page (the first one is a free launch bonus once the
-// plan is paid), plus an "In-Person Inspection Requests" card on the admin Chat Leads page. Talks to
+// monthly plan starts), plus an "In-Person Inspection Requests" card on the admin Chat Leads page. Talks to
 // /api/inspection-requests (src/inspection-requests.ts) and /api/leads.
 (function () {
   var page = document.getElementById('page-inspections');

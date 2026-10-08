@@ -154,7 +154,7 @@ async function landlordRoutes(request: Request, env: RentPaymentsEnv, url: URL, 
   if (url.pathname === "/api/rent-payments/connect" && request.method === "POST") {
     if (!billingEnabled(env)) return json({ error: "Online payments aren't switched on yet." }, 503);
     // Online rent payments come with an EC Rental plan (paid or in its free trial).
-    if (!(await hasActivePlan(env, user.id))) return json({ error: "Online rent payments come with an EC Rental plan. Start your free trial in Plan & Billing first." }, 402);
+    if (!(await hasActivePlan(env, user.id))) return json({ error: "Online rent payments come with an EC Rental plan. Choose a plan in Plan & Billing first." }, 402);
     await ensureConnectWebhook(env, url.origin);
     let account = await payoutAccount(env, user.id);
     if (!account) {
