@@ -53,7 +53,8 @@
     if (b.exempt) { c.appendChild(el('p', { style: 'color:var(--gray)' }, 'Admin account: no subscription needed.')); return; }
     var good = GOOD.indexOf(b.status) !== -1;
     var line = 'Status: ' + (STATUS_TEXT[b.status] || b.status);
-    if (b.status === 'trialing' && b.trialEnd) line = 'Status: ' + trialText(b) + ' (' + (b.plan === 'solo' ? 'monthly billing starts' : 'first charge') + ' on ' + fmtDate(b.trialEnd) + ')';
+    if (b.status === 'trialing' && b.trialEnd && b.cancelAtPeriodEnd) line = 'Status: Canceled. You can use EC Rental until ' + fmtDate(b.trialEnd) + ' and won\u2019t be charged.';
+    else if (b.status === 'trialing' && b.trialEnd) line = 'Status: ' + trialText(b) + ' (' + (b.plan === 'solo' ? 'monthly billing starts' : 'first charge') + ' on ' + fmtDate(b.trialEnd) + ')';
     else if (good && b.periodEnd) line += b.cancelAtPeriodEnd ? ', ends on ' + fmtDate(b.periodEnd) : ', renews on ' + fmtDate(b.periodEnd);
     c.appendChild(el('p', { style: 'margin-bottom:1rem;color:var(--gray)' }, line));
     var grid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.75rem;margin-bottom:1rem' });
@@ -77,10 +78,25 @@
       grid.appendChild(box);
     });
     c.appendChild(grid);
+    var actions = el('div', { style: 'display:flex;flex-wrap:wrap;gap:0.5rem' });
+    if (good && !b.cancelAtPeriodEnd) {
+      var cancel = el('button', { class: 'btn btn-secondary btn-sm', type: 'button', id: 'cancelPlanBtn' }, 'Cancel plan');
+      cancel.addEventListener('click', function () {
+        var until = b.status === 'trialing' && b.trialEnd ? b.trialEnd : b.periodEnd;
+        if (!confirm('Cancel your plan? You keep using EC Rental until ' + (until ? fmtDate(until) : 'the end of this period') + ' and won\u2019t be charged again.')) return;
+        cancel.disabled = true; call('/billing/cancel', 'POST').then(render).catch(function (err) { cancel.disabled = false; alert(err.message); });
+      });
+      actions.appendChild(cancel);
+    } else if (good && b.cancelAtPeriodEnd) {
+      var resume = el('button', { class: 'btn btn-sm', type: 'button' }, 'Keep my plan');
+      resume.addEventListener('click', function () { resume.disabled = true; call('/billing/resume', 'POST').then(render).catch(function (err) { resume.disabled = false; alert(err.message); }); });
+      actions.appendChild(resume);
+    }
+    c.appendChild(actions);
     if (b.hasCustomer) {
-      var manage = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Manage billing (card, invoices, cancel)');
+      var manage = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Manage billing (card, invoices)');
       manage.addEventListener('click', function () { go('/billing/portal', null, manage); });
-      c.appendChild(manage);
+      actions.appendChild(manage);
     }
     c.appendChild(el('p', { style: 'color:var(--gray);font-size:0.8rem;margin-top:0.75rem' }, 'Payments are handled securely by Stripe. EC Rental never sees your card number.'));
   }
@@ -102,6 +118,8 @@
     if (q === 'success') alert('Thanks! Your plan is set up. It can take a few seconds to show here.');
     // Stripe's webhook may land a moment after the redirect, so look again shortly.
     if (q === 'success' || q === 'portal') setTimeout(render, 4000);
+    // From the renewal reminder email: open Settings at the Plan & Billing card.
+    if (q === 'manage') setTimeout(function () { var nav = document.querySelector('[data-page="settings"]'); if (nav) nav.click(); setTimeout(function () { var c = document.getElementById('billingCard'); if (c) c.scrollIntoView({ behavior: 'smooth' }); }, 600); }, 800);
   }
 
   function start() {

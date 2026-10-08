@@ -10,7 +10,7 @@ const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Ma
 Company info:
 - AI-powered property management software for independent landlords and property managers anywhere. The company is based in Fresno, CA, where it also manages rentals and does in-person inspections in Fresno and Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
-- Pricing: Solo Landlord is $3 for the first 3 months (one $3 payment on Stripe at sign up), then $29/mo, for 1-3 properties; cancel anytime before the 3 months end and nothing more is charged. Property Manager $79/mo (up to 25 properties) and Portfolio $199/mo (unlimited) start with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime). Every plan includes the landlord's own business landing page at ecrentalpm.com/rentals/their-business-name, with their listings, a contact form and a tenant login.
+- Pricing: Solo Landlord launch offer (for sign ups through December 31, 2026): $3 for the first 3 months (one $3 payment on Stripe at sign up), then $29/mo, for 1-3 properties. A reminder email goes out 7 days before the first $29 charge, and "Cancel plan" in Settings, Plan & Billing cancels in one tap; cancel before the 3 months end and nothing more is charged. After the launch offer ends, Solo is $29/mo with a 14-day free trial. Property Manager $79/mo (up to 25 properties) and Portfolio $199/mo (unlimited) start with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime). Every plan includes the landlord's own business landing page at ecrentalpm.com/rentals/their-business-name, with their listings, a contact form and a tenant login.
 - Contact: info@ecrentalpm.com, (559) 825-3038.
 - AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. Launch bonus: a landlord's first in-person inspection is free once their regular monthly billing has started, after the intro offer or free trial (Fresno and Clovis); they book it from the dashboard Inspections page.
 Rules:
@@ -82,7 +82,7 @@ import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handleAdminRoutes, isAdmin } from "./admin";
 import { handleInspectionRequests } from "./inspection-requests";
-import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook, INTRO, PLANS } from "./billing";
+import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook, INTRO, PLANS, runTrialReminders } from "./billing";
 import { handleBusinessPageRoutes, handlePublicBusinessPages } from "./business-pages";
 import { handleFinanceRoutes } from "./finance";
 import { handleConnectWebhook, handleLandlordRentPayments, handleTenantRentPayments } from "./rent-payments";
@@ -377,6 +377,9 @@ export default {
     ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[rent-reminders] sent", n))
       .catch((err) => console.error("[rent-reminders]", err instanceof Error ? err.message : err)));
+    ctx.waitUntil(runTrialReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
+      .then((n) => console.log("[trial-reminders] sent", n))
+      .catch((err) => console.error("[trial-reminders]", err instanceof Error ? err.message : err)));
   },
 };
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }

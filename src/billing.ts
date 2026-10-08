@@ -32,8 +32,12 @@ export const PLANS: Record<string, { name: string; price: number; limit: number 
   manager: { name: "Property Manager", price: 79, limit: 25 },
   portfolio: { name: "Portfolio", price: 199, limit: 999999 },
 };
-/** The intro offer: one payment of `price` dollars covers the first `months` months of `plan`. */
-export const INTRO = { plan: "solo", price: 3, months: 3 };
+/** The launch intro offer: one payment of `price` dollars covers the first `months` months of `plan`, for sign ups through `endsOn`. */
+export const INTRO = { plan: "solo", price: 3, months: 3, endsOn: "2026-12-31" };
+/** True while new customers can still get the intro offer (until the end of `endsOn`, California time). */
+export function introOpen(now = Date.now()): boolean { return now < Date.parse(INTRO.endsOn + "T23:59:59-08:00"); }
+/** Days before a trial or the intro period ends that the "your plan starts on" reminder goes out. */
+const REMINDER_DAYS = 7;
 const LOOKUP_PREFIX = "ecrental_";
 const lookupKey = (plan: string) => LOOKUP_PREFIX + plan + "_monthly";
 const WEBHOOK_EVENTS = ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
@@ -178,7 +182,7 @@ export async function createCheckout(env: BillingEnv, user: BillingUser, plan: s
   const customer = await ensureCustomer(env, user);
   const row = await billingRow(env, user.id);
   const isNew = !row?.subscription_id;
-  const intro = isNew && plan === INTRO.plan;
+  const intro = isNew && plan === INTRO.plan && introOpen();
   const days = isNew && !intro ? trialDays(env) : 0;
   const lineItems: Record<string, unknown>[] = [{ price: await priceId(env, plan), quantity: 1 }];
   // Charged today on the first invoice; the monthly price starts when the trial ends.
@@ -265,7 +269,7 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
     const row = await billingRow(env, user.id);
     return json({
       enabled: true, plans, trialDays: row?.subscription_id ? 0 : trialDays(env), exempt: isAdmin(env, user),
-      intro: row?.subscription_id ? null : INTRO,
+      intro: row?.subscription_id || !introOpen() ? null : INTRO,
       status: row?.status || "none", plan: row?.plan || user.plan, trialEnd: row?.trial_end || null, periodEnd: row?.period_end || null,
       cancelAtPeriodEnd: !!row?.cancel_at_period_end, hasCustomer: !!row?.customer_id,
     });
@@ -301,6 +305,15 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
     return json({ success: true, plan: body.plan });
   }
 
+  // One-click cancel: the plan stays on until the end of the paid period (or the intro/trial) and is never charged again.
+  if (url.pathname === "/api/billing/cancel" || url.pathname === "/api/billing/resume") {
+    const row = await billingRow(env, user.id);
+    if (!row?.subscription_id || !GOOD_STATUSES.includes(row.status)) return json({ error: "You don't have an active plan to change." }, 400);
+    const updated = await stripe(env, "POST", "subscriptions/" + row.subscription_id, { cancel_at_period_end: url.pathname === "/api/billing/cancel" ? "true" : "false" });
+    await applySubscription(env, updated, user.id);
+    return json({ success: true, cancelAtPeriodEnd: !!updated.cancel_at_period_end });
+  }
+
   if (url.pathname === "/api/billing/portal") {
     const row = await billingRow(env, user.id);
     if (!row?.customer_id) return json({ error: "Start a subscription first." }, 400);
@@ -309,4 +322,30 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
   }
 
   return json({ error: "Not found" }, 404);
+}
+
+/**
+ * Daily (cron): emails each customer whose intro offer or free trial ends within REMINDER_DAYS, once per subscription,
+ * saying when the first full charge happens and how to cancel. California's auto-renewal law expects this notice.
+ */
+export async function runTrialReminders(env: BillingEnv, send: (to: string, subject: string, html: string, text: string) => Promise<boolean>, origin: string): Promise<number> {
+  if (!billingEnabled(env)) return 0;
+  const now = new Date();
+  const rows = await env.DB.prepare("SELECT b.user_id, b.subscription_id, b.plan, b.trial_end, u.name, u.email FROM billing b JOIN users u ON u.id = b.user_id WHERE b.status = 'trialing' AND b.cancel_at_period_end = 0 AND b.trial_end IS NOT NULL AND b.trial_end > ? AND b.trial_end <= ?")
+    .bind(now.toISOString(), new Date(now.getTime() + REMINDER_DAYS * 86400000).toISOString()).all<{ user_id: number; subscription_id: string; plan: string; trial_end: string; name: string; email: string }>();
+  let sent = 0;
+  for (const r of rows.results) {
+    const key = `trial_reminder:${r.subscription_id}:${r.trial_end.slice(0, 10)}`;
+    if (!r.plan || !(r.plan in PLANS) || (await getSetting(env, key))) continue;
+    const plan = PLANS[r.plan];
+    const when = new Date(r.trial_end).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
+    const what = r.plan === INTRO.plan ? `your $${INTRO.price} intro offer` : "your free trial";
+    const link = origin + "/dashboard?billing=manage";
+    const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+    const ok = await send(r.email, `Your EC Rental plan renews at $${plan.price}/month on ${when}`,
+      `<p>Hi ${esc(r.name)},</p><p>Thanks for using EC Rental. ${what[0].toUpperCase() + what.slice(1)} on the ${esc(plan.name)} plan ends on <strong>${when}</strong>. From that day your card will be charged <strong>$${plan.price} a month</strong> until you cancel.</p><p>Nothing to do if you want to keep your plan. To cancel, open <a href="${link}">Settings, Plan &amp; Billing</a> and tap <strong>Cancel plan</strong>. You won't be charged again.</p><p>Questions? Reply to info@ecrentalpm.com.</p>`,
+      `Hi ${r.name},\n\nThanks for using EC Rental. ${what[0].toUpperCase() + what.slice(1)} on the ${plan.name} plan ends on ${when}. From that day your card will be charged $${plan.price} a month until you cancel.\n\nNothing to do if you want to keep your plan. To cancel, open Settings, Plan & Billing and tap Cancel plan: ${link}\nYou won't be charged again.\n\nQuestions? Email info@ecrentalpm.com.`).catch(() => false);
+    if (ok) { await setSetting(env, key, now.toISOString()); sent++; }
+  }
+  return sent;
 }

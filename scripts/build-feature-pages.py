@@ -403,7 +403,7 @@ def page(slug, p):
     </div></section>
 
     <section class="band" style="padding-top:0"><div class="wrap">
-      <div class="ctaband"><h2>Run your rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Start with 3 months for $3, then $29/month, with your own business landing page included.</p>
+      <div class="ctaband"><h2>Run your rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Launch offer: 3 months for $3 on Solo Landlord for sign ups through December 31, then $29/month. Your own business landing page is included.</p>
       <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Start for $3</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
       <div class="kicker" style="margin-top:56px">Explore more</div>
       <div class="more">{more}</div>
