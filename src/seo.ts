@@ -1,7 +1,9 @@
 // Search and social sharing: /sitemap.xml, and share-preview tags + Google rental data on /listing?id= pages.
 // Crawlers and link previews (Facebook, iMessage, Google) don't run the page's JavaScript, so the tags are added here.
 
-interface SeoEnv { DB: D1Database; ASSETS: Fetcher; }
+import { businessPageUrls, type BusinessEnv } from "./business-pages";
+
+interface SeoEnv extends BusinessEnv { ASSETS: Fetcher; }
 interface SeoListing {
   id: number; title: string; property_type: string; street: string; unit: string; city: string; state: string; zip: string;
   rent: number; bedrooms: number; full_baths: number; half_baths: number; square_feet: number | null;
@@ -65,6 +67,7 @@ export async function handleSeoRoutes(request: Request, env: SeoEnv, url: URL): 
   if (url.pathname === "/sitemap.xml") {
     const rows = await env.DB.prepare("SELECT id, updated_at FROM listings WHERE status = 'active' ORDER BY id").all<{ id: number; updated_at: string }>();
     const urls = PAGES.map((p) => `<url><loc>${SITE}${p}</loc></url>`)
+      .concat((await businessPageUrls(env)).map((u) => `<url><loc>${u}</loc></url>`))
       .concat(rows.results.map((r) => `<url><loc>${SITE}/listing?id=${r.id}</loc><lastmod>${attr(String(r.updated_at || "").slice(0, 10))}</lastmod></url>`));
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
     return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } });

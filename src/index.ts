@@ -10,9 +10,9 @@ const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Ma
 Company info:
 - AI-powered property management software for independent landlords and property managers anywhere. The company is based in Fresno, CA, where it also manages rentals and does in-person inspections in Fresno and Clovis.
 - Services: tenant placement & screening, 24/7 maintenance, rent collection, lease management, financial/tax reporting, AI home inspections.
-- Pricing: Solo $29/mo (1-5 units), Manager $79/mo (25 units), Portfolio $199/mo (unlimited). Every plan starts with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime).
+- Pricing: Solo Landlord is $3 for the first 3 months (one $3 payment on Stripe at sign up), then $29/mo, for 1-3 properties; cancel anytime before the 3 months end and nothing more is charged. Property Manager $79/mo (up to 25 properties) and Portfolio $199/mo (unlimited) start with a 14-day free trial (card entered on Stripe, not charged until the trial ends; cancel anytime). Every plan includes the landlord's own business landing page at ecrentalpm.com/rentals/their-business-name, with their listings, a contact form and a tenant login.
 - Contact: info@ecrentalpm.com, (559) 825-3038.
-- AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. Launch bonus: a landlord's first in-person inspection is free once their plan is paid (Fresno and Clovis); they book it from the dashboard Inspections page.
+- AI Home Inspections: move-in, move-out and routine inspections led by a certified home inspector (trained through Home Inspectors of America); AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. Launch bonus: a landlord's first in-person inspection is free once their regular monthly billing has started, after the intro offer or free trial (Fresno and Clovis); they book it from the dashboard Inspections page.
 Rules:
 - Be friendly but VERY concise. Max 2-3 sentences per response.
 - Write in a professional tone. Never use emojis.
@@ -40,10 +40,10 @@ Dashboard pages (left menu):
 - Transactions: "+ Add Transaction" for rent, expenses and owner payments.
 - Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
 - Tax Reports: per-property totals and "Export CSV".
-- Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report. "Book in-person inspection" asks a certified home inspector to visit (Fresno and Clovis); the first one on an account is a free launch bonus once the plan is paid.
-- Settings: account details and password. When online billing is on, the "Plan & Billing" card there starts the 14-day free trial (Stripe checkout), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling. The "Online rent payments" card connects the landlord's own Stripe account ("Set up payouts with Stripe") so tenants can pay rent by bank transfer or card; money goes straight to the landlord's Stripe account and bank, Stripe's fees come out of each payment, and paid rent is added to Transactions by itself.
+- Inspections: "+ New Inspection" (move-in, move-out, routine or annual), add photos room by room, the AI fills in condition and notes for you to check, "Compare with move-in" on move-outs, then a printable report. "Book in-person inspection" asks a certified home inspector to visit (Fresno and Clovis); the first one on an account is a free launch bonus once regular monthly billing has started.
+- Settings: account details and password. "Your business page" card: the landlord's own public website at ecrentalpm.com/rentals/their-name, with business name, page address, tagline, area served, public phone and email, an About section and a show/hide switch; it lists their active listings automatically, has a contact form (messages are emailed to them and shown in the card) and a tenant login link; "Copy link" to share it. When online billing is on, the "Plan & Billing" card there starts the plan on Stripe checkout ($3 for the first 3 months on Solo Landlord, a 14-day free trial on the bigger plans), switches plans (Solo $29, Property Manager $79, Portfolio $199 a month) and opens "Manage billing" for card, invoices and cancelling. The "Online rent payments" card connects the landlord's own Stripe account ("Set up payouts with Stripe") so tenants can pay rent by bank transfer or card; money goes straight to the landlord's Stripe account and bank, Stripe's fees come out of each payment, and paid rent is added to Transactions by itself.
 - Setting up online rent payments, step by step (walk the landlord through one step at a time and ask where they are stuck):
-  1. It needs an EC Rental plan or free trial (Plan & Billing card) first. Then Settings, "Online rent payments" card, tap "Set up payouts with Stripe". This opens Stripe's own secure setup page. EC Rental never sees their bank or ID details.
+  1. It needs an EC Rental plan (Plan & Billing card) first; the $3 intro offer or free trial counts. Then Settings, "Online rent payments" card, tap "Set up payouts with Stripe". This opens Stripe's own secure setup page. EC Rental never sees their bank or ID details.
   2. On Stripe, sign in to an existing Stripe account or create one with their email and a password.
   3. Business type: an individual landlord picks "Individual" (sole proprietor); an LLC or company picks "Company" and enters its legal name and EIN.
   4. Personal details: legal name, date of birth, home address, phone and the last 4 digits (or full) SSN. Stripe asks for these by law to verify identity; sometimes it also asks for a photo of a driver's license or passport, uploaded only on Stripe.
@@ -52,7 +52,7 @@ Dashboard pages (left menu):
   7. Review and submit. Stripe sends them back to the dashboard. If the card says "Stripe still needs a few details", tap "Finish Stripe setup" to continue where they left off. Once it says "Ready", invited tenants see "Pay rent online" in their tenant portal.
   - Fees: about 0.8% capped at $5 for a bank transfer, 2.9% + 30 cents for a card, taken by Stripe from each payment. EC Rental charges no extra fee. Bank transfers take a few business days to clear.
   - Never ask the landlord to type their SSN, bank numbers or ID into this chat; those go only on Stripe's page. If Stripe shows an error or rejects something, tell them to follow Stripe's on-screen message or contact Stripe support, or email info@ecrentalpm.com.
-- Rent reminders (Settings, "Rent reminders" card): when switched on, tenants who accepted their invite get an email a few days before rent is due (with a "Pay rent online" button once online payments are set up) and a friendly notice a few days after the due date if that month's rent isn't recorded yet; the landlord gets a copy of late notices. The landlord picks the due day and the timing. Rent recorded in Transactions as Rent Collected, or paid online, stops the reminders for that month. Needs an EC Rental plan or free trial.
+- Rent reminders (Settings, "Rent reminders" card): when switched on, tenants who accepted their invite get an email a few days before rent is due (with a "Pay rent online" button once online payments are set up) and a friendly notice a few days after the due date if that month's rent isn't recorded yet; the landlord gets a copy of late notices. The landlord picks the due day and the timing. Rent recorded in Transactions as Rent Collected, or paid online, stops the reminders for that month. Needs an EC Rental plan (the intro offer or free trial counts).
 In this mode, never include [SHOW_...] tags.`;
 
 // A picture attached in the Tello chat (screenshot or photo), sent as a data URL. Read once and never stored.
@@ -82,11 +82,11 @@ import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
 import { handleAdminRoutes, isAdmin } from "./admin";
 import { handleInspectionRequests } from "./inspection-requests";
-import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook } from "./billing";
+import { billingEnabled, createCheckout, handleBillingRoutes, handleStripeWebhook, INTRO, PLANS } from "./billing";
+import { handleBusinessPageRoutes, handlePublicBusinessPages } from "./business-pages";
 import { handleConnectWebhook, handleLandlordRentPayments, handleTenantRentPayments } from "./rent-payments";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 
-const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 
 function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...corsHeaders() } }); }
@@ -185,17 +185,17 @@ export default {
         const viaGoogle = !!body.google_ticket;
         if (!body.name || (!viaGoogle && !body.email) || !body.phone || !body.propertyCount || !body.plan || (!viaGoogle && !body.password)) return json({ success: false, error: "Please fill in all required fields." }, 400);
         if (!viaGoogle && body.password!.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
-        if (!(body.plan in PLAN_LIMITS)) return json({ success: false, error: "Please choose a plan." }, 400);
+        if (!(body.plan in PLANS)) return json({ success: false, error: "Please choose a plan." }, 400);
         // A Google sign up uses the email Google verified and gets a random password; "Forgot password?" can set one later.
         const googleEmail = viaGoogle ? await redeemSignupTicket(env, body.google_ticket!, sha256Hex) : null;
         if (viaGoogle && !googleEmail) return json({ success: false, error: "Your Google sign-up expired. Please click Continue with Google again." }, 400);
         const email = googleEmail || normalizeEmail(body.email);
         const existing = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = ?").bind(email).first();
         if (existing) return json({ success: false, error: "An account with this email already exists." }, 409);
-        const planNames: Record<string, string> = { solo: "Solo Landlord ($29/mo)", manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
+        const planNames: Record<string, string> = { solo: `Solo Landlord ($${INTRO.price} for ${INTRO.months} months, then $29/mo)`, manager: "Property Manager ($79/mo)", portfolio: "Portfolio ($199/mo)" };
         const salt = generateSalt(); const passwordHash = await hashPassword(body.password || generateToken(), salt); const now = new Date().toISOString();
         const results = await env.DB.batch([
-          env.DB.prepare("INSERT INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, passwordHash, salt, body.plan, PLAN_LIMITS[body.plan], "landlord", now),
+          env.DB.prepare("INSERT INTO users (name, company, email, password_hash, password_salt, plan, property_limit, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, passwordHash, salt, body.plan, PLANS[body.plan].limit, "landlord", now),
           env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, body.phone, body.propertyCount, planNames[body.plan], body.message || "", now),
         ]);
         const newUserId = Number(results[0].meta.last_row_id);
@@ -283,6 +283,7 @@ export default {
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
+    try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
     try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
@@ -309,6 +310,7 @@ export default {
 
     // Site owner admin page (src/admin.ts)
     if (user && url.pathname.startsWith("/api/admin/")) { if (user.role !== "admin") return json({ error: "Admins only" }, 403); try { const res = await handleAdminRoutes(request, env, url); if (res) return res; } catch (err) { return dbErrorResponse("admin", err); } }
+    if (user && url.pathname === "/api/business-page") { try { const res = await handleBusinessPageRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("business-page", err); } }
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)

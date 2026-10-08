@@ -36,7 +36,7 @@
         ['Applications', o.applications, (o.newApplications || 0) + ' waiting for review'],
         ['Leads', o.leads, (o.newLeads || 0) + ' new'],
         ['Open maintenance', o.openMaintenance, 'Requests not yet resolved'],
-        ['Paying in Stripe', o.paying, (o.trialing || 0) + ' on a free trial'],
+        ['Paying in Stripe', o.paying, (o.trialing || 0) + ' on the intro offer or a free trial'],
         ['Plan value / mo', money(o.planValue), 'All accounts at list price'],
       ];
       document.getElementById('statCards').innerHTML = cards.map(function(c) { return '<div class="stat-card"><div class="label">' + esc(c[0]) + '</div><div class="value">' + esc(c[1] === undefined ? 0 : c[1]) + '</div><div class="note">' + esc(c[2]) + '</div></div>'; }).join('');
@@ -49,7 +49,7 @@
     if (a.role === 'admin') return '<span class="badge badge-gold">Admin</span>';
     return '<select onchange="ecAdminSetPlan(' + Number(a.id) + ', this)">' + PLANS.map(function(p) { return '<option value="' + p[0] + '"' + (p[0] === a.plan ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>';
   }
-  var BILLING = { active: ['Paying', 'badge-green'], trialing: ['Free trial', 'badge-gold'], past_due: ['Payment failed', 'badge-yellow'], unpaid: ['Unpaid', 'badge-yellow'], canceled: ['Canceled', 'badge-gray'] };
+  var BILLING = { active: ['Paying', 'badge-green'], trialing: ['Intro or trial', 'badge-gold'], past_due: ['Payment failed', 'badge-yellow'], unpaid: ['Unpaid', 'badge-yellow'], canceled: ['Canceled', 'badge-gray'] };
   function billingBadge(status) { var b = BILLING[status]; return '<br><span class="badge ' + (b ? b[1] : 'badge-gray') + '" style="margin-top:0.35rem;">' + esc(b ? b[0] : 'No subscription') + '</span>'; }
   function renderAccounts() {
     var q = document.getElementById('accountSearch').value.trim().toLowerCase();

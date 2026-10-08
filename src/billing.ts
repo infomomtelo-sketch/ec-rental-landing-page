@@ -6,6 +6,9 @@
  * itself on first use: it creates the three monthly prices (found again by lookup key), the webhook endpoint
  * (its signing secret is kept in app_settings) and a billing portal configuration. STRIPE_WEBHOOK_SECRET
  * overrides the stored signing secret if you'd rather create the webhook in the Stripe dashboard.
+ * New Solo Landlord customers start on the intro offer instead of the free trial: $3 today covers their first
+ * three months, then the plan renews at $29/month unless they cancel. In Stripe that is a one-time $3 line item
+ * plus a trial that ends three months from checkout. The larger plans keep the free trial.
  * This must be EC Rental's own Stripe account, never Title 22's.
  */
 import { isAdmin } from "./admin";
@@ -25,10 +28,12 @@ interface BillingRow { user_id: number; customer_id: string | null; subscription
 type StripeObject = Record<string, any>;
 
 export const PLANS: Record<string, { name: string; price: number; limit: number }> = {
-  solo: { name: "Solo Landlord", price: 29, limit: 5 },
+  solo: { name: "Solo Landlord", price: 29, limit: 3 },
   manager: { name: "Property Manager", price: 79, limit: 25 },
   portfolio: { name: "Portfolio", price: 199, limit: 999999 },
 };
+/** The intro offer: one payment of `price` dollars covers the first `months` months of `plan`. */
+export const INTRO = { plan: "solo", price: 3, months: 3 };
 const LOOKUP_PREFIX = "ecrental_";
 const lookupKey = (plan: string) => LOOKUP_PREFIX + plan + "_monthly";
 const WEBHOOK_EVENTS = ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
@@ -158,18 +163,35 @@ async function ensureCustomer(env: BillingEnv, user: BillingUser): Promise<strin
   return customer.id as string;
 }
 
-/** A Stripe Checkout page for the plan. New customers get the free trial; returning ones don't. */
+/** When the intro period would end if checkout happened now: the same day, `INTRO.months` months later. */
+export function introEnd(now = new Date()): Date {
+  const end = new Date(now.getTime());
+  end.setUTCMonth(end.getUTCMonth() + INTRO.months);
+  // Jan 31 + 1 month rolls into March; step back to the last day of the intended month instead.
+  if (end.getUTCDate() !== now.getUTCDate()) end.setUTCDate(0);
+  return end;
+}
+
+/** A Stripe Checkout page for the plan. New customers get the intro offer (Solo) or the free trial; returning ones don't. */
 export async function createCheckout(env: BillingEnv, user: BillingUser, plan: string, origin: string): Promise<string> {
   await ensureWebhook(env, origin);
   const customer = await ensureCustomer(env, user);
   const row = await billingRow(env, user.id);
-  const days = row?.subscription_id ? 0 : trialDays(env);
+  const isNew = !row?.subscription_id;
+  const intro = isNew && plan === INTRO.plan;
+  const days = isNew && !intro ? trialDays(env) : 0;
+  const lineItems: Record<string, unknown>[] = [{ price: await priceId(env, plan), quantity: 1 }];
+  // Charged today on the first invoice; the monthly price starts when the trial ends.
+  if (intro) lineItems.push({ price_data: { currency: "usd", unit_amount: INTRO.price * 100, product_data: { name: `EC Rental ${PLANS[plan].name}: first ${INTRO.months} months` } }, quantity: 1 });
   const session = await stripe(env, "POST", "checkout/sessions", {
     mode: "subscription",
     customer,
     client_reference_id: String(user.id),
-    line_items: [{ price: await priceId(env, plan), quantity: 1 }],
-    subscription_data: { metadata: { user_id: String(user.id), plan }, ...(days ? { trial_period_days: days } : {}) },
+    line_items: lineItems,
+    subscription_data: {
+      metadata: { user_id: String(user.id), plan, ...(intro ? { intro: "1" } : {}) },
+      ...(intro ? { trial_end: Math.floor(introEnd().getTime() / 1000) } : days ? { trial_period_days: days } : {}),
+    },
     metadata: { user_id: String(user.id), plan },
     allow_promotion_codes: "true",
     success_url: origin + "/dashboard?billing=success",
@@ -196,7 +218,8 @@ async function applySubscription(env: BillingEnv, sub: StripeObject, fallbackUse
     " ON CONFLICT(user_id) DO UPDATE SET customer_id = excluded.customer_id, subscription_id = excluded.subscription_id, status = excluded.status, plan = excluded.plan, trial_end = excluded.trial_end, period_end = excluded.period_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = excluded.updated_at"
   ).bind(userId, String(sub.customer || current?.customer_id || ""), sub.id, sub.status, plan, isoFromUnix(sub.trial_end), isoFromUnix(periodEnd), sub.cancel_at_period_end ? 1 : 0, new Date().toISOString()).run();
   if (plan && GOOD_STATUSES.includes(sub.status)) {
-    await env.DB.prepare("UPDATE users SET plan = ?, property_limit = ? WHERE id = ? AND role != 'tenant'").bind(plan, PLANS[plan].limit, userId).run();
+    // Never below the homes already in the account, so a smaller plan limit doesn't strand anyone's properties.
+    await env.DB.prepare("UPDATE users SET plan = ?, property_limit = MAX(?, (SELECT COUNT(*) FROM properties WHERE user_id = ?)) WHERE id = ? AND role != 'tenant'").bind(plan, PLANS[plan].limit, userId, userId).run();
   }
 }
 
@@ -235,13 +258,14 @@ export async function handleStripeWebhook(request: Request, env: BillingEnv): Pr
 /** Handles /api/billing/* for a signed-in landlord. Returns null for other paths. */
 export async function handleBillingRoutes(request: Request, env: BillingEnv, url: URL, user: BillingUser): Promise<Response | null> {
   if (url.pathname !== "/api/billing" && !url.pathname.startsWith("/api/billing/")) return null;
-  const plans = Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price }));
+  const plans = Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price, limit: p.limit }));
 
   if (url.pathname === "/api/billing" && request.method === "GET") {
     if (!billingEnabled(env)) return json({ enabled: false, plans });
     const row = await billingRow(env, user.id);
     return json({
       enabled: true, plans, trialDays: row?.subscription_id ? 0 : trialDays(env), exempt: isAdmin(env, user),
+      intro: row?.subscription_id ? null : INTRO,
       status: row?.status || "none", plan: row?.plan || user.plan, trialEnd: row?.trial_end || null, periodEnd: row?.period_end || null,
       cancelAtPeriodEnd: !!row?.cancel_at_period_end, hasCustomer: !!row?.customer_id,
     });
@@ -269,6 +293,8 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
       items: [{ id: item.id, price: await priceId(env, body.plan) }],
       proration_behavior: "create_prorations",
       cancel_at_period_end: "false",
+      // The $3 intro only covers Solo: moving up to a bigger plan ends the intro period and starts its monthly billing now.
+      ...(sub.status === "trialing" && sub.metadata?.intro === "1" && body.plan !== INTRO.plan ? { trial_end: "now" } : {}),
       metadata: { user_id: String(user.id), plan: body.plan },
     });
     await applySubscription(env, updated, user.id);

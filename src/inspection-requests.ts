@@ -1,6 +1,6 @@
 // "Book an in-person inspection" from the dashboard. Requests are saved as leads (signups.plan = 'inspection_request')
 // so they show on the admin Chat Leads page, and EC Rental gets an email. Launch bonus: an account's first request
-// is free, scheduled once its subscription is paid (not during the free trial). Fresno and Clovis area only.
+// is free, scheduled once its regular monthly billing has started (not during the $3 intro offer or free trial). Fresno and Clovis area only.
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface ReqEnv { DB: D1Database; }
@@ -44,7 +44,7 @@ export async function handleInspectionRequests(request: Request, env: ReqEnv, ur
       `Landlord: ${user.name} (${user.email}, ${phone})`, `Property: ${address}`, `Inspection: ${TYPES[type]}`,
       `Preferred dates: ${dates || "not given"}`, ...(notes ? [`Notes: ${notes}`] : []),
       free ? "Launch bonus: FREE (first request on this account)" : "Not their first request: quote your usual price",
-      `Plan status: ${details.billing_status}${free && details.billing_status !== "active" ? " (bonus applies once their first payment goes through)" : ""}`,
+      `Plan status: ${details.billing_status}${free && details.billing_status !== "active" ? " (bonus applies once regular monthly billing starts, after the intro offer or trial)" : ""}`,
     ];
     const html = `<p>A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.</p><p>${lines.map(esc).join("<br>")}</p>`;
     const text = "A landlord booked an in-person inspection on ecrentalpm.com. Call them to confirm a time.\n\n" + lines.join("\n");
