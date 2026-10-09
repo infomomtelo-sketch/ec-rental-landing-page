@@ -43,6 +43,8 @@ const lookupKey = (plan: string) => LOOKUP_PREFIX + plan + "_monthly";
 const WEBHOOK_EVENTS = ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
 /** Stripe statuses that count as a working, paid-up (or trialing) plan. */
 const GOOD_STATUSES = ["active", "trialing"];
+/** Subscriptions that still exist in Stripe and can still bill the card: the good ones plus a failed-payment one that is being retried. */
+const LIVE_STATUSES = [...GOOD_STATUSES, "past_due", "unpaid"];
 
 /** True when the landlord has a paid-up or trialing plan. */
 export async function hasActivePlan(env: BillingEnv, userId: number): Promise<boolean> {
@@ -282,6 +284,8 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
     const plan = body.plan && body.plan in PLANS ? body.plan : (user.plan in PLANS ? user.plan : "solo");
     const row = await billingRow(env, user.id);
     if (row && GOOD_STATUSES.includes(row.status)) return json({ error: "You already have an active subscription. Use Change plan or Manage billing." }, 409);
+    // A subscription whose payment failed is still live in Stripe and still retrying. A second checkout would bill them twice once the card is fixed.
+    if (row && LIVE_STATUSES.includes(row.status)) return json({ error: "Your last payment didn't go through. Use Manage billing to update your card." }, 409);
     return json({ url: await createCheckout(env, user, plan, url.origin) });
   }
 
@@ -289,6 +293,7 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
     const body = await request.json().catch(() => ({})) as { plan?: string };
     if (!body.plan || !(body.plan in PLANS)) return json({ error: "Choose a plan." }, 400);
     const row = await billingRow(env, user.id);
+    if (row && LIVE_STATUSES.includes(row.status) && !GOOD_STATUSES.includes(row.status)) return json({ error: "Your last payment didn't go through. Use Manage billing to update your card first." }, 409);
     if (!row?.subscription_id || !GOOD_STATUSES.includes(row.status)) return json({ url: await createCheckout(env, user, body.plan, url.origin) });
     const sub = await stripe(env, "GET", "subscriptions/" + row.subscription_id);
     const item = sub.items?.data?.[0];
@@ -308,7 +313,7 @@ export async function handleBillingRoutes(request: Request, env: BillingEnv, url
   // One-click cancel: the plan stays on until the end of the paid period (or the intro/trial) and is never charged again.
   if (url.pathname === "/api/billing/cancel" || url.pathname === "/api/billing/resume") {
     const row = await billingRow(env, user.id);
-    if (!row?.subscription_id || !GOOD_STATUSES.includes(row.status)) return json({ error: "You don't have an active plan to change." }, 400);
+    if (!row?.subscription_id || !LIVE_STATUSES.includes(row.status)) return json({ error: "You don't have an active plan to change." }, 400);
     const updated = await stripe(env, "POST", "subscriptions/" + row.subscription_id, { cancel_at_period_end: url.pathname === "/api/billing/cancel" ? "true" : "false" });
     await applySubscription(env, updated, user.id);
     return json({ success: true, cancelAtPeriodEnd: !!updated.cancel_at_period_end });
