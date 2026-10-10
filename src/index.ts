@@ -37,7 +37,7 @@ Dashboard pages (left menu):
 - Listings: "+ New Listing". In the listing form, "Write with AI" drafts the description (it can read the photos), "Check my rent" compares rent with similar EC Rental listings, and photos can be dragged in or picked several at once. Each listing has Edit, View, Share (ready-made post for Facebook, Marketplace and texts) and Delete. Listings can be switched on for the Zillow feed. Renter Inquiries are below the listings, with "Draft reply".
 - Applications: rental applications from active listings, with Review and "AI summary".
 - Tenants: invite a tenant by email to their tenant portal (lease, rent payments, maintenance requests). Once online rent payments are set up in Settings, tenants see a "Pay rent online" button there.
-- Documents: "+ New Document" for leases, notices, invoices and receipts, then "Print or save PDF".
+- Documents: "+ New Document" for leases, notices, invoices and receipts, then "Print or save PDF". To e-sign: save, share it with the tenant, then click "Ask tenant to sign". The tenant signs in their portal by typing their name, the landlord countersigns from the document page, and both get an email with the signed copy. Each signature records the time, IP address and a fingerprint of the document. Signed documents are locked.
 - Transactions: "+ Add Transaction" for rent, expenses, management fees and owner draws. Expenses get a Schedule E category (repairs, utilities, insurance, property taxes, mortgage interest and so on); the form guesses one from the description. "Edit" on any row fixes or deletes a transaction.
 - Maintenance: "+ New Request", "AI triage" for a suggested priority, next steps and a reply to the tenant, and Resolve.
 - Tax Reports: pick the tax year; shows rents received, expenses by Schedule E line for each property and in total, income before depreciation, owner draws and a month-by-month table. "Export for my tax preparer (CSV)" downloads the summary plus every transaction; "Print / Save PDF" prints it. Depreciation is not included (their tax preparer adds it). It is a summary for their records, not tax advice.
@@ -78,6 +78,7 @@ import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
+import { handleLandlordSigningRoutes, handleTenantSigningRoutes } from "./esign";
 import { handleMapRoute } from "./geo";
 import { handleMedia, handleSeoRoutes } from "./seo";
 import { handleGoogleRoutes, redeemSignupTicket } from "./google";
@@ -298,12 +299,14 @@ export default {
 
     // Tenants only reach their portal; every other API route is for landlords.
     if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
+    if (user && url.pathname.startsWith("/api/tenant/documents/")) { try { const res = await handleTenantSigningRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("tenant-esign", err); } }
     if (user && url.pathname.startsWith("/api/tenant/documents")) { try { const res = await handleTenantDocumentRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tenant-documents", err); } }
     if (user && (url.pathname === "/api/tenant/rent" || url.pathname.startsWith("/api/tenant/rent/"))) { try { const res = await handleTenantRentPayments(request, env, url, user, (to, subject, html, text) => sendEmail(env, to, subject, html, text)); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Online payments are having trouble right now. Please try again in a minute." }, 502); } }
     if (user && url.pathname.startsWith("/api/tenant/")) { try { const res = await handleTenantPortalRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenant-portal", err); } }
     if (user && url.pathname.startsWith("/api/tenancies")) { try { const res = await handleTenancyRoutes(request, env, url, user, tenantHelpers(env)); if (res) return res; } catch (err) { return dbErrorResponse("tenancies", err); } }
 
     // Me API
+    if (user && url.pathname.startsWith("/api/documents/")) { try { const res = await handleLandlordSigningRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("esign", err); } }
     if (user && url.pathname.startsWith("/api/documents")) { try { const res = await handleDocumentRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("documents", err); } }
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
     if (user && url.pathname.startsWith("/api/ai/")) { try { const res = await handleAiAssistRoutes(request, env, url, user, () => underLimit(env.CHAT_LIMITER, ["user:" + user.id])); if (res) return res; } catch (err) { return dbErrorResponse("ai-assist", err); } }

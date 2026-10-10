@@ -28,6 +28,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tenancies_invite ON tenancies(invite_token
 CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, property_id INTEGER, tenancy_id INTEGER, doc_type TEXT NOT NULL, title TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', shared_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
 CREATE INDEX IF NOT EXISTS idx_documents_user ON documents(user_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_documents_tenancy ON documents(tenancy_id);
+-- E-sign (src/esign.ts): one signing request per document (awaiting_tenant, awaiting_landlord, completed) and each signature with its audit trail.
+CREATE TABLE IF NOT EXISTS document_signing (document_id INTEGER PRIMARY KEY, tenancy_id INTEGER NOT NULL, status TEXT NOT NULL, doc_hash TEXT NOT NULL, requested_at TEXT NOT NULL, completed_at TEXT, FOREIGN KEY (document_id) REFERENCES documents(id));
+CREATE TABLE IF NOT EXISTS document_signatures (id INTEGER PRIMARY KEY AUTOINCREMENT, document_id INTEGER NOT NULL, role TEXT NOT NULL, user_id INTEGER NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL, doc_hash TEXT NOT NULL, ip TEXT, user_agent TEXT, signed_at TEXT NOT NULL, FOREIGN KEY (document_id) REFERENCES documents(id));
+CREATE INDEX IF NOT EXISTS idx_document_signatures_doc ON document_signatures(document_id);
 
 -- Cached map coordinates for listings (lat/lng NULL when the address couldn't be found).
 CREATE TABLE IF NOT EXISTS listing_geo (listing_id INTEGER PRIMARY KEY, address TEXT NOT NULL, lat REAL, lng REAL, updated_at TEXT NOT NULL);

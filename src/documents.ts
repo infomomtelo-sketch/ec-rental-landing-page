@@ -5,6 +5,8 @@
  * A landlord can share a document with one tenancy, and that tenant then sees it in their portal.
  */
 
+import { lockReason } from "./esign";
+
 export interface DocumentsEnv { DB: D1Database; }
 interface DocUser { id: number; name: string; company: string; email: string; role: string; }
 type SendEmail = (to: string, subject: string, html: string, text: string) => Promise<boolean>;
@@ -38,7 +40,7 @@ async function ownsProperty(env: DocumentsEnv, userId: number, propertyId: unkno
   return row ? id : -1;
 }
 
-const LIST_SQL = "SELECT d.id, d.doc_type, d.title, d.property_id, d.tenancy_id, d.shared_at, d.created_at, d.updated_at, p.address AS property_address, t.email AS shared_with FROM documents d LEFT JOIN properties p ON d.property_id = p.id LEFT JOIN tenancies t ON d.tenancy_id = t.id";
+const LIST_SQL = "SELECT d.id, d.doc_type, d.title, d.property_id, d.tenancy_id, d.shared_at, d.created_at, d.updated_at, p.address AS property_address, t.email AS shared_with, s.status AS sign_status FROM documents d LEFT JOIN properties p ON d.property_id = p.id LEFT JOIN tenancies t ON d.tenancy_id = t.id LEFT JOIN document_signing s ON s.document_id = d.id";
 
 /** Landlord routes under /api/documents. */
 export async function handleDocumentRoutes(request: Request, env: DocumentsEnv, url: URL, user: DocUser, sendEmail: SendEmail): Promise<Response | null> {
@@ -72,6 +74,10 @@ export async function handleDocumentRoutes(request: Request, env: DocumentsEnv, 
       if (!doc) return json({ error: "Not found" }, 404);
       return json({ ...doc, data: JSON.parse(String(doc.data || "{}")) });
     }
+    if (request.method === "PUT" || request.method === "DELETE") {
+      const locked = await lockReason(env, id);
+      if (locked) return json({ error: locked }, 409);
+    }
     if (request.method === "PUT") {
       const body = await request.json() as Record<string, unknown>;
       const data = cleanData(body.data);
@@ -97,6 +103,8 @@ export async function handleDocumentRoutes(request: Request, env: DocumentsEnv, 
     const body = await request.json() as { tenancy_id?: unknown };
     const doc = await env.DB.prepare("SELECT id, title, property_id FROM documents WHERE id = ? AND user_id = ?").bind(id, user.id).first<{ id: number; title: string; property_id: number | null }>();
     if (!doc) return json({ error: "Not found" }, 404);
+    const locked = await lockReason(env, id);
+    if (locked) return json({ error: locked }, 409);
     if (body.tenancy_id === null || body.tenancy_id === "" || body.tenancy_id === undefined) {
       await env.DB.prepare("UPDATE documents SET tenancy_id = NULL, shared_at = NULL WHERE id = ?").bind(id).run();
       return json({ success: true, shared: false });
@@ -116,19 +124,19 @@ export async function handleDocumentRoutes(request: Request, env: DocumentsEnv, 
   return json({ error: "Not found" }, 404);
 }
 
-/** Tenant portal routes: documents a landlord shared with this tenant's active tenancies. */
+/** Tenant portal routes: documents a landlord shared with this tenant's active tenancies, plus ones they signed. */
 export async function handleTenantDocumentRoutes(request: Request, env: DocumentsEnv, url: URL, user: DocUser): Promise<Response | null> {
   const path = url.pathname;
   if (!path.startsWith("/api/tenant/documents") || request.method !== "GET") return null;
   if (user.role !== "tenant") return json({ error: "This is for tenant accounts." }, 403);
-  const base = "FROM documents d JOIN tenancies t ON d.tenancy_id = t.id WHERE t.tenant_user_id = ? AND t.status = 'active'";
+  const base = "FROM documents d JOIN tenancies t ON d.tenancy_id = t.id LEFT JOIN document_signing s ON s.document_id = d.id WHERE t.tenant_user_id = ? AND (t.status = 'active' OR s.status = 'completed')";
   if (path === "/api/tenant/documents") {
-    const rows = await env.DB.prepare("SELECT d.id, d.doc_type, d.title, d.shared_at, t.id AS tenancy_id " + base + " ORDER BY d.shared_at DESC LIMIT 100").bind(user.id).all();
+    const rows = await env.DB.prepare("SELECT d.id, d.doc_type, d.title, d.shared_at, t.id AS tenancy_id, s.status AS sign_status " + base + " ORDER BY d.shared_at DESC LIMIT 100").bind(user.id).all();
     return json(rows.results);
   }
   const one = path.match(/^\/api\/tenant\/documents\/(\d+)$/);
   if (one) {
-    const doc = await env.DB.prepare("SELECT d.id, d.doc_type, d.title, d.data, d.shared_at " + base + " AND d.id = ?").bind(user.id, parseInt(one[1])).first<Record<string, unknown>>();
+    const doc = await env.DB.prepare("SELECT d.id, d.doc_type, d.title, d.data, d.shared_at, s.status AS sign_status " + base + " AND d.id = ?").bind(user.id, parseInt(one[1])).first<Record<string, unknown>>();
     if (!doc) return json({ error: "Not found" }, 404);
     return json({ ...doc, data: JSON.parse(String(doc.data || "{}")) });
   }

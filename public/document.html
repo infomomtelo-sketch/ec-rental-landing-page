@@ -13,7 +13,24 @@
     .bar button { background: #c9a227; color: #1a1a1a; border: 0; border-radius: 8px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; }
     .page { background: #fff; max-width: 8.5in; margin: 1rem auto 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
     .msg { max-width: 36rem; margin: 3rem auto; padding: 0 16px; text-align: center; color: #374151; }
-    @media print { body { background: #fff; } .bar { display: none; } .page { box-shadow: none; margin: 0; max-width: none; } }
+    .sign-note { max-width: 8.5in; margin: 1rem auto 0; padding: 0.75rem 1rem; border-radius: 10px; background: #fdf3d0; color: #4a3800; font-size: 0.95rem; box-sizing: border-box; }
+    .sign-note.done { background: #dcfce7; color: #14532d; }
+    .sign-note a { color: inherit; font-weight: 600; }
+    .sign-box { max-width: 8.5in; margin: 0 auto 2rem; background: #fff; border-radius: 10px; padding: 1.25rem; box-shadow: 0 2px 10px rgba(0,0,0,0.12); box-sizing: border-box; }
+    .sign-box h2 { margin: 0 0 0.5rem; font-size: 1.15rem; color: #1a5632; }
+    .sign-box p { margin: 0 0 0.75rem; color: #374151; font-size: 0.95rem; }
+    .sign-box label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; color: #1a1a1a; }
+    .sign-box input[type="text"] { display: block; width: 100%; box-sizing: border-box; margin-top: 0.3rem; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+    .sign-box .agree { display: flex; gap: 0.5rem; align-items: flex-start; font-weight: 400; }
+    .sign-box .agree input { margin-top: 0.25rem; }
+    .sign-box button { background: #1a5632; color: #fff; border: 0; border-radius: 8px; padding: 0.7rem 1.4rem; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .sign-box button:disabled { opacity: 0.6; cursor: default; }
+    .sig-preview, .esig .sig-name { font-family: "Segoe Script", "Brush Script MT", "Snell Roundhand", cursive; font-size: 1.6rem; color: #0f2a6b; min-height: 2.2rem; }
+    .sign-err { color: #991b1b; font-size: 0.9rem; min-height: 1.2em; margin-top: 0.5rem; }
+    .esig { border-top: 2px solid #111; }
+    .esig .sig-row { border: 1px solid #999; padding: 0.6em 0.8em; margin: 0 0 0.8em; break-inside: avoid; }
+    .esig .meta { font-size: 9pt; color: #444; }
+    @media print { body { background: #fff; } .bar, .sign-note, .sign-box { display: none; } .page { box-shadow: none; margin: 0; max-width: none; } }
   </style>
 </head>
 <body>
@@ -23,14 +40,14 @@
   <script>
     (function() {
       var params = new URLSearchParams(location.search), id = params.get('id'), out = document.getElementById('out');
-      var token = null; try { token = localStorage.getItem('ec_token'); } catch (e) {}
+      var isTenant = false, token = null; try { token = localStorage.getItem('ec_token'); } catch (e) {}
       function show(text, link) { out.innerHTML = '<p class="msg">' + ECDocs.esc(text) + (link ? ' <a href="' + link[0] + '">' + ECDocs.esc(link[1]) + '</a>' : '') + '</p>'; }
       function get(path) { return fetch(path, { headers: { Authorization: 'Bearer ' + token } }).then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { d.__status = r.status; return d; }); }); }
       if (!/^\d+$/.test(id || '')) return show('Document not found.');
       if (!token) return show('Please sign in to view this document.', ['/dashboard', 'Sign in']);
       get('/api/documents/' + id).then(function(d) {
         // Tenants can't use the landlord route; they read documents shared with them instead.
-        if (d.__status === 403) { document.getElementById('back').href = '/tenant'; return get('/api/tenant/documents/' + id); }
+        if (d.__status === 403) { isTenant = true; document.getElementById('back').href = '/tenant'; return get('/api/tenant/documents/' + id); }
         return d;
       }).then(function(d) {
         if (d.__status === 401) return show('Your session has ended. Please sign in again.', ['/dashboard', 'Sign in']);
@@ -40,7 +57,45 @@
         out.innerHTML = '<div class="page">' + ECDocs.render(d.doc_type, d.data) + '</div>';
         var btn = document.getElementById('printBtn'); btn.style.display = ''; btn.addEventListener('click', function() { window.print(); });
         if (params.get('print') === '1') setTimeout(function() { window.print(); }, 300);
+        var base = isTenant ? '/api/tenant/documents/' + id : '/api/documents/' + id;
+        get(base + '/signing').then(function(s) { if (s.__status === 200) showSigning(s, base); });
       }).catch(function() { show('Could not load this document. Please refresh.'); });
+
+      // E-sign: a status note above the document, the signature record under it, and a sign box when it's this person's turn.
+      function when(iso) { return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }); }
+      function showSigning(s, base) {
+        if (!s.status) return;
+        var esc = ECDocs.esc, page = out.querySelector('.page');
+        var who = function(r) { return r === 'tenant' ? 'Tenant' : 'Landlord'; };
+        var note = s.status === 'completed' ? 'Signed by everyone on ' + esc(when(s.completed_at)) + '. Use "Print or save PDF" to keep a copy.'
+          : s.can_sign ? 'This document is waiting for your signature. <a href="#signBox">Read it, then sign at the bottom.</a>'
+          : s.status === 'awaiting_tenant' ? (isTenant ? 'Waiting for your signature.' : 'Sent for signature. Waiting for your tenant to sign.')
+          : (isTenant ? 'You signed. Waiting for your landlord to countersign.' : 'Your tenant signed. Waiting for you to countersign.');
+        out.insertAdjacentHTML('afterbegin', '<div class="sign-note' + (s.status === 'completed' ? ' done' : '') + '">' + note + '</div>');
+        if (s.signatures.length) page.insertAdjacentHTML('beforeend', '<div class="ecdoc esig"><h2>Electronic signature record</h2>' +
+          s.signatures.map(function(r) { return '<div class="sig-row"><div class="sig-name">' + esc(r.name) + '</div><div><strong>' + who(r.role) + ':</strong> ' + esc(r.name) + ' (' + esc(r.email) + ')</div><div class="meta">Signed electronically ' + esc(when(r.signed_at)) + (r.ip ? ' from IP address ' + esc(r.ip) : '') + '</div></div>'; }).join('') +
+          '<p class="small">Each signer agreed: "' + esc(s.consent) + '"</p><p class="small">Document fingerprint (SHA-256): ' + esc(s.doc_hash) + (s.unchanged ? '. It matches the document above.' : '') + '</p>' +
+          (s.status === 'completed' ? '' : '<p class="small">Not fully signed yet.</p>') + '</div>');
+        if (!s.can_sign) return;
+        var box = document.createElement('div'); box.className = 'sign-box'; box.id = 'signBox';
+        box.innerHTML = '<h2>' + (isTenant ? 'Sign this document' : 'Countersign this document') + '</h2><p>Type your full legal name. It becomes your signature on the document above.</p>' +
+          '<label>Full name<input type="text" id="signName" autocomplete="name" maxlength="120" /></label><div class="sig-preview" id="sigPreview" aria-hidden="true"></div>' +
+          '<label class="agree"><input type="checkbox" id="signAgree" /> <span>' + esc(s.consent) + '</span></label>' +
+          '<button type="button" id="signBtn">Sign</button><div class="sign-err" id="signErr" role="alert"></div>';
+        out.appendChild(box);
+        var nameEl = document.getElementById('signName');
+        nameEl.addEventListener('input', function() { document.getElementById('sigPreview').textContent = nameEl.value; });
+        document.getElementById('signBtn').addEventListener('click', function() {
+          var b = this, err = document.getElementById('signErr'); err.textContent = '';
+          if (nameEl.value.trim().length < 2) { err.textContent = 'Type your full name to sign.'; return; }
+          if (!document.getElementById('signAgree').checked) { err.textContent = 'Check the box to agree to sign electronically.'; return; }
+          b.disabled = true; b.textContent = 'Signing...';
+          fetch(base + (isTenant ? '/sign' : '/countersign'), { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nameEl.value, agree: true }) })
+            .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { if (!r.ok) throw new Error(d.error || 'Could not sign. Please try again.'); return d; }); })
+            .then(function() { location.reload(); })
+            .catch(function(e) { err.textContent = e.message; b.disabled = false; b.textContent = 'Sign'; });
+        });
+      }
     })();
   </script>
 </body>

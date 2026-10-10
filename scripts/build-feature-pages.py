@@ -252,7 +252,7 @@ PAGES = {
 <div class="row"><div><b>3-day notice to pay or quit</b><small>Filled from the property</small></div><span class="pill p-gold">Ready</span></div>
 <div class="row"><div><b>Rent receipt · October</b><small>Shared with tenant</small></div><span class="pill p-green">Shared</span></div>
 <div class="mbtn">Print or save PDF</div>""",
-  chips=("Filled from your property", "Shared to the tenant portal"),
+  chips=("Filled from your property", "E-sign built in"),
   features=[
    ("pen", "Rental agreement", "A California residential lease or month-to-month agreement."),
    ("clock", "3-day notice", "A 3-day notice to pay rent or quit, filled with the amounts you enter."),
@@ -260,13 +260,14 @@ PAGES = {
    ("receipt", "Invoices and receipts", "Bill a tenant or give a rent receipt in seconds."),
    ("clipboard", "Rental application", "A printable application when you need paper."),
    ("link", "Share with tenants", "Shared documents appear in the tenant's portal while their tenancy is active."),
+   ("pen", "E-sign built in", "Your tenant signs online by typing their name, then you countersign. Both of you get the signed copy by email."),
   ],
   steps=[("Pick a template", "Lease, notice, invoice, receipt or application."), ("Auto-fill", "Property, tenant and rent details come in for you."),
-         ("Edit", "Change anything before you print."), ("Print or share", "Save as PDF or share to the tenant portal.")],
+         ("Edit", "Change anything before you print."), ("Share and sign", "Share to the tenant portal and collect signatures online.")],
   split=("Organized for good", "Every document, with its property.", "Documents are saved with the property they belong to, so you can find last year's lease in seconds.",
          ["Saved per property", "Tenant access you control", "Print-ready layout", "Edit and re-print any time"]),
   faq=[("Are these legal advice?", "No. They're templates. Have an attorney review anything you're unsure about."),
-       ("Can I e-sign?", "Today you print and sign. Electronic signatures are planned."),
+       ("Can I e-sign?", "Yes. Share the document with your tenant and click Ask tenant to sign. They sign in their portal, you countersign, and each signature records the time, IP address and a fingerprint of the document. Signed documents are locked so they can't change."),
        ("Which state?", "The templates are written for California rentals.")],
  ),
  "accounting": dict(
