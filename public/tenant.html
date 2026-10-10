@@ -81,7 +81,7 @@
       function renderDocs(h) {
         var mine = docs.filter(function(x) { return x.tenancy_id === h.tenancy_id; });
         if (!mine.length) return '';
-        return '<div class="home-summary"><h3>Documents</h3><p class="muted small">Documents your landlord shared with you.</p>' + mine.map(function(x) { return '<div class="req"><div><a href="/document?id=' + x.id + '"><strong>' + esc(x.title) + '</strong></a></div><div class="muted small">' + esc(DOC_TYPES[x.doc_type] || 'Document') + ' · shared ' + day(x.shared_at) + '</div></div>'; }).join('') + '</div>';
+        return '<div class="home-summary"><h3>Documents</h3><p class="muted small">Documents your landlord shared with you.</p>' + mine.map(function(x) { return '<div class="req"><div><a href="/document?id=' + x.id + '"><strong>' + esc(x.title) + '</strong></a>' + (x.sign_status === 'awaiting_tenant' ? ' <a href="/document?id=' + x.id + '#signBox" class="sign-flag">Needs your signature</a>' : x.sign_status === 'completed' ? ' <span class="muted small">Signed</span>' : '') + '</div><div class="muted small">' + esc(DOC_TYPES[x.doc_type] || 'Document') + ' · shared ' + day(x.shared_at) + '</div></div>'; }).join('') + '</div>';
       }
       var STATUS = { open: 'Open', 'in-progress': 'In progress', in_progress: 'In progress', completed: 'Completed', closed: 'Closed' };
       function renderHome(h) {

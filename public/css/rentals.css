@@ -74,6 +74,7 @@ h2 { color: var(--primary); font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
 .mini { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .mini th, .mini td { text-align: left; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
 .req { padding: 0.6rem 0; border-bottom: 1px solid #eee; overflow-wrap: anywhere; }
+.sign-flag { display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.55rem; border-radius: 12px; background: #fef9c3; color: #854d0e; font-size: 0.8rem; font-weight: 600; text-decoration: none; }
 .req-form { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .app-form select { padding: 0.65rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-weight: 400; width: 100%; background: var(--white); }
 
