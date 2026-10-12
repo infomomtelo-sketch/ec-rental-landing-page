@@ -2,7 +2,7 @@
 (function() {
   var token = null; try { token = localStorage.getItem('ec_token'); } catch (e) { /* storage blocked */ }
   var PLANS = [['solo', 'Solo Landlord', 29], ['manager', 'Property Manager', 79], ['portfolio', 'Portfolio', 199]];
-  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'Tello Inspect', video_request: 'Video request (ownsite.app)' };
+  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'Tello Inspect', video_request: 'Video request (tello.live)' };
   var accounts = [], listings = [], leads = [];
 
   function api(path, method, body) {
