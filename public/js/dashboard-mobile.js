@@ -60,7 +60,9 @@
   btn.addEventListener('click', function() { toggle(panel.hidden); });
   // Tapping an item in Tello's briefing opens that dashboard page; on phones the panel closes so the page shows.
   window.addEventListener('message', function(e) {
-    if (e.origin !== location.origin || !e.data || e.data.type !== 'tello-nav') return;
+    if (e.origin !== location.origin || !e.data) return;
+    if (e.data.type === 'tello-video' && window.ECHelpVideo) { ECHelpVideo.open(String(e.data.key)); return; }
+    if (e.data.type !== 'tello-nav') return;
     var link = document.querySelector('.sidebar-nav [data-page="' + String(e.data.page).replace(/[^a-z-]/g, '') + '"]');
     if (link) link.click();
     if (window.matchMedia('(max-width: 768px)').matches) toggle(false);

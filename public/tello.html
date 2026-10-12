@@ -173,6 +173,10 @@
         document.querySelector('.hello h2').textContent = "Hi, I'm Tello. Need a hand?";
         document.querySelector('.hello p').textContent = 'Ask me about your rentals, or how to do anything in your dashboard.';
         loadBrief(); showChips();
+        // How-to videos open full size in the dashboard, outside this panel.
+        var vids = document.createElement('div'); vids.className = 'chips'; vids.style.justifyContent = 'center';
+        [['start', 'Watch: getting started'], ['tello', 'Watch: a day with Tello']].forEach(function(v) { var b = document.createElement('button'); b.type = 'button'; b.textContent = v[1]; b.onclick = function() { try { window.parent.postMessage({ type: 'tello-video', key: v[0] }, location.origin); } catch (e) {} }; vids.appendChild(b); });
+        document.querySelector('.hello').appendChild(vids);
       } else if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
     })();
   </script>
