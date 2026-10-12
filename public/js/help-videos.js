@@ -20,6 +20,8 @@
     + '.hv-title{font-size:0.8rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;margin:0 0 0.5rem}'
     + '.hv-back{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:1rem}'
     + '.hv-back video{max-width:min(100%,1100px);max-height:calc(100vh - 5rem);border-radius:12px;background:#000}'
+    + '.hv-offer{font-size:0.9rem;color:#4b5563;margin:-0.75rem 0 1.5rem;max-width:760px}'
+    + '.hv-offer a{color:#123a30;font-weight:700}'
     + '.hv-close{position:fixed;top:0.75rem;right:0.75rem;width:44px;height:44px;border-radius:50%;border:none;background:#fff;color:#123a30;font-size:1.6rem;line-height:1;cursor:pointer}';
   document.head.appendChild(css);
   var phone = function () { return window.matchMedia('(max-width: 768px)').matches; };
@@ -36,6 +38,15 @@
     document.addEventListener('keydown', onKey);
     document.body.appendChild(back);
   }
+  // "Want a video like Tello's?" line. The Tello link plays the Tello video here; Contact us goes to contact.
+  function OFFER(contact) {
+    return '<p class="hv-offer">Want a marketing video like <a href="/media/tello-day.mp4" data-play-video="tello">Tello\'s</a> for your own site or app? <a href="' + contact + '">Contact us</a></p>';
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('[data-play-video]');
+    if (!a || !VIDEOS[a.getAttribute('data-play-video')]) return;
+    e.preventDefault(); open(a.getAttribute('data-play-video'));
+  });
   function init() {
     document.querySelectorAll('[data-help-video]').forEach(function (el) {
       var v = VIDEOS[el.getAttribute('data-help-video')]; if (!v || el.dataset.ready) return; el.dataset.ready = '1';
@@ -47,7 +58,7 @@
       row.dataset.ready = '1';
       row.innerHTML = '<p class="hv-title">How-to videos</p><div class="hv-row">' + ['start', 'tello', 'tax', 'inspect'].map(function (k) {
         var v = VIDEOS[k]; return '<button type="button" class="hv-card" data-key="' + k + '"><img src="/media/' + v.file + '-poster.jpg" alt="" loading="lazy" /><i>' + PLAY + '</i><span>' + v.title + '<small>' + v.len + '</small></span></button>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' + OFFER('mailto:info@ecrentalpm.com?subject=Marketing%20video');
       row.querySelectorAll('.hv-card').forEach(function (b) { b.addEventListener('click', function () { open(b.getAttribute('data-key')); }); });
     }
   }
