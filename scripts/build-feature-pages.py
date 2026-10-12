@@ -80,6 +80,7 @@ PAGES = {
 <div class="bubble me">Saturday morning works</div>
 <div class="bubble ai">Great. Share your name and phone and the landlord will confirm a time.</div>""",
   chips=("Answers from the listing", "Fair housing rules built in"),
+  video="tello-day",
   features=[
    ("message", "Answers renters 24/7", "On every listing and on ecrentalpm.com/tello. Rent, pets, move-in dates and showings, straight from the listing details."),
    ("pen", "Writes your listings", "Give Tello a few facts and up to three photos and it drafts a clear, fair-housing-safe description you can edit."),
@@ -166,7 +167,7 @@ PAGES = {
 <div class="row"><div><b>Bedroom wall</b><small>New hole behind the door</small></div><span class="pill p-red">Looks like damage</span></div>
 <div class="mbtn gold">Create maintenance request</div>""",
   chips=("Photo read by Tello", "You review every note"),
-  video="inspections",
+  video="guide-ai-inspections",
   features=[
    ("camera", "Room by room", "Move-in, move-out, routine and annual inspections, captured from a phone."),
    ("chip", "AI photo reading", "Tello pre-fills condition and notes for each photo. You correct anything it got wrong."),
@@ -282,6 +283,7 @@ PAGES = {
 <div class="row"><div><b>Plumber · kitchen sink</b><small>Oct 12 · Repairs (line 14)</small></div><b>−$240</b></div>
 <div class="mbtn gold">Export for my tax preparer</div>""",
   chips=("Rent recorded", "Report ready for your CPA"),
+  video="guide-tax-reports",
   features=[
    ("cash", "Record rent", "Log rent as it comes in, or let tenants pay online and it records itself. It shows in the tenant's portal too."),
    ("receipt", "Track expenses", "Each expense gets a Schedule E category, like repairs, utilities or insurance. EC Rental suggests one for you."),
@@ -433,6 +435,7 @@ def index():
         <div class="cta-row" style="justify-content:center"><a class="btn btn-gold" href="/#subscribe">Start for $3 →</a><a class="btn btn-ghost" href="/tello?mode=landlord">Ask Tello</a></div>
       </div>
     </div></section>
+    <section class="band"><div class="wrap split"><div><div class="kicker">Getting started</div><h2 class="title">Set up in five steps, with Tello.</h2><p class="sub">Sign up, add your property, list a vacant home, invite your tenant and turn on reminders. Tello is there to help the whole way.</p></div><div class="video"><video src="/media/guide-getting-started.mp4" poster="/media/guide-getting-started-poster.jpg" controls playsinline preload="none" aria-label="Video: Getting started with EC Rental"></video></div></div></section>
     <section class="band alt"><div class="wrap"><div class="grid">{cards}</div></div></section>
   </main>
   {footer()}
