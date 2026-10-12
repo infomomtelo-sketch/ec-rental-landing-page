@@ -15,9 +15,10 @@ Company info:
 - Contact: info@ecrentalpm.com, (559) 825-3038.
 - AI Home Inspections: remote, photo-based move-in, move-out and routine inspections done by the landlord from a phone; AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. It is an AI review of photos, not a licensed home inspection. EC Rental offers no in-person inspections. Tello Inspect (ecrentalpm.com/tello-inspect) is a free remote AI inspection anyone can try without an account.
 Rules:
-- Be friendly but VERY concise. Max 2-3 sentences per response.
-- Write in a professional tone. Never use emojis.
-- Never use more than 40 words unless absolutely necessary.
+- Be warm, plain-spoken and concise: usually 2-4 short sentences, at most about 90 words, unless you are walking someone through steps.
+- Lead with the direct answer (yes, no, the number, the button), then the one detail that matters most.
+- When it helps move things forward, end with one short follow-up question (for example how many rentals they have, or which property they mean).
+- Write in a professional tone. Never use emojis or markdown headings; plain text with short paragraphs or "- " lists only.
 - Only answer about EC Rental, property management, renting, or EC Rental's listings.
 - Don't make up URLs, buttons, or features that don't exist on the site.
 Special actions — include these tags in your response to trigger UI elements:
@@ -30,7 +31,7 @@ Always give a real answer first, then include the tag. Never just say "contact u
 
 // Added to the system prompt when Tello is opened inside the signed-in landlord dashboard.
 const DASHBOARD_GUIDE = `
-The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the menu button (three lines) at the top left. You can't see or change their data.
+The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the menu button (three lines) at the top left. You can't change their data.
 Dashboard pages (left menu):
 - Overview: totals for properties, occupancy, rent this month and open maintenance.
 - Properties: "+ Add Property", then Edit or Delete on each row.
@@ -56,6 +57,13 @@ Dashboard pages (left menu):
 - Rent reminders (Settings, "Rent reminders" card): when switched on, tenants who accepted their invite get an email a few days before rent is due (with a "Pay rent online" button once online payments are set up) and a friendly notice a few days after the due date if that month's rent isn't recorded yet; the landlord gets a copy of late notices. The landlord picks the due day and the timing. Rent recorded in Transactions as Rent Collected, or paid online, stops the reminders for that month. Needs an EC Rental plan (the intro offer or free trial counts).
 In this mode, never include [SHOW_...] tags.`;
 
+// Tello's text model: the larger model follows the rules and the account facts far better; the small one is the fallback.
+const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast", CHAT_FALLBACK_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+async function runChatModel(env: Env, messages: { role: string; content: string }[]): Promise<unknown> {
+  try { return await env.AI.run(CHAT_MODEL as Parameters<Ai["run"]>[0], { messages, max_tokens: 600 } as never); }
+  catch (err) { console.error("[chat-model]", err instanceof Error ? err.message : err); return env.AI.run(CHAT_FALLBACK_MODEL as Parameters<Ai["run"]>[0], { messages, max_tokens: 600 } as never); }
+}
+
 // A picture attached in the Tello chat (screenshot or photo), sent as a data URL. Read once and never stored.
 const CHAT_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 const CHAT_IMAGE_GUIDE = `
@@ -68,6 +76,7 @@ function chatImage(value: unknown): number[] | null {
 }
 
 import { handleRentReminderRoutes, runRentReminders } from "./rent-reminders";
+import { accountGuide, buildBriefing, handleTelloRoutes, runTelloBriefings } from "./tello";
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
@@ -149,11 +158,14 @@ export default {
         if (body.image && !image) return json({ error: "That picture couldn't be read. Please try a JPG or PNG under 4 MB." }, 400);
         const userMessage = (typeof body.message === "string" ? body.message.trim().slice(0, 2000) : "") || (image ? "What do you see in this picture, and what should I do next?" : "");
         if (!userMessage) return json({ error: "Message is required" }, 400);
-        const system = SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE : "") + (image ? CHAT_IMAGE_GUIDE : "");
+        // Signed-in landlords asking from the dashboard get answers from their own account (read-only).
+        let account = "";
+        if (body.context === "dashboard") { const me = await getUserFromRequest(request, env).catch(() => null); if (me && me.role !== "tenant") { try { account = accountGuide(me.name, (await buildBriefing(env, me.id)).snapshot); } catch (err) { console.error("[tello-account]", err instanceof Error ? err.message : err); } } }
+        const system = SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE + (account || "\nYou can't see this person's account data right now; if they ask about their own rentals, tell them where in the dashboard to look.") : "") + (image ? CHAT_IMAGE_GUIDE : "");
         const messages = [{ role: "system", content: system }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
         const aiResponse = image
           ? await env.AI.run(CHAT_VISION_MODEL as Parameters<Ai["run"]>[0], { messages, image, max_tokens: 700 } as never)
-          : await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { messages });
+          : await runChatModel(env, messages);
         return json({ response: ((aiResponse as { response?: string }).response || "").replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").trim() || "I'm sorry, I couldn't generate a response right now." });
       } catch { return json({ error: "Something went wrong." }, 500); }
     }
@@ -319,6 +331,7 @@ export default {
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)
+    if (user && url.pathname.startsWith("/api/tello/")) { try { const res = await handleTelloRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tello", err); } }
     if (user && url.pathname === "/api/rent-reminders") { try { const res = await handleRentReminderRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("rent reminders", err); } }
     if (user && (url.pathname === "/api/rent-payments" || url.pathname.startsWith("/api/rent-payments/"))) { try { const res = await handleLandlordRentPayments(request, env, url, user); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Stripe is having trouble right now. Please try again in a minute." }, 502); } }
     if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
@@ -376,7 +389,7 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Daily cron (wrangler.toml [triggers]): rent reminders and late notices.
+  // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[rent-reminders] sent", n))
@@ -384,6 +397,9 @@ export default {
     ctx.waitUntil(runTrialReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[trial-reminders] sent", n))
       .catch((err) => console.error("[trial-reminders]", err instanceof Error ? err.message : err)));
+    ctx.waitUntil(runTelloBriefings(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
+      .then((n) => console.log("[tello-briefings] sent", n))
+      .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
   },
 };
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }

@@ -66,3 +66,5 @@ CREATE TABLE IF NOT EXISTS page_views (day TEXT NOT NULL, path TEXT NOT NULL, so
 CREATE TABLE IF NOT EXISTS business_pages (user_id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, business_name TEXT NOT NULL, tagline TEXT DEFAULT '', about TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '', service_area TEXT DEFAULT '', published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
 -- Schedule E expense category for each expense transaction (src/finance.ts), kept beside transactions so that table never needs ALTER.
 CREATE TABLE IF NOT EXISTS transaction_categories (transaction_id INTEGER PRIMARY KEY, category TEXT NOT NULL, FOREIGN KEY (transaction_id) REFERENCES transactions(id));
+-- Tello's morning briefing email (src/tello.ts): opt-in per landlord, sent at most once a day.
+CREATE TABLE IF NOT EXISTS tello_settings (user_id INTEGER PRIMARY KEY, morning_email INTEGER NOT NULL DEFAULT 0, last_sent TEXT, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
