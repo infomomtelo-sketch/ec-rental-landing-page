@@ -59,6 +59,13 @@
     body.embed .hello { padding-top: 0.75rem; }
     body.embed .hello img { width: 56px; height: 56px; border-radius: 15px; }
     body.embed .hello h2 { font-size: 1.25rem; }
+    .brief:empty { display: none; }
+    .does { display: none; flex-direction: column; gap: 0.5rem; margin: 1rem auto 0; max-width: 420px; text-align: left; }
+    body.own .does { display: flex; }
+    .does div { display: flex; align-items: center; gap: 0.7rem; background: #fff; border: 1px solid #ece8dd; border-radius: 12px; padding: 0.6rem 0.8rem; font-size: 0.9rem; font-weight: 600; color: var(--deep); }
+    .does svg { flex: none; width: 34px; height: 34px; padding: 7px; border-radius: 50%; background: #e8efe9; }
+    .does-label { display: none; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray); margin-top: 1rem; }
+    body.own .does-label { display: block; }
     .note { text-align: center; font-size: 0.75rem; color: var(--gray); padding: 0 1rem 0.5rem; background: #fff; }
   </style>
 </head>
@@ -69,13 +76,21 @@
       <img src="/tello-icon.svg" alt="Tello" />
       <h2>Hi, I'm Tello.</h2>
       <p>Ask me anything about renting a home, or about managing your rentals with EC Rental.</p>
+      <p class="does-label">What Tello does</p>
+      <div class="does">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>Every morning, what needs your attention</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.85"/></svg>Whose rent is late and whose lease ends soon</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Plain answers about your rentals, in seconds</div>
+      </div>
       <div class="modes" role="group" aria-label="I am"><button type="button" data-mode="rent" aria-pressed="true">I'm looking to rent</button><button type="button" data-mode="own" aria-pressed="false">I'm a landlord</button></div>
     </div>
+    <div class="brief" id="brief"></div>
     <div class="chips" id="chips"></div>
   </main>
   <div class="pick" id="pick" hidden><img id="pickImg" alt="Picture to send" /><span>Picture attached</span><button type="button" id="pickDrop">Remove</button></div>
   <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><input id="q" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off" /><button type="submit" id="send">Send</button></form>
-  <p class="note">Tello is AI and can make mistakes. EC Rental confirms every detail. Equal Housing Opportunity.</p>
+  <p class="note">Tello can be wrong, so check anything that matters. EC Rental confirms every detail. Equal Housing Opportunity.</p>
+  <script src="/js/tello-briefing.js"></script>
   <script>
     (function() {
       var log = document.getElementById('log'), chips = document.getElementById('chips'), form = document.getElementById('ask'), q = document.getElementById('q'), send = document.getElementById('send');
@@ -83,7 +98,7 @@
       var attach = document.getElementById('attach'), file = document.getElementById('file'), pick = document.getElementById('pick'), pickImg = document.getElementById('pickImg');
       // Landlords can attach a screenshot or photo; it's shrunk to at most 1280px and sent once with the message.
       function setPicked(url) { picked = url; pick.hidden = !url; if (url) pickImg.src = url; else pickImg.removeAttribute('src'); }
-      function syncAttach() { attach.hidden = mode === 'rent'; if (mode === 'rent') setPicked(null); }
+      function syncAttach() { attach.hidden = mode === 'rent'; if (mode === 'rent') setPicked(null); document.body.classList.toggle('own', mode === 'own' && !inDashboard); }
       attach.addEventListener('click', function() { file.click(); });
       document.getElementById('pickDrop').addEventListener('click', function() { setPicked(null); });
       file.addEventListener('change', function() {
@@ -100,10 +115,21 @@
         img.src = src;
       });
       var inDashboard = params.get('mode') === 'dashboard';
+      // In the dashboard Tello reads the landlord's own account (read-only), so the chat sends their sign-in.
+      function savedToken() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
+      function chatHeaders() { var h = { 'Content-Type': 'application/json' }, tk = inDashboard && savedToken(); if (tk) h.Authorization = 'Bearer ' + tk; return h; }
+      function goTo(page) { try { window.parent.postMessage({ type: 'tello-nav', page: page }, location.origin); } catch (e) { /* not embedded */ } }
+      function loadBrief() {
+        var tk = savedToken(), el = document.getElementById('brief'); if (!tk || !window.ECTelloBrief) return;
+        ECTelloBrief.load(tk).then(function(d) {
+          ECTelloBrief.render(el, d, goTo, { limit: 3, onMail: function(on, done) { ECTelloBrief.setMorningEmail(tk, on, done); } });
+          if (d.items && d.items.length) document.querySelector('.hello p').textContent = 'Tap anything below to go there, or ask me about your rentals.';
+        }).catch(function() { el.innerHTML = ''; });
+      }
       if (params.get('embed') === '1') document.body.classList.add('embed');
       var SUGGEST = {
         rent: ["What's available now?", 'Anything under $1,500?', 'Which homes allow pets?', 'How do I apply?'],
-        dash: ['How do I add a listing?', 'How do AI inspections work?', 'How do I invite a tenant?', 'Where are my tax reports?'],
+        dash: ['What needs my attention today?', "Who hasn't paid rent this month?", 'Which leases end soon?', 'How do I invite a tenant?'],
         own: ['What does EC Rental do for landlords?', 'How do your AI inspections work?', 'What are your plans and prices?', 'What should my rental rent for?']
       };
       function add(cls, text, image) { var d = document.createElement('div'); d.className = 'm ' + cls; if (image) { var i = document.createElement('img'); i.className = 'shot'; i.src = image; i.alt = 'Picture you sent'; d.appendChild(i); } if (text) d.appendChild(document.createTextNode(text)); log.appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d; }
@@ -122,10 +148,10 @@
       function ask(text) {
         text = String(text || '').trim(); var image = mode === 'rent' ? null : picked; if ((!text && !image) || busy) return;
         busy = true; send.disabled = true; chips.remove(); add('me', text, image); q.value = ''; setPicked(null);
-        var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Tello is typing...'; log.appendChild(t);
+        var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Thinking...'; log.appendChild(t);
         var req = mode === 'rent'
           ? fetch('/api/public/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) })
-          : fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history, context: inDashboard ? 'dashboard' : undefined, image: image || undefined }) });
+          : fetch('/api/chat', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ message: text, history: history, context: inDashboard ? 'dashboard' : undefined, image: image || undefined }) });
         req.then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Tello is busy right now. Please try again.'); return d; }); })
           .then(function(d) {
             var reply = String(d.reply || d.response || '').replace(/\[SHOW_[A-Z_]+\]/g, '').trim();
@@ -145,8 +171,8 @@
         mode = 'own'; syncAttach();
         document.querySelector('.modes').style.display = 'none';
         document.querySelector('.hello h2').textContent = "Hi, I'm Tello. Need a hand?";
-        document.querySelector('.hello p').textContent = 'Ask me how to do anything in your dashboard, or anything about managing your rentals.';
-        showChips();
+        document.querySelector('.hello p').textContent = 'Ask me about your rentals, or how to do anything in your dashboard.';
+        loadBrief(); showChips();
       } else if (start === 'landlord') document.querySelector('[data-mode="own"]').click(); else showChips();
     })();
   </script>
