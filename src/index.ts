@@ -86,6 +86,7 @@ import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
 import { handleVideoRequest } from "./video-request";
+import { handleVideoMaker } from "./video-maker";
 import { handleRemoteInspections } from "./remote-inspections";
 import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
@@ -304,6 +305,7 @@ export default {
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
+    try { const makerRes = await handleVideoMaker(request, env, url); if (makerRes) return makerRes; } catch (err) { console.error("[video-maker]", err); return json({ error: "The video maker hit a problem. Please try again." }, 500); }
     try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
