@@ -2,7 +2,7 @@
 (function() {
   var token = null; try { token = localStorage.getItem('ec_token'); } catch (e) { /* storage blocked */ }
   var PLANS = [['solo', 'Solo Landlord', 29], ['manager', 'Property Manager', 79], ['portfolio', 'Portfolio', 199]];
-  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'Tello Inspect' };
+  var LEAD_TYPES = { tenant_application: 'Renter inquiry', maintenance_request: 'Maintenance', rent_review: 'Rent review', ai_inspection: 'Tello Inspect', video_request: 'Video request (ownsite.app)' };
   var accounts = [], listings = [], leads = [];
 
   function api(path, method, body) {
@@ -97,6 +97,7 @@
     var d = l.details || {}; var parts = [];
     if (l.type === 'maintenance_request') { parts.push(d.address, d.description, d.priority ? 'Priority: ' + d.priority : ''); }
     else if (l.type === 'ai_inspection') { parts.push(d.address, d.overall ? 'Overall: ' + d.overall : '', d.photos ? d.photos + ' photos, ' + (d.repairs || 0) + ' repairs flagged' : '', d.notes); }
+    else if (l.type === 'video_request') { parts.push(d.business, d.site_url, d.video_type, d.budget ? 'Budget ' + d.budget : '', d.deadline ? 'By ' + d.deadline : '', d.details); }
     else if (l.type === 'rent_review') { parts.push([d.street, d.city, d.zip].filter(Boolean).join(', '), d.bedrooms ? d.bedrooms + ' bd' : '', d.current_rent ? 'Now ' + money(d.current_rent) : '', d.message); }
     else { parts.push(d.area, d.source === 'zillow' ? 'From Zillow' : '', d.bedrooms ? d.bedrooms + ' bd' : '', d.budget ? 'Budget ' + d.budget : '', d.moveIn ? 'Move-in ' + d.moveIn : '', d.message); }
     return parts.filter(Boolean).map(esc).join('<br>') || '<span class="muted">No details</span>';
