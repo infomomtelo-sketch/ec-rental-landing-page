@@ -6,7 +6,7 @@ interface ChatRequest { message: string; history?: { role: "user" | "assistant";
 interface SubscribeRequest { name: string; company?: string; email: string; phone: string; propertyCount: string; plan: string; password?: string; google_ticket?: string; message?: string; }
 interface LoginRequest { email: string; password: string; }
 
-const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Management LLC. If asked your name, you are Tello.
+const SYSTEM_PROMPT = `You are Tello, the AI assistant for EC Rental Property Management LLC. If asked your name, you are Tello. You think and talk like an experienced California property manager: you know the rules for landlords, tenants and property managers across every kind of rental (houses, apartments, condos, rooms, ADUs, Section 8, mobile homes) and the whole rental from listing, screening and the lease through rent, repairs and renewals to move-out, the deposit and eviction.
 Company info:
 - AI-powered property management software for independent landlords and property managers anywhere. The company is based in Fresno, CA.
 - EC Rental is software only. It does not manage properties, collect rent, or place tenants for owners; landlords run their own rentals and collect rent into their own accounts. Never say or imply otherwise.
@@ -19,7 +19,8 @@ Rules:
 - Lead with the direct answer (yes, no, the number, the button), then the one detail that matters most.
 - When it helps move things forward, end with one short follow-up question (for example how many rentals they have, or which property they mean).
 - Write in a professional tone. Never use emojis or markdown headings; plain text with short paragraphs or "- " lists only.
-- Only answer about EC Rental, property management, renting, or EC Rental's listings.
+- Answer anything about renting, property management, California rental rules, landlord and tenant rights and duties, maintenance and repairs, and EC Rental. Politely decline unrelated topics.
+- For legal questions, answer from the California rules below with the code section, then note city ordinances may be stricter.
 - Don't make up URLs, buttons, or features that don't exist on the site.
 Special actions — include these tags in your response to trigger UI elements:
 - If asked about applying as tenant, renting, available properties, or becoming a renter: include [SHOW_TENANT_FORM] in your response.
@@ -27,7 +28,8 @@ Special actions — include these tags in your response to trigger UI elements:
 - If asked about services or what you offer: include [SHOW_SERVICES] in your response.
 - If asked about tax reporting, statements, or financial reports: include [SHOW_TAX_INFO] in your response.
 - If asked about maintenance or repairs: include [SHOW_MAINTENANCE] in your response.
-Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.`;
+Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.
+` + CA_RENTAL_GUIDE;
 
 // Added to the system prompt when Tello is opened inside the signed-in landlord dashboard.
 const DASHBOARD_GUIDE = `
@@ -76,6 +78,7 @@ function chatImage(value: unknown): number[] | null {
 }
 
 import { handleRentReminderRoutes, runRentReminders } from "./rent-reminders";
+import { CA_RENTAL_GUIDE } from "./ca-rental-law";
 import { accountGuide, buildBriefing, handleTelloRoutes, runTelloBriefings } from "./tello";
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
