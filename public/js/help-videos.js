@@ -5,7 +5,11 @@
     start: { title: 'Getting started in 5 steps', len: '54 sec', file: 'guide-getting-started' },
     tello: { title: 'A day with Tello', len: '57 sec', file: 'tello-day' },
     tax: { title: 'How Tax Reports work', len: '48 sec', file: 'guide-tax-reports' },
-    inspect: { title: 'How AI inspections work', len: '39 sec', file: 'guide-ai-inspections' }
+    inspect: { title: 'How AI inspections work', len: '39 sec', file: 'guide-ai-inspections' },
+    intro: { title: 'Meet Tello', len: '56 sec', file: 'intro' },
+    story: { title: 'The 1-minute story', len: '63 sec', file: 'story', wideOnly: true },
+    maint: { title: 'Maintenance with Tello', len: '44 sec', file: 'maintenance', wideOnly: true },
+    insp: { title: 'Rental inspections', len: '48 sec', file: 'inspections', wideOnly: true }
   };
   var PLAY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
   var css = document.createElement('style');
@@ -31,7 +35,7 @@
     + '.hv-close{position:fixed;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,.3);top:0.75rem;right:0.75rem;width:44px;height:44px;border-radius:50%;border:none;background:#fff;color:#123a30;font-size:1.6rem;line-height:1;cursor:pointer}';
   document.head.appendChild(css);
   var phone = function () { return window.matchMedia('(max-width: 768px)').matches; };
-  function src(v) { return '/media/' + v.file + (phone() ? '-vertical' : '') + '.mp4'; }
+  function src(v) { return '/media/' + v.file + (phone() && !v.wideOnly ? '-vertical' : '') + '.mp4'; }
   function open(key) {
     var v = VIDEOS[key]; if (!v) return;
     var back = document.createElement('div'); back.className = 'hv-back'; back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', v.title);
@@ -46,7 +50,7 @@
   }
   // "Want a video like Tello's?" line. The Tello link plays the Tello video; Contact us opens the request form.
   function OFFER() {
-    return '<p class="hv-offer">Want a marketing video like <a href="/media/tello-day.mp4" data-play-video="tello">Tello\'s</a> for your own site or app? Get one from ownsite.app. <a href="mailto:info@ecrentalpm.com?subject=ownsite.app%20video" data-video-request>Contact us</a></p>';
+    return '<p class="hv-offer">Want a marketing video like <a href="/media/tello-day.mp4" data-play-video="tello">Tello\'s</a> for your own site or app? Get one from <a href="/videos">ownsite.app</a>. <a href="mailto:info@ecrentalpm.com?subject=ownsite.app%20video" data-video-request>Contact us</a></p>';
   }
   var TYPES = ['Promo / story video', 'How-to / product guide', 'App or website demo', 'Social media clips', 'Other'];
   var BUDGETS = ['Under $500', '$500 to $1,500', '$1,500 to $5,000', 'Over $5,000', 'Not sure yet'];
