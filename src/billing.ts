@@ -241,7 +241,7 @@ export async function verifySignature(payload: string, header: string, secret: s
 }
 
 /** POST /api/stripe/webhook. Public; trusted only through the Stripe-Signature header. */
-export async function handleStripeWebhook(request: Request, env: BillingEnv): Promise<Response> {
+export async function handleStripeWebhook(request: Request, env: BillingEnv, onEvent?: (event: StripeObject) => Promise<boolean>): Promise<Response> {
   if (!billingEnabled(env)) return json({ error: "Billing is not set up" }, 404);
   const payload = await request.text();
   const header = request.headers.get("Stripe-Signature") || "";
@@ -250,6 +250,7 @@ export async function handleStripeWebhook(request: Request, env: BillingEnv): Pr
   if (!ok) return json({ error: "Bad signature" }, 400);
   const event = JSON.parse(payload) as StripeObject;
   const obj = event.data?.object || {};
+  if (onEvent && (await onEvent(event))) return json({ received: true }); // a business assistant plan (src/biz-bots.ts), not a landlord plan
   if (event.type === "checkout.session.completed" && obj.mode === "subscription" && obj.subscription) {
     // Read the subscription back from Stripe so a replayed or out-of-order event can't set a stale state.
     const sub = await stripe(env, "GET", "subscriptions/" + obj.subscription);

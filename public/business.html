@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tello for your business | tello.live</title>
+  <meta name="description" content="Tello learns your website and answers your customers' questions around the clock, then sends you every lead. Add it to your site with one line. 7-day free trial, then $19 a month." />
+  <link rel="canonical" href="https://tello.live/business" />
+  <meta property="og:title" content="Tello for your business" />
+  <meta property="og:description" content="An assistant that learns your website, answers customers and sends you every lead." />
+  <meta property="og:url" content="https://tello.live/business" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.1); }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
+    a { color: var(--gold); }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .brand { font-weight: 800; letter-spacing: 0.02em; text-decoration: none; font-size: 1.15rem; color: var(--text); }
+    .brand span { color: var(--gold); }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 0.92rem; margin-left: 1.1rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: var(--gold); color: var(--ink); font: inherit; font-weight: 700; text-decoration: none; border: 0; border-radius: 999px; padding: 0.8rem 1.35rem; cursor: pointer; }
+    .btn:hover { filter: brightness(1.07); } .btn:disabled { opacity: .55; cursor: default; }
+    .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid rgba(255,255,255,0.3); }
+    .btn.small { padding: 0.5rem 1rem; font-size: 0.88rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0.6rem 0 1rem; }
+    h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.01em; margin-bottom: 0.4rem; }
+    .kick { color: var(--gold); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; }
+    .lede { color: var(--muted); font-size: 1.08rem; max-width: 520px; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem; }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.8rem; }
+    input, textarea { font: inherit; font-weight: 400; font-size: 1rem; padding: 0.65rem 0.75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.35); color: var(--text); width: 100%; }
+    textarea { min-height: 110px; resize: vertical; }
+    input:focus, textarea:focus, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+    .hp { position: absolute; left: -9999px; }
+    .err { color: #ff9b8a; font-size: 0.92rem; margin: 0.4rem 0; min-height: 1.2em; }
+    .ok { color: #8fe3b0; }
+    .small-note { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
+    code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+    pre { background: rgba(0,0,0,0.45); border: 1px solid var(--line); border-radius: 10px; padding: 0.75rem; white-space: pre-wrap; word-break: break-all; margin: 0.4rem 0 0.6rem; }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: 0.85rem; margin-top: 3rem; }
+
+    .hero { padding: 3.5rem 0 2rem; }
+    .hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 2.5rem; align-items: start; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; counter-reset: s; }
+    .step { background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; }
+    .step::before { counter-increment: s; content: counter(s); display: flex; width: 32px; height: 32px; border-radius: 50%; background: var(--deep); color: var(--gold); font-weight: 800; align-items: center; justify-content: center; margin-bottom: 0.6rem; }
+    .step h3 { font-size: 1.02rem; margin-bottom: 0.2rem; } .step p { color: var(--muted); font-size: 0.92rem; }
+    .perks { list-style: none; margin-top: 1.2rem; color: var(--muted); font-size: 0.95rem; }
+    .perks li::before { content: "\2713  "; color: var(--gold); font-weight: 800; }
+    .copy-row { display: flex; gap: 0.5rem; align-items: stretch; } .copy-row pre { flex: 1; margin: 0; }
+    @media (max-width: 820px) { .hero .wrap { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/videos">tello<span>.live</span></a><nav class="nav"><a href="/videos">Sample videos</a><a href="/make">Make a video</a></nav></div></header>
+  <main>
+    <section class="hero"><div class="wrap">
+      <div>
+        <p class="kick">Tello for your business</p>
+        <h1>Tello works for your business, day and night.</h1>
+        <p class="lede">Paste your website link. Tello learns what you do, answers your customers' questions on your site, and sends you every person who leaves their number.</p>
+        <ul class="perks"><li>Ready in about a minute, nothing to install</li><li>Add it to your website with one line</li><li>Every lead emailed to you</li><li>7-day free trial, then $19 a month. Cancel any time.</li></ul>
+      </div>
+      <div class="card" id="panel">
+        <form id="f" autocomplete="on" novalidate>
+          <h2>Set up your Tello</h2>
+          <p class="small-note" style="margin:0 0 1rem">Free for 7 days. No card needed.</p>
+          <label>Business name<input name="business" maxlength="80" required autocomplete="organization" /></label>
+          <label>Website link<input name="site_url" maxlength="300" placeholder="https://yourbusiness.com" required inputmode="url" autocomplete="url" /></label>
+          <label>Your email<input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
+          <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <p class="err" id="err" role="alert"></p>
+          <button class="btn" id="go" type="submit" style="width:100%">Build my Tello</button>
+          <p class="small-note">Please don't use Tello for health, legal or payment information. It is for everyday customer questions.</p>
+        </form>
+        <div id="done" hidden>
+          <h2>Your Tello is ready</h2>
+          <p class="small-note" id="readnote" style="margin:0 0 .8rem"></p>
+          <p style="margin-bottom:.4rem"><b>1. Try it</b></p>
+          <a class="btn small" id="chatlink" target="_blank" rel="noopener">Open your chat</a>
+          <p style="margin:1rem 0 .2rem"><b>2. Put it on your website</b> (paste before the closing &lt;/body&gt; tag)</p>
+          <div class="copy-row"><pre id="snip"></pre><button class="btn small ghost" id="copy" type="button">Copy</button></div>
+          <p style="margin:1rem 0 .2rem"><b>3. Keep your private link</b></p>
+          <p class="small-note" style="margin:0 0 .5rem">It manages your Tello and shows your leads. We also emailed it to you. Anyone with it can manage your Tello, so keep it private.</p>
+          <a class="btn small ghost" id="managelink">Manage my Tello</a>
+        </div>
+      </div>
+    </div></section>
+    <section class="wrap" style="padding-top:1rem">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step"><h3>Paste your link</h3><p>Tello reads your website and writes notes about your services, prices, hours and contact details.</p></div>
+        <div class="step"><h3>Add one line</h3><p>A chat button appears on your site. Customers ask questions and get answers from your own words.</p></div>
+        <div class="step"><h3>Get the leads</h3><p>When someone asks for a quote or a callback, Tello takes their details and emails them to you.</p></div>
+      </div>
+      <p class="small-note" style="margin-top:1.4rem">Tello only answers from what is on your site and the notes you add, and says so when it is not sure. You can read every lead and edit what Tello knows any time.</p>
+    </section>
+  </main>
+  <footer><div class="wrap">tello.live &middot; Questions? <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a></div></footer>
+  <script>
+  (function () {
+    var f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault(); err.textContent = ''; go.disabled = true; go.textContent = 'Reading your website...';
+      var d = {}; new FormData(f).forEach(function (v, k) { d[k] = v; });
+      fetch('/api/public/bots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          go.disabled = false; go.textContent = 'Build my Tello';
+          if (!x.ok || !x.j.id) { err.textContent = x.j.error || 'Something went wrong. Please try again.'; return; }
+          f.hidden = true; document.getElementById('done').hidden = false;
+          document.getElementById('chatlink').href = x.j.chat_url; document.getElementById('managelink').href = x.j.manage_url;
+          document.getElementById('snip').textContent = x.j.embed;
+          if (x.j.read_note) document.getElementById('readnote').textContent = 'I could not read your website (' + x.j.read_note + ') so Tello starts with no notes. Open Manage my Tello and type what customers should know.';
+          document.getElementById('copy').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.embed) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
+        }).catch(function () { go.disabled = false; go.textContent = 'Build my Tello'; err.textContent = 'Could not reach the server. Check your connection and try again.'; });
+    });
+  })();
+  </script>
+</body>
+</html>
