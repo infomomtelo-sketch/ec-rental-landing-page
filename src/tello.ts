@@ -92,7 +92,7 @@ export async function buildBriefing(env: TelloEnv, userId: number, now = new Dat
   const waiting = docsRes.results.filter((s) => s.status === "awaiting_tenant" && today - Date.parse(s.requested_at) > 5 * DAY);
   if (waiting.length) add("document", "info", `${plural(waiting.length, "document")} still unsigned by tenants`, "Sent more than 5 days ago. A quick text to your tenant usually does it.", "documents");
   const apps = appsRes.results;
-  if (apps.length) add("application", "soon", `${plural(apps.length, "application")} to review`, apps.slice(0, 3).map((a) => `${a.first_name} ${a.last_name.slice(0, 1)}. for ${a.street}`).join(", ") + ". Open one and tap AI summary.", "applications");
+  if (apps.length) add("application", "soon", `${plural(apps.length, "application")} to review`, apps.slice(0, 3).map((a) => `${a.first_name} ${a.last_name.slice(0, 1)}. for ${a.street}`).join(", ") + ". Open each one and tap AI summary.", "applications");
   if (inquiries?.n) add("inquiry", "soon", `${plural(inquiries.n, "new renter inquiry", "new renter inquiries")}`, "From the last 3 days. Quick replies rent homes faster; Draft reply writes one for you.", "listings");
   const expiring = invitesRes.results.filter((t) => Date.parse(t.invite_expires_at) - Date.now() < 2 * DAY);
   if (expiring.length) add("tenant", "info", `${plural(expiring.length, "tenant invite")} not accepted`, expiring.slice(0, 2).map((t) => `${t.email} (${t.address})`).join(", ") + (Date.parse(expiring[0].invite_expires_at) < Date.now() ? ". The invite expired; resend it from Tenants." : ". Expiring soon; resend it from Tenants if needed."), "tenants");

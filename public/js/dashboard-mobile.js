@@ -58,6 +58,13 @@
     panel.hidden = !open; btn.setAttribute('aria-expanded', String(open));
   }
   btn.addEventListener('click', function() { toggle(panel.hidden); });
+  // Tapping an item in Tello's briefing opens that dashboard page; on phones the panel closes so the page shows.
+  window.addEventListener('message', function(e) {
+    if (e.origin !== location.origin || !e.data || e.data.type !== 'tello-nav') return;
+    var link = document.querySelector('.sidebar-nav [data-page="' + String(e.data.page).replace(/[^a-z-]/g, '') + '"]');
+    if (link) link.click();
+    if (window.matchMedia('(max-width: 768px)').matches) toggle(false);
+  });
   document.getElementById('telloClose').addEventListener('click', function() { toggle(false); });
   if (view) new MutationObserver(showFab).observe(view, { attributes: true, attributeFilter: ['style'] });
   showFab();
