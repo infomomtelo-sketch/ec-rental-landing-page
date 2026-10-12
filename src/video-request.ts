@@ -1,4 +1,4 @@
-// Marketing video requests for ownsite.app ("Want a video like Tello's?"). The request form saves a lead
+// Marketing video requests for tello.live ("Want a video like Tello's?"). The request form saves a lead
 // (signups.plan = 'video_request') and emails EC Rental, so someone can follow up before any work starts.
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
@@ -34,9 +34,9 @@ export async function handleVideoRequest(request: Request, env: { DB: D1Database
       `Video: ${type}`, `Budget: ${budget || "not given"}`, `Needed by: ${deadline || "not given"}`, `Details: ${details}`,
     ];
     try {
-      await notify(NOTIFY_TO, `ownsite.app video request: ${business}`,
-        `<p>Someone asked for a marketing video like Tello's (ownsite.app). Reply within 1 business day.</p><p>${lines.map(esc).join("<br>")}</p>`,
-        "Someone asked for a marketing video like Tello's (ownsite.app). Reply within 1 business day.\n\n" + lines.join("\n"));
+      await notify(NOTIFY_TO, `tello.live video request: ${business}`,
+        `<p>Someone asked for a marketing video like Tello's (tello.live). Reply within 1 business day.</p><p>${lines.map(esc).join("<br>")}</p>`,
+        "Someone asked for a marketing video like Tello's (tello.live). Reply within 1 business day.\n\n" + lines.join("\n"));
     } catch (err) { console.error("[video-request] email", err); }
   }
   return json({ success: true });

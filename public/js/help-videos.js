@@ -50,7 +50,7 @@
   }
   // "Want a video like Tello's?" line. The Tello link plays the Tello video; Contact us opens the request form.
   function OFFER() {
-    return '<p class="hv-offer">Want a marketing video like <a href="/media/tello-day.mp4" data-play-video="tello">Tello\'s</a> for your own site or app? Get one from <a href="/videos">ownsite.app</a>. <a href="mailto:info@ecrentalpm.com?subject=ownsite.app%20video" data-video-request>Contact us</a></p>';
+    return '<p class="hv-offer">Want a marketing video like <a href="/media/tello-day.mp4" data-play-video="tello">Tello\'s</a> for your own site or app? Get one from <a href="https://tello.live">tello.live</a>. <a href="mailto:info@ecrentalpm.com?subject=tello.live%20video" data-video-request>Contact us</a></p>';
   }
   var TYPES = ['Promo / story video', 'How-to / product guide', 'App or website demo', 'Social media clips', 'Other'];
   var BUDGETS = ['Under $500', '$500 to $1,500', '$1,500 to $5,000', 'Over $5,000', 'Not sure yet'];
@@ -58,7 +58,7 @@
   function requestForm() {
     var back = document.createElement('div'); back.className = 'hv-back'; back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', 'Request a marketing video');
     back.innerHTML = '<button type="button" class="hv-close" aria-label="Close">&times;</button><form class="vr-form" novalidate>'
-      + '<p class="vr-brand">ownsite.app</p><h2>Request a marketing video</h2><p class="vr-sub">Like the Tello video: a short story about your business, with voice, music and captions. Tell us what you need and we will get back to you within 1 business day.</p>'
+      + '<p class="vr-brand">tello.live</p><h2>Request a marketing video</h2><p class="vr-sub">Like the Tello video: a short story about your business, with voice, music and captions. Tell us what you need and we will get back to you within 1 business day.</p>'
       + '<div class="vr-two"><label>Your name *<input name="name" required autocomplete="name" /></label><label>Email *<input name="email" type="email" required autocomplete="email" /></label></div>'
       + '<div class="vr-two"><label>Phone<input name="phone" type="tel" autocomplete="tel" /></label><label>Business or app name *<input name="business" required autocomplete="organization" /></label></div>'
       + '<label>Website or app link<input name="site_url" placeholder="yoursite.com" /></label>'
@@ -82,7 +82,7 @@
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (res) {
           if (!res.ok || !res.j.success) throw new Error(res.j.error || 'Something went wrong.');
-          form.innerHTML = '<p class="vr-brand">ownsite.app</p><h2>Thank you, we got it.</h2><p class="vr-sub">We will email you at ' + data.email.replace(/[<>&"]/g, '') + ' within 1 business day. Questions sooner? Email info@ecrentalpm.com.</p><button type="button" class="vr-send">Close</button>';
+          form.innerHTML = '<p class="vr-brand">tello.live</p><h2>Thank you, we got it.</h2><p class="vr-sub">We will email you at ' + data.email.replace(/[<>&"]/g, '') + ' within 1 business day. Questions sooner? Email info@ecrentalpm.com.</p><button type="button" class="vr-send">Close</button>';
           form.querySelector('button').addEventListener('click', close);
         })
         .catch(function (x) { err.textContent = x.message || 'Something went wrong. Please email info@ecrentalpm.com.'; err.hidden = false; btn.disabled = false; btn.textContent = 'Send request'; });

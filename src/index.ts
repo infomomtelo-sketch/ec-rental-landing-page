@@ -148,7 +148,10 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     // Send plain http visits to https so the site never shows "Not Secure".
-    if (url.protocol === "http:" && url.hostname.endsWith("ecrentalpm.com") && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
+    if (url.protocol === "http:" && /(^|\.)(ecrentalpm\.com|tello\.live)$/.test(url.hostname) && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
+    // tello.live is the Tello video page: www goes to the bare address, and its front door is the /videos page.
+    if (url.hostname === "www.tello.live" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "tello.live"; return Response.redirect(url.toString(), 301); }
+    if (url.hostname === "tello.live" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/videos", url).toString(), request)); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     const visit = await handleVisits(request, env, url); if (visit) return visit;
