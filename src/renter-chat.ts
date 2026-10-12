@@ -6,6 +6,7 @@
  */
 import { LISTING_SELECT } from "./listings";
 import { aiText, clean, FAIR_HOUSING, listingFacts, MODEL } from "./ai-assist";
+import { CA_RENTAL_GUIDE } from "./ca-rental-law";
 
 interface ChatEnv { AI: Ai; DB: D1Database; }
 interface Turn { role: string; content: string; }
@@ -26,7 +27,7 @@ const RULES = [
   "Answer in 1 to 4 short sentences of plain text, no markdown, lists or emojis. Be warm and direct.",
   "Use only the facts given here. If something isn't in them (utilities, HOA, schools, exact move-in costs beyond rent and deposit, whether a specific pet breed is OK), say you don't have that detail and that the landlord can answer it, and suggest requesting a showing.",
   "Never promise approval, never say who will or won't qualify, never ask for a Social Security number, income, birth date or other screening information, and don't discuss anyone's personal characteristics. Applicants are screened the same way through the online application.",
-  "If the renter asks about anything unrelated to renting these homes, politely steer back.",
+  "Renters may also ask about their rights and duties as California tenants (deposits, rent increases, repairs, entry, notices, moving out). Answer those plainly from the California rules below, with the code section, and say city rules may add more. For anything unrelated to renting, politely steer back.",
   FAIR_HOUSING,
 ].join(" ");
 
@@ -55,7 +56,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
       ...(l.contact_phone ? [`- Phone for this home: ${phone(l.contact_phone)}`] : []),
       "Renters can apply online with the Apply now button, or request a showing on this page.",
       "When the renter wants to see the home, schedule a tour or be contacted, end your reply with [TOUR]. When they want to apply, end with [APPLY].",
-      RULES,
+      RULES, CA_RENTAL_GUIDE,
     ].join("\n");
   } else {
     const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE status = 'active' ORDER BY rent LIMIT 40`).all<ListingFactsRow>();
@@ -68,7 +69,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
       "You are Tello, the EC Rental assistant on the rentals search page of EC Rental Property Management in Fresno, California. Help renters find a home among the listings below.",
       lines.length ? "Homes available now:\n" + lines.join("\n") : "There are no homes available right now. Suggest checking back soon or calling (559) 825-3038.",
       "When you suggest a home, write [LISTING:id] after it (for example [LISTING:12]) so the page can show a link; don't write URLs. Suggest at most 3 homes. If none match, say so and name the closest option.",
-      RULES,
+      RULES, CA_RENTAL_GUIDE,
     ].join("\n");
   }
 
