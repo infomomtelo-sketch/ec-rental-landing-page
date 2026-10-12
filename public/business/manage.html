@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Manage your Tello | tello.live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.1); }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
+    a { color: var(--gold); }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .brand { font-weight: 800; letter-spacing: 0.02em; text-decoration: none; font-size: 1.15rem; color: var(--text); }
+    .brand span { color: var(--gold); }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 0.92rem; margin-left: 1.1rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: var(--gold); color: var(--ink); font: inherit; font-weight: 700; text-decoration: none; border: 0; border-radius: 999px; padding: 0.8rem 1.35rem; cursor: pointer; }
+    .btn:hover { filter: brightness(1.07); } .btn:disabled { opacity: .55; cursor: default; }
+    .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid rgba(255,255,255,0.3); }
+    .btn.small { padding: 0.5rem 1rem; font-size: 0.88rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0.6rem 0 1rem; }
+    h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.01em; margin-bottom: 0.4rem; }
+    .kick { color: var(--gold); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; }
+    .lede { color: var(--muted); font-size: 1.08rem; max-width: 520px; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem; }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.8rem; }
+    input, textarea { font: inherit; font-weight: 400; font-size: 1rem; padding: 0.65rem 0.75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.35); color: var(--text); width: 100%; }
+    textarea { min-height: 110px; resize: vertical; }
+    input:focus, textarea:focus, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+    .hp { position: absolute; left: -9999px; }
+    .err { color: #ff9b8a; font-size: 0.92rem; margin: 0.4rem 0; min-height: 1.2em; }
+    .ok { color: #8fe3b0; }
+    .small-note { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
+    code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+    pre { background: rgba(0,0,0,0.45); border: 1px solid var(--line); border-radius: 10px; padding: 0.75rem; white-space: pre-wrap; word-break: break-all; margin: 0.4rem 0 0.6rem; }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: 0.85rem; margin-top: 3rem; }
+
+    main { padding: 2rem 0; display: grid; gap: 1.2rem; }
+    .card h2 { font-size: 1.2rem; margin-bottom: .5rem; }
+    .row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .6rem; }
+    .badge { display: inline-block; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: .15rem .6rem; border-radius: 999px; background: var(--deep); color: var(--gold); }
+    .lead { border-top: 1px solid var(--line); padding: .8rem 0; } .lead:first-child { border-top: 0; }
+    .lead b { color: var(--text); } .lead small { color: var(--muted); display: block; }
+    .lead pre { font-size: .8rem; color: var(--muted); }
+    .copy-row { display: flex; gap: .5rem; align-items: stretch; } .copy-row pre { flex: 1; margin: 0; }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/business">tello<span>.live</span></a><span class="small-note" style="margin:0">Private page. Do not share this link.</span></div></header>
+  <main class="wrap" id="app"><p class="small-note">Loading...</p></main>
+  <script>
+  (function () {
+    var app = document.getElementById('app'), tok = new URLSearchParams(location.search).get('t') || '', data = null;
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function api(path, method, body) {
+      return fetch('/api/biz/manage' + path + (method === 'GET' ? '?t=' + encodeURIComponent(tok) : ''), { method: method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : JSON.stringify(Object.assign({ t: tok }, body || {})) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'Something went wrong.'); return j; }); });
+    }
+    function field(label, node) { var l = el('label', '', label); l.appendChild(node); return l; }
+    function copyBox(text) {
+      var row = el('div', 'copy-row'), pre = el('pre', '', text), b = el('button', 'btn small ghost', 'Copy'); b.type = 'button';
+      b.addEventListener('click', function () { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
+      row.appendChild(pre); row.appendChild(b); return row;
+    }
+    function fmt(d) { try { return new Date(d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return d; } }
+    function render() {
+      app.textContent = '';
+      var d = data, msg = el('p', 'err', ''); msg.id = 'msg';
+      var plan = el('section', 'card'); plan.appendChild(el('h2', '', d.business));
+      var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : 'Active') : (d.active ? 'Free trial' : 'Paused')); plan.appendChild(b);
+      var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your Tello is on. $' + d.price + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : (d.active ? 'Your free trial ends ' + fmt(d.trial_ends) + '. After that it is $' + d.price + ' a month, cancel any time.' : 'Your free trial ended, so customers cannot chat right now. Start your plan to switch it back on.'));
+      plan.appendChild(p);
+      var row = el('div', 'row');
+      if (!d.subscribed && d.billing_on) { var s = el('button', 'btn', d.active ? 'Start my plan ($' + d.price + '/month)' : 'Switch it back on ($' + d.price + '/month)'); s.type = 'button'; s.addEventListener('click', function () { s.disabled = true; api('/checkout', 'POST').then(function (j) { location.href = j.url; }).catch(function (e) { s.disabled = false; msg.textContent = e.message; }); }); row.appendChild(s); }
+      if (d.subscribed) { var c = el('button', 'btn ghost small', d.cancel_at_period_end ? 'Keep my plan' : 'Cancel plan'); c.type = 'button'; c.addEventListener('click', function () { c.disabled = true; api(d.cancel_at_period_end ? '/resume' : '/cancel', 'POST').then(load).catch(function (e) { c.disabled = false; msg.textContent = e.message; }); }); row.appendChild(c); }
+      plan.appendChild(row); plan.appendChild(msg); app.appendChild(plan);
+
+      var share = el('section', 'card'); share.appendChild(el('h2', '', 'Put Tello on your website'));
+      share.appendChild(el('p', 'small-note', 'Paste this line before the closing </body> tag of your website. A chat button appears in the corner.'));
+      share.appendChild(copyBox(d.embed));
+      share.appendChild(el('p', 'small-note', 'Or share the chat page directly:')); share.appendChild(copyBox(d.chat_url));
+      var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; share.appendChild(tr); app.appendChild(share);
+
+      var teach = el('section', 'card'); teach.appendChild(el('h2', '', 'What Tello knows'));
+      teach.appendChild(el('p', 'small-note', 'Tello answers only from these notes. Fix anything that is wrong and add what customers ask about: prices, hours, service area, how to book.'));
+      var tf = el('textarea'); tf.value = d.facts; tf.maxLength = 1800; tf.style.minHeight = '170px';
+      var te = el('textarea'); te.value = d.extra; te.maxLength = 1200; te.placeholder = 'Anything else Tello should tell customers';
+      var tg = el('input'); tg.value = d.greeting; tg.maxLength = 160;
+      var tn = el('input'); tn.value = d.business; tn.maxLength = 80;
+      teach.appendChild(field('Business name', tn)); teach.appendChild(field('Notes from your website', tf)); teach.appendChild(field('Extra notes from you', te)); teach.appendChild(field('Greeting', tg));
+      var r2 = el('div', 'row'), save = el('button', 'btn small', 'Save'), ref = el('button', 'btn small ghost', 'Re-read my website'); save.type = ref.type = 'button';
+      var m2 = el('p', 'small-note', '');
+      save.addEventListener('click', function () { save.disabled = true; api('', 'PUT', { business: tn.value, facts: tf.value, extra: te.value, greeting: tg.value }).then(function () { m2.textContent = 'Saved.'; m2.className = 'small-note ok'; save.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; save.disabled = false; }); });
+      ref.addEventListener('click', function () { ref.disabled = true; m2.textContent = 'Reading your website...'; m2.className = 'small-note'; api('/refresh', 'POST', { site_url: d.site_url }).then(function (j) { tf.value = j.facts; m2.textContent = 'Updated from your website. Review it, then press Save if you changed anything.'; ref.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; ref.disabled = false; }); });
+      r2.appendChild(save); r2.appendChild(ref); teach.appendChild(r2); teach.appendChild(m2); app.appendChild(teach);
+
+      var leads = el('section', 'card'); leads.appendChild(el('h2', '', 'Customer messages'));
+      if (!d.leads.length) leads.appendChild(el('p', 'small-note', 'No one has left their details yet. When a customer gives a phone number or email in the chat, it shows here and is emailed to you.'));
+      d.leads.forEach(function (l) { var x = el('div', 'lead'); var bb = el('b', '', l.contact); x.appendChild(bb); x.appendChild(el('small', '', (l.name ? l.name + ' - ' : '') + fmt(l.created_at))); x.appendChild(el('pre', '', l.message)); leads.appendChild(x); });
+      app.appendChild(leads);
+    }
+    function load() {
+      return api('', 'GET').then(function (j) { data = j; render(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); app.appendChild(el('a', 'btn small', 'Set up a Tello')).href = '/business'; });
+    }
+    load();
+  })();
+  </script>
+</body>
+</html>

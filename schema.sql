@@ -68,3 +68,9 @@ CREATE TABLE IF NOT EXISTS business_pages (user_id INTEGER PRIMARY KEY, slug TEX
 CREATE TABLE IF NOT EXISTS transaction_categories (transaction_id INTEGER PRIMARY KEY, category TEXT NOT NULL, FOREIGN KEY (transaction_id) REFERENCES transactions(id));
 -- Tello's morning briefing email (src/tello.ts): opt-in per landlord, sent at most once a day.
 CREATE TABLE IF NOT EXISTS tello_settings (user_id INTEGER PRIMARY KEY, morning_email INTEGER NOT NULL DEFAULT 0, last_sent TEXT, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+-- Tello for your business (src/biz-bots.ts): a chat assistant per business, its customer leads and its daily message count.
+CREATE TABLE IF NOT EXISTS biz_bots (id TEXT PRIMARY KEY, manage_token TEXT NOT NULL UNIQUE, owner_email TEXT NOT NULL, owner_name TEXT DEFAULT '', business TEXT NOT NULL, site_url TEXT DEFAULT '', facts TEXT DEFAULT '', greeting TEXT DEFAULT '', extra TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'trial', trial_ends TEXT NOT NULL, customer_id TEXT, subscription_id TEXT, period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_biz_bots_email ON biz_bots(owner_email, created_at);
+CREATE TABLE IF NOT EXISTS biz_leads (id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL, name TEXT DEFAULT '', contact TEXT NOT NULL, message TEXT DEFAULT '', created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_biz_leads_bot ON biz_leads(bot_id, id);
+CREATE TABLE IF NOT EXISTS biz_usage (bot_id TEXT NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (bot_id, day));

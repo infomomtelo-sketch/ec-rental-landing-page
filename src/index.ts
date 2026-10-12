@@ -87,6 +87,7 @@ import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
 import { handleVideoRequest } from "./video-request";
 import { handleVideoMaker } from "./video-maker";
+import { handleBizBots, handleBotStripeEvent } from "./biz-bots";
 import { handleRemoteInspections } from "./remote-inspections";
 import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
@@ -153,6 +154,7 @@ export default {
     // tello.live is the Tello video page: www goes to the bare address, and its front door is the /videos page.
     if (url.hostname === "www.tello.live" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "tello.live"; return Response.redirect(url.toString(), 301); }
     if (url.hostname === "tello.live" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/videos", url).toString(), request)); }
+    if (/^\/b\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/b", url).toString(), request)); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     const visit = await handleVisits(request, env, url); if (visit) return visit;
@@ -231,7 +233,7 @@ export default {
     }
 
     // Stripe calls this when a subscription starts, changes or ends (src/billing.ts).
-    if (url.pathname === "/api/stripe/webhook" && request.method === "POST") { try { return await handleStripeWebhook(request, env); } catch (err) { console.error("[stripe-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
+    if (url.pathname === "/api/stripe/webhook" && request.method === "POST") { try { return await handleStripeWebhook(request, env, (event) => handleBotStripeEvent(env, event)); } catch (err) { console.error("[stripe-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
 
     // Stripe calls this when a tenant's rent payment or a landlord's payout account changes (src/rent-payments.ts).
     if (url.pathname === "/api/stripe/connect-webhook" && request.method === "POST") { try { return await handleConnectWebhook(request, env, url, (to, subject, html, text) => sendEmail(env, to, subject, html, text)); } catch (err) { console.error("[stripe-connect-webhook]", err instanceof Error ? err.message : err); return json({ error: "Webhook failed" }, 500); } }
@@ -305,6 +307,7 @@ export default {
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
+    try { const bizRes = await handleBizBots(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (bizRes) return bizRes; } catch (err) { console.error("[biz-bots]", err); return json({ error: "Something went wrong. Please try again." }, 500); }
     try { const makerRes = await handleVideoMaker(request, env, url); if (makerRes) return makerRes; } catch (err) { console.error("[video-maker]", err); return json({ error: "The video maker hit a problem. Please try again." }, 500); }
     try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }

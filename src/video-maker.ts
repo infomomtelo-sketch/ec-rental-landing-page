@@ -59,7 +59,7 @@ export function readPage(html, url) {
   return { url, title: clean(decode(title || ''), 160), description: meta(html, 'description') || meta(html, 'og:description'), siteName: meta(html, 'og:site_name'), headings, text };
 }
 
-async function fetchPage(rawUrl) {
+export async function fetchPage(rawUrl) {
   let u = safeUrl(rawUrl);
   if (!u) return { error: 'That link does not look like a public website address.' };
   try {
