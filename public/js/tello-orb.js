@@ -1,4 +1,4 @@
-/* Tello's living orb: a gold sphere with two eyes, used on the tello.live front page, the chat bubble header and voice mode.
+/* Tello's living orb: Tello's own mark (the Aurora T from /brand) inside a soft gold glow, used on the tello.live front page, the chat bubble header and voice mode.
    TelloOrb.mount(el, { size }) turns an element into an orb; TelloOrb.set('idle' | 'thinking' | 'speaking' | 'listening')
    changes every orb on the page. Only transforms and opacity animate. Reduced motion shows the state by colour alone,
    and animations pause while the tab is hidden. While Tello speaks, TelloOrb.follow(audioElement) makes the orb pulse
@@ -13,13 +13,11 @@
     + '.t-orb .t-ring{inset:0;border:1.5px solid rgba(255,198,26,.6);opacity:0}'
     + '.t-orb .t-arc{inset:-9%;border:2.5px solid transparent;border-top-color:#ffc61a;border-right-color:rgba(255,198,26,.35);opacity:0}'
     + '.t-orb .t-body{inset:0}'
-    + '.t-orb .t-core{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff8dc 0%,#ffe27a 20%,#ffc61a 52%,#b37a00 100%);box-shadow:inset 0 -6% 14% rgba(120,70,0,.25);transform:scale(calc(1 + var(--orb-lvl,0) * .16))}'
-    + '.t-orb .t-eyes{position:absolute;left:31%;right:31%;top:36%;height:19%;display:flex;justify-content:space-between}'
-    + '.t-orb .t-eye{width:24%;height:100%;border-radius:50%;background:#2a1d00;transform-origin:50% 60%}'
+    + '.t-orb .t-core{position:absolute;inset:8%;transform:scale(calc(1 + var(--orb-lvl,0) * .16))}'
+    + '.t-orb .t-core img{display:block;width:100%;height:100%}'
     + '.t-orb[data-state="idle"] .t-body{animation:tOrbBreath 4.5s ease-in-out infinite}'
     + '.t-orb[data-state="idle"] .t-glow{animation:tOrbGlow 4.5s ease-in-out infinite}'
     + '.t-orb[data-state="idle"] .t-ring{animation:tOrbDrift 9s ease-out infinite}.t-orb[data-state="idle"] .t-ring.r2{animation-delay:4.5s}'
-    + '.t-orb .t-eye{animation:tOrbBlink 6s ease-in-out infinite}'
     + '.t-orb[data-state="thinking"] .t-arc{opacity:1;animation:tOrbSpin 1.1s linear infinite}'
     + '.t-orb[data-state="thinking"] .t-body{animation:tOrbBreath 2.4s ease-in-out infinite}'
     + '.t-orb[data-state="speaking"]:not(.t-live) .t-body{animation:tOrbPulse 1s ease-in-out infinite}'
@@ -33,7 +31,6 @@
     + '@keyframes tOrbSpin{to{transform:rotate(360deg)}}'
     + '@keyframes tOrbPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}'
     + '@keyframes tOrbListen{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}'
-    + '@keyframes tOrbBlink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.1)}}'
     + '.t-orb-paused .t-orb *{animation-play-state:paused!important}'
     + '@media (prefers-reduced-motion:reduce){.t-orb *{animation:none!important}.t-orb .t-core{transform:none!important}'
     + '.t-orb[data-state="thinking"] .t-arc{opacity:1}'
@@ -47,7 +44,7 @@
     el.classList.add('t-orb'); el.setAttribute('role', 'img'); el.setAttribute('aria-label', LABEL[state]);
     if (o.size) el.style.setProperty('--orb-size', o.size + 'px');
     el.innerHTML = '<span class="t-glow"></span><span class="t-ring"></span><span class="t-ring r2"></span><span class="t-ring r3"></span><span class="t-arc"></span>'
-      + '<span class="t-body"><span class="t-core"></span><span class="t-eyes"><span class="t-eye"></span><span class="t-eye"></span></span></span>';
+      + '<span class="t-body"><span class="t-core"><picture><source srcset="/brand/tello-mark-static.svg" media="(prefers-reduced-motion: reduce)"><img src="/brand/tello-mark.svg" alt="" width="512" height="512"></picture></span></span>';
     el.setAttribute('data-state', state);
     orbs.push(el);
     return el;

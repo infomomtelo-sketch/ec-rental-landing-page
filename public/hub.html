@@ -148,7 +148,7 @@
     if (window.TelloOrb) { TelloOrb.mount(document.getElementById('orbHero'), { size: 132 }); TelloOrb.mount(document.getElementById('orbSmall'), { size: 36 }); }
     var chat = TelloChat.mount(document.getElementById('chat'), {
       mode: 'page', firstPrimary: true,
-      starters: ['Try Tello on my website', 'What does it cost?', 'Make me a video'],
+      starters: ['Try Tello on my website', 'What does it cost?', 'How do I make a free video?'],
       onChatting: function (on) { document.body.classList.toggle('chatting', on); if (on) stopIntro(); },
       onStatus: function (t) { cstatus.textContent = t || IDLE; cstatus.classList.toggle('run', !!t && t !== 'Speaking…'); },
       speakTyped: function () { return voiceOn; },

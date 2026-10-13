@@ -490,7 +490,7 @@
       if (window.TelloOrb) TelloOrb.unlock();
       var host = (opts.voiceHost && opts.voiceHost()) || document.body, voiceOn = page && opts.getVoice ? opts.getVoice() : voicePref();
       var sheet = h('div', 'tc-voice' + (host === document.body ? '' : ' in-panel')); sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true'); sheet.setAttribute('aria-label', 'Talk to Tello');
-      var top = h('div', 'tc-vtop'), x = btn('tc-vx', I.close, 'Close voice mode'); top.appendChild(x); top.appendChild(h('span', 'tc-vpriv', 'Your speech stays in your browser'));
+      var top = h('div', 'tc-vtop'), x = btn('tc-vx', I.close, 'Close voice mode'); top.appendChild(x); top.appendChild(h('span', 'tc-vpriv', 'Your browser turns speech into text. We never receive audio.'));
       var mid = h('div', 'tc-vmid'), orbBtn = h('button', 'tc-vorb'); orbBtn.type = 'button'; orbBtn.setAttribute('aria-label', 'Tap to talk');
       var orb = h('span'); orbBtn.appendChild(orb); if (window.TelloOrb) TelloOrb.mount(orb, { size: host === document.body ? 168 : 128 });
       var label = h('div', 'tc-vlabel', 'Listening…'), bars = h('div', 'tc-vbars'); bars.innerHTML = '<span></span><span></span><span></span><span></span><span></span>'; bars.setAttribute('aria-hidden', 'true');

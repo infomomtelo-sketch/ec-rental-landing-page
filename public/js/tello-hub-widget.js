@@ -2,12 +2,12 @@
    (public/js/tello-chat.js), in a light panel. It loads the chat, orb and voice scripts itself the first time it opens. */
 (function () {
   if (window.__telloHub) return; window.__telloHub = 1;
-  var STARTERS = ['Try Tello on my website', 'What can Tello do for my business?', 'How much does it cost?', 'Can Tello make me a video?', "I'm a landlord"];
+  var STARTERS = ['Try Tello on my website', 'What does it cost?', 'How do I make a free video?'];
   var NOTE = 'Tello is an AI and can be wrong. Chats aren’t stored unless you leave your email or rate a reply (<a href="/privacy">Privacy</a>). Don’t share card numbers, passwords, IDs or health details. Not for health care businesses.';
   var css = document.createElement('style');
   css.textContent = ''
     + '.th-btn{position:fixed;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:9000;display:flex;align-items:center;gap:.55rem;min-height:48px;background:#ffd23f;color:#050505;border:0;border-radius:999px;padding:.45rem 1.1rem .45rem .5rem;font:700 .95rem Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.3)}'
-    + '.th-btn .th-dot{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff8dc 0%,#ffe27a 20%,#ffc61a 52%,#b37a00 100%);box-shadow:0 0 0 2px rgba(0,0,0,.08)}'
+    + '.th-btn img{width:32px;height:32px;display:block}'
     + '.th-panel{position:fixed;right:18px;bottom:78px;z-index:9001;width:400px;max-width:calc(100vw - 24px);height:640px;max-height:calc(100vh - 100px);display:none;flex-direction:column;background:#faf8f4;color:#16181b;border:1px solid #e4dfd6;border-radius:20px;box-shadow:0 14px 44px rgba(0,0,0,.35);font:15px/1.5 Inter,system-ui,sans-serif;overflow:hidden}'
     + '.th-panel.on{display:flex}'
     + '.th-head{display:flex;align-items:center;gap:.6rem;padding:.55rem .55rem .55rem .8rem;border-bottom:1px solid #e4dfd6;background:#fff}'
@@ -24,7 +24,7 @@
   document.head.appendChild(css);
 
   var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'th-btn'; btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-haspopup', 'dialog');
-  btn.innerHTML = '<span class="th-dot" aria-hidden="true"></span>Ask Tello';
+  btn.innerHTML = '<img src="/brand/tello-mark-static.svg" alt="" width="32" height="32">Ask Tello';
   var panel = document.createElement('div'); panel.className = 'th-panel'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Ask Tello');
   panel.innerHTML = '<div class="th-head"><span class="th-orb"></span><div class="th-title"><b>Tello</b><span class="th-status" aria-live="polite">Online · Tello is an AI</span></div>'
     + '<button type="button" class="th-new">New chat</button><button type="button" class="th-x" aria-label="Close chat">&times;</button></div>'
