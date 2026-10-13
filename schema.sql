@@ -81,3 +81,8 @@ CREATE TABLE IF NOT EXISTS biz_settings (bot_id TEXT PRIMARY KEY, uploads INTEGE
 CREATE TABLE IF NOT EXISTS biz_files (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL, lead_id INTEGER NOT NULL, r2_key TEXT NOT NULL, content_type TEXT NOT NULL, size INTEGER NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_biz_files_lead ON biz_files(lead_id);
 CREATE INDEX IF NOT EXISTS idx_biz_files_bot ON biz_files(bot_id, created_at);
+-- The tello.live assistant (src/tello-hub.ts): daily spend, per-visitor daily counts (a one-way hash of network address + day, deleted after the day) and thumbs ratings (no names, emails, IPs or IDs).
+CREATE TABLE IF NOT EXISTS hub_spend (day TEXT PRIMARY KEY, input_tokens INTEGER, output_tokens INTEGER, searches INTEGER, usd_cents INTEGER);
+CREATE TABLE IF NOT EXISTS hub_visitors (key TEXT PRIMARY KEY, day TEXT NOT NULL, messages INTEGER NOT NULL DEFAULT 0, attachments INTEGER NOT NULL DEFAULT 0, searches INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_hub_visitors_day ON hub_visitors(day);
+CREATE TABLE IF NOT EXISTS hub_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, vote INTEGER NOT NULL, question TEXT NOT NULL, reply TEXT NOT NULL, created_at TEXT NOT NULL);

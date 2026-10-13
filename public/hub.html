@@ -19,66 +19,71 @@
   <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://tello.live/#org", "name": "Tello", "url": "https://tello.live/", "logo": "https://tello.live/brand/tello-icon-512.png", "email": "support@tello.live"}, {"@type": "WebSite", "@id": "https://tello.live/#site", "url": "https://tello.live/", "name": "Tello", "publisher": {"@id": "https://tello.live/#org"}}, {"@type": "SoftwareApplication", "name": "Tello for your business", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "url": "https://tello.live/business", "description": "An AI chat assistant for small business websites that answers customer questions, takes leads and briefs the owner each day.", "offers": [{"@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "USD", "description": "Per month, 7-day free trial"}, {"@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Per month, 7-day free trial"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is Tello?", "acceptedAnswer": {"@type": "Answer", "text": "Tello is an AI assistant for small businesses. It answers customers' questions on your website around the clock, takes the details of anyone who wants a quote or a callback, briefs you each day on who is waiting, and makes short videos."}}, {"@type": "Question", "name": "How much does Tello cost?", "acceptedAnswer": {"@type": "Answer", "text": "Tello for your business is $19 a month for Starter and $49 a month for Pro. Both start with a 7-day free trial and you can cancel any time. The video maker is free."}}, {"@type": "Question", "name": "How do I add Tello to my website?", "acceptedAnswer": {"@type": "Answer", "text": "Paste your website link on tello.live/business. Tello reads it and builds your assistant, and you add it to your site with one line of code or share your own Tello chat link."}}, {"@type": "Question", "name": "Can Tello make mistakes?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Tello is an AI and can be wrong. It answers only from the information a business gives it, tells customers it is an AI, and offers to pass questions to the business."}}, {"@type": "Question", "name": "Is the Tello video maker free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Chat a few words and paste your web address, and Tello builds a short narrated video for free."}}, {"@type": "Question", "name": "Can health care businesses use Tello?", "acceptedAnswer": {"@type": "Answer", "text": "No. Tello is not available for health care or medical businesses."}}]}]}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Inter:wght@400;500;600;700;800&display=swap" />
+  <meta name="theme-color" content="#121110" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --bg: #faf8f4; --card: #ffffff; --ink: #16181b; --muted: #5d636a; --line: #e4dfd6; --gold: #ffc61a; --goldInk: #6b4e00; }
-    html { -webkit-text-size-adjust: 100%; }
+    /* tello.live front page: dark ground, living gold orb. Every other tello.live page stays light. */
+    :root { color-scheme: dark; --bg: #121110; --card: #1b1a17; --input: #1d1c19; --ink: #f6f1e6; --body: #c9c1b0; --muted: #a39c8e; --line: #2c2a26; --line2: #3a352a; --gold: #ffc61a; --goldInk: #1a1400; --online: #5fd38a; --hover: #24221e; }
+    html { -webkit-text-size-adjust: 100%; background: var(--bg); }
     body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
-    a { color: #7a5800; }
+    a { color: var(--gold); }
     button { font: inherit; color: inherit; cursor: pointer; }
-    :focus-visible { outline: 2px solid #b88700; outline-offset: 2px; }
-    .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: .6rem; padding: .6rem 14px; background: rgba(250,248,244,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-    .icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 44px; height: 44px; padding: 0 .7rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; font-weight: 600; font-size: .9rem; }
-    .icon-btn:hover { border-color: #b88700; }
-    .brand { display: inline-flex; align-items: center; gap: .55rem; font-weight: 800; font-size: 1.1rem; text-decoration: none; color: var(--ink); margin-right: auto; }
-    .brand b { font-weight: 800; } .brand span { color: #b88700; }
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: .6rem; padding: .6rem 16px; background: rgba(18,17,16,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 44px; height: 44px; padding: 0 .7rem; background: var(--card); border: 1px solid var(--line2); border-radius: 12px; font-weight: 600; font-size: .9rem; color: var(--ink); white-space: nowrap; }
+    .icon-btn:hover { border-color: var(--gold); }
+    .brand { display: inline-flex; align-items: center; gap: .55rem; font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif; font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; text-decoration: none; color: var(--ink); margin-right: auto; }
+    .brand b { font-weight: 800; } .brand span { color: var(--gold); }
     .brand img { border-radius: 9px; }
-    #voiceBtn[aria-pressed="false"] { opacity: .6; }
-    main { max-width: 760px; margin: 0 auto; padding: 1.4rem 14px 2.5rem; }
-    .hero { text-align: center; }
-    .hero img { border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
-    h1 { font-size: clamp(1.6rem, 5.5vw, 2.2rem); letter-spacing: -.03em; line-height: 1.1; margin-top: .6rem; }
-    .lede { color: var(--muted); margin-top: .4rem; }
-    .hear { display: inline-flex; align-items: center; gap: .45rem; margin-top: .7rem; background: var(--ink); color: #fff; border: 0; border-radius: 999px; padding: .6rem 1.1rem; font-weight: 600; }
+    #voiceBtn[aria-pressed="false"] { opacity: .7; }
+    main { max-width: 760px; margin: 0 auto; padding: 1.6rem 16px 2.5rem; }
+    /* Hero: collapses once the conversation starts. */
+    .hero { text-align: center; display: flex; flex-direction: column; align-items: center; max-height: 640px; overflow: hidden; padding-bottom: 12px; transition: max-height .4s ease, opacity .3s ease, margin .4s ease; }
+    body.chatting .hero { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
+    .hero .orb { margin: .6rem 0 1.1rem; }
+    h1 { font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif; font-weight: 800; font-size: clamp(2rem, 8vw, 3rem); letter-spacing: -.035em; line-height: 1.02; margin-top: .55rem; }
+    h1 span { display: block; color: var(--gold); }
+    .hear { display: inline-flex; align-items: center; gap: .4rem; margin-top: .8rem; min-height: 40px; background: transparent; color: var(--ink); border: 1px solid var(--line2); border-radius: 999px; padding: .35rem .95rem; font-weight: 600; font-size: .88rem; }
+    .hear:hover { border-color: var(--gold); }
     .hear.pulse { animation: pulse 1.6s ease-in-out infinite; }
-    @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(255,198,26,.35); } }
-    @media (prefers-reduced-motion: reduce) { .hear.pulse { animation: none; } }
-    .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; margin-top: 1rem; }
-    @media (min-width: 640px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
-    .tile { display: flex; align-items: center; gap: .55rem; padding: .6rem .7rem; line-height: 1.2; background: var(--card); border: 1px solid var(--line); border-radius: 16px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: .88rem; }
-    .tile svg { flex: none; width: 22px; height: 22px; color: #b88700; }
-    .tile:hover { border-color: #b88700; }
-    .chatbox { margin-top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 6px 24px rgba(40,30,0,.06); overflow: hidden; }
-    .chead { display: flex; align-items: center; justify-content: space-between; padding: .55rem .8rem .55rem 1rem; border-bottom: 1px solid var(--line); font-weight: 700; font-size: .95rem; }
-    .chead button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: .3rem .8rem; font-size: .82rem; font-weight: 600; }
-    #log { height: min(46vh, 380px); min-height: 200px; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
-    .m { max-width: 88%; padding: .65rem .95rem; border-radius: 16px; font-size: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .m.ai { background: #f2eee6; align-self: flex-start; border-bottom-left-radius: 5px; }
-    .m.me { background: var(--gold); color: #1a1400; font-weight: 600; align-self: flex-end; border-bottom-right-radius: 5px; }
-    .m.err { background: #fde8e8; color: #7a1a1a; }
-    .acts { display: flex; flex-wrap: wrap; gap: .45rem; align-self: flex-start; }
-    .act { display: inline-flex; background: var(--ink); color: #fff; text-decoration: none; border-radius: 999px; padding: .4rem .9rem; font-size: .88rem; font-weight: 600; }
-    .chips { display: flex; flex-wrap: wrap; gap: .45rem; padding: 0 1rem .8rem; }
-    .chip { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: .4rem .85rem; font-size: .88rem; font-weight: 600; }
-    .chip:hover { border-color: #b88700; }
-    form { display: flex; align-items: flex-end; gap: .5rem; padding: .7rem; border-top: 1px solid var(--line); color: var(--ink); }
-    form button.tt-mic { align-self: flex-end; margin-bottom: 2px; border-color: #c9c2b4 !important; }
-    textarea { flex: 1; min-width: 0; resize: none; font: inherit; font-size: 1rem; line-height: 1.4; max-height: 9rem; padding: .7rem .9rem; border-radius: 14px; border: 1px solid var(--line); background: #fdfcfa; color: var(--ink); }
-    .send { flex: none; height: 2.75rem; border: 0; border-radius: 14px; background: var(--gold); color: #1a1400; font-weight: 700; padding: 0 1.2rem; }
-    .send:disabled, textarea:disabled { opacity: .55; }
-    .note { font-size: .78rem; color: var(--muted); text-align: center; margin-top: .8rem; }
-    .scrim { position: fixed; inset: 0; background: rgba(20,16,8,.4); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(255,198,26,.25); } }
+    /* Compact header while chatting. */
+    .cbar { display: none; position: sticky; top: 64px; z-index: 15; align-items: center; gap: .65rem; margin: -1.6rem -16px 1rem; padding: .55rem 16px; background: rgba(18,17,16,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    body.chatting .cbar { display: flex; }
+    .cbar .who { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; min-width: 0; }
+    .cbar b { font-size: 1rem; }
+    #cstatus { font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #cstatus.run { background: linear-gradient(90deg, var(--muted) 0%, var(--ink) 50%, var(--muted) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.6s linear infinite; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .cbar button { min-height: 44px; background: var(--card); border: 1px solid var(--line2); border-radius: 999px; padding: 0 .95rem; font-size: .85rem; font-weight: 600; }
+    /* The chat (public/js/tello-chat.js), in the dark tokens. */
+    #chat { margin-top: 1.4rem; --tc-ink: #f6f1e6; --tc-body: #c9c1b0; --tc-muted: #a39c8e; --tc-line: #3a352a; --tc-card: #1b1a17; --tc-input: #1d1c19; --tc-link: #ffc61a; --tc-hover: #24221e; --tc-ok: #5fd38a; --tc-err-bg: #3a1d1d; --tc-err: #ffc4c4; --tc-ring: rgba(255,198,26,.3); }
+    body.chatting #chat { margin-top: 0; }
+    #chat .tc-box { padding: .7rem .6rem .6rem .7rem; border-radius: 24px; }
+    #chat .tc-box textarea { font-size: 1.05rem; }
+    #chat .tc-log { margin-bottom: 1rem; }
+    body.chatting #chat .tc-box { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 5; box-shadow: 0 14px 0 14px var(--bg); }
+    body.chatting #chat .tc-box:focus-within { box-shadow: 0 0 0 4px rgba(255,198,26,.3), 0 14px 0 14px var(--bg); }
+    body.chatting #chat .tc-starters { display: none; }
+    #chat .tc-starters { justify-content: center; }
+    .more { margin-top: 2rem; }
+    body.chatting .more { display: none; }
+    .links { display: flex; justify-content: center; flex-wrap: wrap; gap: .4rem 1.4rem; }
+    .links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .92rem; }
+    .links a:hover { color: var(--gold); }
+    .note { font-size: .78rem; color: var(--muted); text-align: center; margin: 1.6rem auto 0; max-width: 34rem; }
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
     body.menu-open .scrim { opacity: 1; pointer-events: auto; }
     #menu { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(86vw, 340px); background: var(--card); border-right: 1px solid var(--line); transform: translateX(-102%); transition: transform .22s ease; overflow-y: auto; padding: .8rem 14px 2rem; visibility: hidden; }
     body.menu-open #menu { transform: none; visibility: visible; }
-    @media (prefers-reduced-motion: reduce) { #menu, .scrim { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { #menu, .scrim, .hero { transition: none; } .hear.pulse, #cstatus.run { animation: none; } #cstatus.run { color: var(--muted); background: none; } }
     .mhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; }
-    #menu h2 { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: #8a6a00; margin: 1.1rem 0 .35rem; }
+    #menu h2 { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin: 1.1rem 0 .35rem; }
     #menu a.item, #menu button.item { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 10px; padding: .6rem .5rem; color: var(--ink); text-decoration: none; font-weight: 600; font-size: .96rem; }
-    #menu a.item:hover, #menu button.item:hover { background: #f5f1e8; }
+    #menu a.item:hover, #menu button.item:hover { background: var(--hover); }
     #menu a.item small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; }
-    #menu .item svg { flex: none; color: #b88700; }
+    #menu .item svg { flex: none; color: var(--gold); }
     #menu a.sub { display: block; padding: .4rem .5rem .4rem 2.2rem; color: var(--muted); text-decoration: none; font-size: .9rem; }
     #menu a.sub:hover { color: var(--ink); }
     .faq details { border-bottom: 1px solid var(--line); padding: .55rem .5rem; } .faq summary { cursor: pointer; font-weight: 600; font-size: .92rem; } .faq p { margin-top: .4rem; color: var(--muted); font-size: .88rem; }
@@ -118,99 +123,57 @@
     <p class="legal"><a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@tello.live">support@tello.live</a></p>
   </nav>
   <main>
-    <section class="hero">
-      <img src="/brand/tello-mark.svg" width="64" height="64" alt="Tello" />
-      <h1>Hi, I'm Tello.</h1>
-      <p class="lede">What would you like to do?</p>
-      <button type="button" class="hear" id="hear"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="hearLbl">Hear Tello</span></button>
-    </section>
-    <div class="tiles">
-      <a class="tile" href="/business"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Answer my customers</a>
-      <a class="tile" href="/make"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg>Make a video</a>
-      <a class="tile" href="/meeting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.3c2.8-.4 5.5 1.5 5.5 4.7"/></svg>Team meeting</a>
-      <a class="tile" href="/videos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Watch videos</a>
+    <div class="cbar" aria-label="Tello">
+      <span class="orb-sm" id="orbSmall"></span>
+      <div class="who"><b>Tello</b><span id="cstatus" aria-live="polite">Online &middot; Tello is an AI</span></div>
+      <button type="button" id="newChat">New chat</button>
     </div>
-    <section class="chatbox" aria-label="Chat with Tello">
-      <div class="chead"><span>Tello</span><button type="button" id="newChat">New chat</button></div>
-      <div id="log" aria-live="polite"></div>
-      <div class="chips" id="chips"></div>
-      <form id="f" autocomplete="off"><textarea id="t" rows="1" maxlength="600" placeholder="Ask Tello a question" aria-label="Your message"></textarea><button class="send" id="s" type="submit">Send</button></form>
+    <section class="hero" id="hero">
+      <span class="orb" id="orbHero"></span>
+      <h1>Hi, I'm Tello.<span>Ask me anything.</span></h1>
+      <button type="button" class="hear" id="hear"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="hearLbl">Hear Tello</span></button>
     </section>
-    <p class="note">Tello is an AI and can be wrong. Chats are saved (<a href="/privacy">Privacy</a>). Please don't share card numbers, passwords or health details. Not for health care businesses.</p>
+    <section id="chat" aria-label="Chat with Tello"></section>
+    <nav class="more links" aria-label="Put Tello to work"><a href="/business">Business</a><a href="/make">Video</a><a href="/meeting">Meeting</a><a href="/videos">Watch</a></nav>
+    <p class="note">Tello is an AI and can be wrong. Not for health care. <a href="/privacy">Privacy</a></p>
   </main>
   <script src="/js/tello-talk.js"></script>
+  <script src="/js/tello-orb.js"></script>
+  <script src="/js/tello-chat.js"></script>
   <script>
   (function () {
-    var log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), chips = document.getElementById('chips'), form = document.getElementById('f'), convo = [], busy = false;
-    var LINK = /(tello\.live\/[a-z]+|ecrentalpm\.com|support@tello\.live)/g;
     var voiceOn = true; try { voiceOn = localStorage.getItem('tello_hub_voice') !== 'off'; } catch (e) {}
-    var HELLO = "Hi, I'm Tello. Ask me about Tello, videos or rentals, or any everyday question for your business.";
-    function fill(el, text) {
-      el.textContent = '';
-      text.split(LINK).forEach(function (part, i) {
-        if (i % 2 === 1) { var a = document.createElement('a'); a.textContent = part; a.href = part.indexOf('@') > 0 ? 'mailto:' + part : 'https://' + part; el.appendChild(a); }
-        else if (part) el.appendChild(document.createTextNode(part));
-      });
-    }
-    function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; fill(d, text); log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
-    function actions(q, a) {
-      var txt = (q + ' ' + a).toLowerCase(), out = [];
-      if (/video|reel|clip/.test(txt)) out.push(['Make a video', '/make']);
-      if (/landlord|tenant|rental|rent |property|lease/.test(txt)) out.push(['Tello for landlords', 'https://ecrentalpm.com']);
-      if (/customer|website|lead|plan|price|cost|business/.test(txt)) out.push(['Set up Tello for your business', '/business']);
-      if (/meeting|team/.test(txt)) out.push(['Join the team meeting', '/meeting']);
-      if (!out.length) return;
-      var box = document.createElement('div'); box.className = 'acts';
-      out.slice(0, 2).forEach(function (o) { var a = document.createElement('a'); a.className = 'act'; a.href = o[1]; a.textContent = o[0]; box.appendChild(a); });
-      log.appendChild(box); log.scrollTop = log.scrollHeight;
-    }
-    function start() {
-      log.textContent = ''; convo = [];
-      add('ai', HELLO);
-      chips.textContent = ''; chips.style.display = '';
-      ['What can Tello do for my business?', 'How much does it cost?', 'Can Tello make me a video?', "I'm a landlord"].forEach(function (q) {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = q; b.addEventListener('click', function () { send(q); }); chips.appendChild(b);
-      });
-    }
-    function fit() { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 144) + 'px'; }
-    function send(v) {
-      v = (v || '').trim(); if (!v || busy) return;
-      if (window.ECTelloTalk) ECTelloTalk.stop();
-      chips.style.display = 'none'; add('me', v); t.value = ''; fit(); convo.push({ role: 'user', content: v }); busy = true; s.disabled = true;
-      var w = add('ai', '...');
-      fetch('/api/public/tello-hub/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (x) {
-          if (x.ok && x.j.reply) { fill(w, x.j.reply); convo.push({ role: 'assistant', content: x.j.reply }); actions(v, x.j.reply); if (voiceOn && window.ECTelloTalk) ECTelloTalk.speak(x.j.reply, ''); }
-          else { fill(w, x.j.error || 'Sorry, something went wrong. Please try again.'); w.className = 'm ai err'; convo.pop(); }
-        }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
-        .then(function () { busy = false; s.disabled = false; log.scrollTop = log.scrollHeight; });
-    }
-    start();
-    t.addEventListener('input', fit);
-    // On a computer Enter sends and Shift+Enter adds a line; on a phone Enter adds a line and Send sends.
-    t.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) { e.preventDefault(); send(t.value); } });
-    form.addEventListener('submit', function (e) { e.preventDefault(); send(t.value); });
-    if (window.ECTelloTalk) ECTelloTalk.attach({ form: form, input: t, submit: send, token: function () { return ''; } });
-    document.getElementById('newChat').addEventListener('click', function () { if (window.ECTelloTalk) ECTelloTalk.stop(); stopIntro(); busy = false; s.disabled = false; start(); t.focus(); });
+    var cstatus = document.getElementById('cstatus'), IDLE = 'Online · Tello is an AI';
+    var intro = null, hear = document.getElementById('hear'), hl = document.getElementById('hearLbl');
+    if (window.TelloOrb) { TelloOrb.mount(document.getElementById('orbHero'), { size: 132 }); TelloOrb.mount(document.getElementById('orbSmall'), { size: 36 }); }
+    var chat = TelloChat.mount(document.getElementById('chat'), {
+      mode: 'page', firstPrimary: true,
+      starters: ['Try Tello on my website', 'What does it cost?', 'How do I make a free video?'],
+      onChatting: function (on) { document.body.classList.toggle('chatting', on); if (on) stopIntro(); },
+      onStatus: function (t) { cstatus.textContent = t || IDLE; cstatus.classList.toggle('run', !!t && t !== 'Speaking…'); },
+      speakTyped: function () { return voiceOn; },
+      getVoice: function () { return voiceOn; },
+      setVoice: function (on) { setVoice(on); }
+    });
+    document.getElementById('newChat').addEventListener('click', function () { chat.reset(); window.scrollTo(0, 0); chat.focus(); });
 
     // Voice on/off for Tello's spoken answers.
     var vb = document.getElementById('voiceBtn'), vl = document.getElementById('voiceLbl');
     function paintVoice() { vb.setAttribute('aria-pressed', String(voiceOn)); vl.textContent = voiceOn ? 'Voice on' : 'Voice off'; vb.setAttribute('aria-label', voiceOn ? "Tello's voice is on. Tap to turn it off" : "Tello's voice is off. Tap to turn it on"); }
-    vb.addEventListener('click', function () { voiceOn = !voiceOn; try { localStorage.setItem('tello_hub_voice', voiceOn ? 'on' : 'off'); } catch (e) {} if (!voiceOn) { if (window.ECTelloTalk) ECTelloTalk.stop(); stopIntro(); } paintVoice(); });
+    function setVoice(on) { voiceOn = on; try { localStorage.setItem('tello_hub_voice', voiceOn ? 'on' : 'off'); } catch (e) {} if (!voiceOn) { if (window.ECTelloTalk) ECTelloTalk.stop(); stopIntro(); } paintVoice(); }
+    vb.addEventListener('click', function () { setVoice(!voiceOn); });
     paintVoice();
 
     // Tello's spoken intro (a recorded clip in Tello's own voice).
-    var intro = null, hear = document.getElementById('hear'), hl = document.getElementById('hearLbl');
-    function stopIntro() { if (intro) { try { intro.pause(); } catch (e) {} intro = null; } hl.textContent = 'Hear Tello'; hear.classList.remove('pulse'); }
+    function stopIntro() { if (intro) { try { intro.pause(); } catch (e) {} intro = null; if (window.TelloOrb && TelloOrb.state === 'speaking') TelloOrb.set('idle'); } hl.textContent = 'Hear Tello'; hear.classList.remove('pulse'); }
     function playIntro(auto) {
       stopIntro(); intro = new Audio('/media/tello-voice/hub-intro.mp3'); var a = intro;
       a.onended = function () { if (intro === a) stopIntro(); };
       var p = a.play();
-      if (p && p.then) p.then(function () { if (intro === a) hl.textContent = 'Stop'; }).catch(function () { if (intro === a) { intro = null; if (auto) hear.classList.add('pulse'); } });
+      if (p && p.then) p.then(function () { if (intro === a) { hl.textContent = 'Stop'; if (window.TelloOrb) { TelloOrb.set('speaking'); TelloOrb.follow(a); } } }).catch(function () { if (intro === a) { intro = null; if (auto) hear.classList.add('pulse'); } });
     }
-    hear.addEventListener('click', function () { if (intro) stopIntro(); else { if (window.ECTelloTalk) ECTelloTalk.stop(); playIntro(false); } });
-    if (voiceOn) playIntro(true);
+    hear.addEventListener('click', function () { if (intro) stopIntro(); else { if (window.ECTelloTalk) ECTelloTalk.stop(); if (window.TelloOrb) TelloOrb.unlock(); playIntro(false); } });
+    if (voiceOn && !chat.chatting) playIntro(true);
 
     // Slide menu.
     var menu = document.getElementById('menu'), mb = document.getElementById('menuBtn');
@@ -219,7 +182,7 @@
     document.getElementById('menuClose').addEventListener('click', function () { setMenu(false); });
     document.getElementById('scrim').addEventListener('click', function () { setMenu(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.body.classList.contains('menu-open')) setMenu(false); });
-    document.getElementById('askItem').addEventListener('click', function () { setMenu(false); t.focus(); });
+    document.getElementById('askItem').addEventListener('click', function () { setMenu(false); chat.focus(); });
   })();
   </script>
 </body>
