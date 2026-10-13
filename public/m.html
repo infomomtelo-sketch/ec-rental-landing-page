@@ -52,8 +52,13 @@
     #chips button { flex: none; background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
     form.send { flex: none; display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); }
     input, textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; background: rgba(0,0,0,.35); color: var(--text); width: 100%; }
-    form.send input { flex: 1; width: auto; }
+    form.send input { flex: 1; width: auto; min-width: 0; }
+    form.send button { flex: none; }
     form.send button { background: var(--gold); color: var(--ink); border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; }
+    form.send button.mic { background: rgba(255,255,255,.08); color: var(--text); border: 1px solid var(--line); padding: 0 12px; display: flex; align-items: center; }
+    form.send button.mic.on { background: #b3261e; color: #fff; border-color: #b3261e; }
+    .m.ai .say { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+    .m.ai .say.on { color: var(--gold); border-color: var(--gold); }
     button:disabled, input:disabled { opacity: .55; }
     .foot { flex: none; text-align: center; font-size: 11px; color: var(--muted); padding: 2px 10px 12px; }
     .foot a { color: var(--gold); }
@@ -78,7 +83,7 @@
     <div class="who"><span class="badge" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><div><b>Tello</b><small id="role">AI assistant</small></div><span class="sp"></span><button class="ghost" id="again" type="button">New conversation</button></div>
     <div id="log" aria-live="polite"></div>
     <div id="chips"></div>
-    <form class="send" id="f" autocomplete="off"><input id="t" maxlength="600" placeholder="Type your question" aria-label="Your message" /><button id="s" type="submit">Send</button></form>
+    <form class="send" id="f" autocomplete="off"><button class="mic" id="mic" type="button" aria-label="Speak your question" aria-pressed="false" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><input id="t" maxlength="600" placeholder="Type your question" aria-label="Your message" /><button id="s" type="submit">Send</button></form>
     <div id="msgbox">
       <label for="mm">Message the team directly. A real person replies.</label>
       <textarea id="mm" maxlength="800" placeholder="Your message"></textarea>
@@ -87,7 +92,7 @@
       <div class="r" style="margin-top:8px"><button class="go" id="msend" type="button" style="margin:0;padding:.6rem 1.2rem">Send to the team</button><button class="ghost" id="mclose" type="button">Close</button></div>
       <p id="msgnote" role="status"></p>
     </div>
-    <div class="foot"><button class="ghost" id="mopen" type="button" style="margin-bottom:6px">Message the team</button><br>I'm an AI and can be wrong. Please don't share card numbers, passwords or health details. Powered by <a href="https://tello.live/business" target="_blank" rel="noopener">Tello</a></div>
+    <div class="foot"><button class="ghost" id="mopen" type="button" style="margin-bottom:6px">Message the team</button><br>I'm an AI and can be wrong. Please don't share card numbers, passwords or health details. Voice uses your browser's speech service. Powered by <a href="https://tello.live/business" target="_blank" rel="noopener">Tello</a></div>
   </section>
 
   <script>
@@ -126,9 +131,23 @@
     document.addEventListener('keydown', function (e) { if ($('story').style.display !== 'none' && (e.key === 'ArrowRight' || e.key === ' ')) { e.preventDefault(); if (cur < slides.length - 1) show(cur + 1); } });
     $('skip').addEventListener('click', openChat);
 
-    function add(cls, text) { var d = el('div', 'm ' + cls, text); $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; return d; }
+    var synth = window.speechSynthesis, canSpeak = !!synth && 'SpeechSynthesisUtterance' in window, speakingBtn = null;
+    function stopSpeak() { if (canSpeak) synth.cancel(); if (speakingBtn) { speakingBtn.classList.remove('on'); speakingBtn.lastChild.textContent = 'Listen'; speakingBtn = null; } }
+    function addListen(d) {
+      if (!canSpeak || !d.textContent.trim()) return;
+      var b = el('button', 'say'); b.type = 'button'; b.setAttribute('aria-label', 'Listen to this answer');
+      b.insertAdjacentHTML('afterbegin', '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>'); b.appendChild(document.createTextNode('Listen'));
+      b.addEventListener('click', function () {
+        if (speakingBtn === b) { stopSpeak(); return; }
+        stopSpeak(); var u = new SpeechSynthesisUtterance(d.firstChild.textContent); u.lang = 'en-US'; u.rate = 1;
+        u.onend = u.onerror = function () { if (speakingBtn === b) stopSpeak(); };
+        speakingBtn = b; b.classList.add('on'); b.lastChild.textContent = 'Stop'; synth.speak(u);
+      });
+      d.appendChild(b);
+    }
+    function add(cls, text) { var d = el('div', 'm ' + cls); d.appendChild(document.createTextNode(text)); $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; return d; }
     function resetChat() {
-      $('log').textContent = ''; convo = []; add('ai', info.active === false ? 'This assistant is paused. Please contact the business directly.' : (info.greeting || 'Hi! How can I help?'));
+      stopSpeak(); $('log').textContent = ''; convo = []; add('ai', info.active === false ? 'This assistant is paused. Please contact the business directly.' : (info.greeting || 'Hi! How can I help?'));
       var c = $('chips'); c.textContent = '';
       (info.suggestions || []).forEach(function (q) { var b = el('button', '', q); b.type = 'button'; b.addEventListener('click', function () { send(q); }); c.appendChild(b); });
     }
@@ -140,10 +159,25 @@
       fetch('/api/public/bots/' + id + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (x) {
-          if (x.ok && x.j.reply) { w.textContent = x.j.reply; convo.push({ role: 'assistant', content: x.j.reply }); }
-          else { w.textContent = x.j.error || 'Sorry, something went wrong. Please try again.'; w.className = 'm ai err'; convo.pop(); }
-        }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
+          if (x.ok && x.j.reply) { w.firstChild.textContent = x.j.reply; addListen(w); convo.push({ role: 'assistant', content: x.j.reply }); }
+          else { w.firstChild.textContent = x.j.error || 'Sorry, something went wrong. Please try again.'; w.className = 'm ai err'; convo.pop(); }
+        }).catch(function () { w.firstChild.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
         .then(function () { busy = false; $('s').disabled = false; $('t').focus(); $('log').scrollTop = $('log').scrollHeight; });
+    }
+    // Speak your question: uses the browser's own speech recognition, so the button only appears where it is supported.
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, listening = false;
+    if (SR) {
+      $('mic').hidden = false;
+      $('mic').addEventListener('click', function () {
+        if (listening && rec) { rec.stop(); return; }
+        stopSpeak(); rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
+        var final = '';
+        rec.onstart = function () { listening = true; $('mic').classList.add('on'); $('mic').setAttribute('aria-pressed', 'true'); $('t').placeholder = 'Listening...'; };
+        rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) { t += e.results[i][0].transcript; if (e.results[i].isFinal) final = t; } $('t').value = t; };
+        rec.onerror = function (e) { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') $('t').placeholder = 'Microphone is blocked. Type your question instead.'; };
+        rec.onend = function () { listening = false; $('mic').classList.remove('on'); $('mic').setAttribute('aria-pressed', 'false'); if ($('t').placeholder === 'Listening...') $('t').placeholder = 'Type your question'; var v = $('t').value.trim(); if (v && final) send(v); };
+        try { rec.start(); } catch (e) {}
+      });
     }
     $('f').addEventListener('submit', function (e) { e.preventDefault(); send($('t').value.trim()); });
     $('again').addEventListener('click', resetChat);
