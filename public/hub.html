@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tello | Ask Tello anything</title>
+  <meta name="description" content="Tello is an AI assistant for your business. Ask Tello what it can do, make a free video, or see Tello for landlords." />
+  <link rel="canonical" href="https://tello.live/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Tello | Ask Tello anything" />
+  <meta property="og:description" content="An AI assistant that answers your customers, makes your videos and keeps you on top of the day." />
+  <meta property="og:url" content="https://tello.live/" />
+  <meta property="og:image" content="https://ecrentalpm.com/media/tello-business-poster.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/tello-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.12); }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
+    a { color: var(--gold); }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; font-size: 1.15rem; color: var(--text); } .brand span { color: var(--gold); }
+    nav { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: .92rem; } nav a { color: var(--muted); text-decoration: none; font-weight: 600; } nav a:hover, nav a:focus-visible { color: var(--text); }
+    .hero { text-align: center; padding: 3rem 0 1.5rem; }
+    .kick { display: inline-block; color: var(--gold); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; margin-bottom: .8rem; }
+    h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; letter-spacing: -.03em; }
+    .lede { color: var(--muted); max-width: 560px; margin: .9rem auto 0; font-size: 1.05rem; }
+    .chatbox { max-width: 720px; margin: 1.8rem auto 0; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; text-align: left; }
+    #log { max-height: 340px; min-height: 120px; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
+    .m { max-width: 88%; padding: .6rem .9rem; border-radius: 14px; font-size: .97rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .m.ai { background: rgba(255,255,255,.08); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .m.me { background: var(--gold); color: var(--ink); font-weight: 600; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .m.err { background: rgba(185,28,28,.25); }
+    .chips { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0 1rem .8rem; }
+    .chip { font: inherit; font-size: .85rem; font-weight: 600; background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: .4rem .8rem; cursor: pointer; }
+    .chip:hover, .chip:focus-visible { border-color: var(--gold); outline: none; }
+    form { display: flex; gap: .5rem; padding: .8rem; border-top: 1px solid var(--line); }
+    input { flex: 1; min-width: 0; font: inherit; font-size: 1rem; padding: .7rem .9rem; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); }
+    input:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .send { font: inherit; font-weight: 700; background: var(--gold); color: var(--ink); border: 0; border-radius: 12px; padding: 0 1.2rem; cursor: pointer; flex: none; }
+    .send:disabled, input:disabled { opacity: .55; }
+    .note { max-width: 720px; margin: .7rem auto 0; font-size: .8rem; color: var(--muted); }
+    h2 { font-size: 1.05rem; color: var(--gold); text-transform: uppercase; letter-spacing: .1em; margin: 2.8rem 0 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+    .card { display: flex; flex-direction: column; gap: .4rem; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; color: var(--text); text-decoration: none; }
+    .card:hover, .card:focus-visible { border-color: rgba(232,162,61,.7); outline: none; }
+    .card svg { color: var(--gold); } .card h3 { font-size: 1.05rem; } .card p { color: var(--muted); font-size: .92rem; flex: 1; } .card .go { color: var(--gold); font-weight: 700; font-size: .9rem; }
+    .hv-row { max-width: none; grid-template-columns: repeat(auto-fit, minmax(240px, 320px)); }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/">tello<span>.live</span></a>
+    <nav aria-label="Main"><a href="/business">Tello for your business</a><a href="/make">Make a video</a><a href="/videos">Videos</a><a href="https://ecrentalpm.com">Tello for landlords</a></nav></div></header>
+  <main class="wrap">
+    <section class="hero">
+      <div class="kick">Meet Tello</div>
+      <h1>Ask Tello anything.</h1>
+      <p class="lede">Tello answers your customers, makes your videos and keeps you on top of the day. Ask what it can do for you.</p>
+      <div class="chatbox">
+        <div id="log" aria-live="polite"></div>
+        <div class="chips" id="chips"></div>
+        <form id="f" autocomplete="off"><input id="t" maxlength="600" placeholder="Ask about plans, videos or landlords" aria-label="Your message" /><button class="send" id="s" type="submit">Send</button></form>
+      </div>
+      <p class="note">Tello is an AI and can be wrong. Chats are saved (<a href="/privacy">Privacy</a>). Please don't share card numbers, passwords or health details. Tello is not for health care businesses.</p>
+    </section>
+
+    <h2>Start here</h2>
+    <div class="grid">
+      <a class="card" href="/business"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><h3>Tello for your business</h3><p>A chat assistant for your website that answers customers and takes their details. Free for 7 days.</p><span class="go">Set up Tello</span></a>
+      <a class="card" href="/make"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg><h3>Make a video</h3><p>Chat a few words and a web address. Tello builds a short video, free.</p><span class="go">Make a video</span></a>
+      <a class="card" href="/videos"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><h3>Sample videos</h3><p>Watch examples, or request a polished marketing video made for you.</p><span class="go">Watch samples</span></a>
+      <a class="card" href="https://ecrentalpm.com"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg><h3>Tello for landlords</h3><p>EC Rental: rental software with a Tello that knows California rental rules.</p><span class="go">Open ecrentalpm.com</span></a>
+    </div>
+
+    <h2>Watch Tello</h2>
+    <div class="hv-row" style="display:grid;gap:.75rem">
+      <button type="button" class="hv-card" data-play-video="biz"><img src="/media/tello-business-poster.jpg" alt="" loading="lazy" /><i><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span>Tello for your business<small>49 sec</small></span></button>
+      <button type="button" class="hv-card" data-play-video="mk"><img src="/media/tello-make-poster.jpg" alt="" loading="lazy" /><i><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span>Make a video with Tello<small>30 sec</small></span></button>
+    </div>
+  </main>
+  <footer><div class="wrap">tello.live &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Questions? <a href="mailto:support@tello.live">support@tello.live</a></div></footer>
+  <script>
+  (function () {
+    var log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), chips = document.getElementById('chips'), convo = [], busy = false;
+    var LINK = /(tello\.live\/[a-z]+|ecrentalpm\.com|support@tello\.live)/g;
+    function fill(el, text) {
+      el.textContent = '';
+      text.split(LINK).forEach(function (part, i) {
+        if (i % 2 === 1) { var a = document.createElement('a'); a.textContent = part; a.href = part.indexOf('@') > 0 ? 'mailto:' + part : 'https://' + part; el.appendChild(a); }
+        else if (part) el.appendChild(document.createTextNode(part));
+      });
+    }
+    function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; fill(d, text); log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+    add('ai', "Hi, I'm Tello. I can tell you what Tello does for a business, how much it costs, how to make a video, or point you to Tello for landlords. What would you like to know?");
+    ['What can Tello do for my business?', 'How much does it cost?', 'Can Tello make me a video?', "I'm a landlord"].forEach(function (q) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = q; b.addEventListener('click', function () { send(q); }); chips.appendChild(b);
+    });
+    function send(v) {
+      v = (v || '').trim(); if (!v || busy) return;
+      chips.style.display = 'none'; add('me', v); t.value = ''; convo.push({ role: 'user', content: v }); busy = true; s.disabled = true;
+      var w = add('ai', '...');
+      fetch('/api/public/tello-hub/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (x.ok && x.j.reply) { fill(w, x.j.reply); convo.push({ role: 'assistant', content: x.j.reply }); }
+          else { fill(w, x.j.error || 'Sorry, something went wrong. Please try again.'); w.className = 'm ai err'; convo.pop(); }
+        }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
+        .then(function () { busy = false; s.disabled = false; t.focus(); log.scrollTop = log.scrollHeight; });
+    }
+    document.getElementById('f').addEventListener('submit', function (e) { e.preventDefault(); send(t.value); });
+  })();
+  </script>
+  <script src="/js/help-videos.js"></script>
+</body>
+</html>

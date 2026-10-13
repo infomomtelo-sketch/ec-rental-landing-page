@@ -10,7 +10,7 @@ interface AdminUser { id: number; email: string; role: string; }
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
 const PLAN_PRICES: Record<string, number> = { solo: 29, manager: 79, portfolio: 199 };
-const LEAD_TYPES = "('tenant_application', 'maintenance_request', 'rent_review', 'ai_inspection', 'video_request')";
+const LEAD_TYPES = "('tenant_application', 'maintenance_request', 'rent_review', 'ai_inspection', 'video_request', 'tello_hub')";
 
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 
