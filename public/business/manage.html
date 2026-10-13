@@ -103,6 +103,13 @@
       if (d.subscribed) { var c = el('button', 'btn ghost small', d.cancel_at_period_end ? 'Keep my plan' : 'Cancel plan'); c.type = 'button'; c.addEventListener('click', function () { c.disabled = true; api(d.cancel_at_period_end ? '/resume' : '/cancel', 'POST').then(load).catch(function (e) { c.disabled = false; msg.textContent = e.message; }); }); row.appendChild(c); }
       plan.appendChild(row); plan.appendChild(msg); app.appendChild(plan);
 
+      if (!d.site_url) {
+        var ow = el('section', 'card'); ow.appendChild(el('h2', '', 'No website yet?'));
+        ow.appendChild(el('p', 'small-note', 'Build one on OwnSite, our website builder. A small site fits in its free monthly allowance; bigger sites can need a token pack, and it shows the cost before building. It starts from your notes, and your Tello chat is on every page. You download your site and put it online, so it stays yours. Then add its link below and press Read my website.'));
+        var ob = el('a', 'btn small', 'Build my website on OwnSite'); ob.target = '_blank'; ob.rel = 'noopener';
+        ob.href = 'https://ownsite.app/?' + new URLSearchParams({ from: 'tello', tello: d.id, business: String(d.business || '').slice(0, 80), about: String(d.extra || d.facts || '').slice(0, 1200) }).toString();
+        ow.appendChild(ob); app.appendChild(ow);
+      }
       var share = el('section', 'card'); share.appendChild(el('h2', '', 'Put Tello on your website'));
       share.appendChild(el('p', 'small-note', 'Paste this line before the closing </body> tag of your website. A chat button appears in the corner.'));
       share.appendChild(copyBox(d.embed));
