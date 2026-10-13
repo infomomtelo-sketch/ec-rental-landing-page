@@ -95,7 +95,7 @@
   <nav id="menu" aria-label="Tello menu" aria-hidden="true">
     <div class="mhead"><strong>Everything in Tello</strong><button type="button" class="icon-btn" id="menuClose" aria-label="Close menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <h2>Talk to Tello</h2>
-    <button type="button" class="item" id="askItem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Ask Tello anything</span></button>
+    <button type="button" class="item" id="askItem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Ask Tello</span></button>
     <a class="item" href="/meeting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.3c2.8-.4 5.5 1.5 5.5 4.7"/></svg><span>Team meeting<small>Four Tellos, ask out loud</small></span></a>
     <h2>For your business</h2>
     <a class="item" href="/business"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Tello for your business<small>Answers customers, takes leads. Free 7 days</small></span></a>
@@ -133,7 +133,7 @@
       <div class="chead"><span>Tello</span><button type="button" id="newChat">New chat</button></div>
       <div id="log" aria-live="polite"></div>
       <div class="chips" id="chips"></div>
-      <form id="f" autocomplete="off"><textarea id="t" rows="1" maxlength="600" placeholder="Ask Tello..." aria-label="Your message"></textarea><button class="send" id="s" type="submit">Send</button></form>
+      <form id="f" autocomplete="off"><textarea id="t" rows="1" maxlength="600" placeholder="Ask about Tello, videos or rentals" aria-label="Your message"></textarea><button class="send" id="s" type="submit">Send</button></form>
     </section>
     <p class="note">Tello is an AI and can be wrong. Chats are saved (<a href="/privacy">Privacy</a>). Please don't share card numbers, passwords or health details. Not for health care businesses.</p>
   </main>
@@ -143,7 +143,7 @@
     var log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), chips = document.getElementById('chips'), form = document.getElementById('f'), convo = [], busy = false;
     var LINK = /(tello\.live\/[a-z]+|ecrentalpm\.com|support@tello\.live)/g;
     var voiceOn = true; try { voiceOn = localStorage.getItem('tello_hub_voice') !== 'off'; } catch (e) {}
-    var HELLO = "Hi, I'm Tello. Ask me anything, or tap Menu to see everything I can do.";
+    var HELLO = "Hi, I'm Tello. I can help with Tello for your business, making videos, and rentals. What do you need?";
     function fill(el, text) {
       el.textContent = '';
       text.split(LINK).forEach(function (part, i) {
