@@ -11,8 +11,38 @@ interface SeoListing {
 }
 
 const SITE = "https://ecrentalpm.com";
+const TELLO = "https://tello.live";
+// tello.live pages (the Tello front door). Add new public tello.live pages here so the sitemap and search engines find them.
+const TELLO_PAGES = ["/", "/business", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker"];
+const TELLO_ROBOTS = `User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /b/
+Disallow: /m/
+Disallow: /embed/
+Disallow: /business/manage
+Disallow: /dashboard
+Disallow: /tenant
+
+Sitemap: ${TELLO}/sitemap.xml
+`;
+const TELLO_LLMS = `# Tello
+
+> Tello is an AI assistant for small businesses. It answers customers' questions on a business's website around the clock, takes the details of anyone who wants a quote or a callback, briefs the owner each day, and makes short videos. Not for health care businesses.
+
+## Pages
+- [Tello home](${TELLO}/): ask Tello what it does, how much it costs and where to start.
+- [Tello for your business](${TELLO}/business): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
+- [AI chatbot for small business](${TELLO}/ai-chatbot-for-small-business): how the website chat assistant works.
+- [Free AI video maker](${TELLO}/free-ai-video-maker): chat a few words and a web address to get a short narrated video.
+- [Make a video](${TELLO}/make): the free video maker.
+- [Sample videos](${TELLO}/videos): examples, and a form to request a polished marketing video.
+
+## Contact
+support@tello.live
+`;
 // Blog URLs mirror scripts/blog-posts.json (written by scripts/build-blog.py); add new articles here too.
-const PAGES = ["/", "/listings", "/rent-review", "/tello-inspect", "/tello", "/videos", "/make", "/business", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/blog/", "/blog/move-in-inspection-checklist", "/blog/california-security-deposit-rules", "/blog/california-rent-increase-limits-ab-1482", "/blog/remote-home-inspection-photos", "/blog/how-to-price-your-rental", "/blog/rental-listing-that-rents-fast", "/privacy", "/terms"];
+const PAGES = ["/", "/listings", "/rent-review", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/blog/", "/blog/move-in-inspection-checklist", "/blog/california-security-deposit-rules", "/blog/california-rent-increase-limits-ab-1482", "/blog/remote-home-inspection-photos", "/blog/how-to-price-your-rental", "/blog/rental-listing-that-rents-fast", "/privacy", "/terms"];
 const TYPE_NAMES: Record<string, string> = { HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" };
 const SCHEMA_TYPES: Record<string, string> = { HOUSE: "SingleFamilyResidence", CONDO: "Apartment", TOWNHOUSE: "House" };
 
@@ -63,6 +93,14 @@ function listingJsonLd(l: SeoListing, pageUrl: string, images: string[]): string
 /** Handles /sitemap.xml and /listing. Returns null for any other path. */
 export async function handleSeoRoutes(request: Request, env: SeoEnv, url: URL): Promise<Response | null> {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
+
+  // tello.live has its own robots.txt, sitemap and llms.txt so search engines treat it as its own site.
+  if (url.hostname === "tello.live") {
+    const text = (body: string, type: string) => new Response(body, { headers: { "Content-Type": type, "Cache-Control": "public, max-age=3600" } });
+    if (url.pathname === "/robots.txt") return text(TELLO_ROBOTS, "text/plain; charset=utf-8");
+    if (url.pathname === "/llms.txt") return text(TELLO_LLMS, "text/plain; charset=utf-8");
+    if (url.pathname === "/sitemap.xml") return text(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${TELLO_PAGES.map((p) => `<url><loc>${TELLO}${p}</loc></url>`).join("\n")}\n</urlset>\n`, "application/xml; charset=utf-8");
+  }
 
   if (url.pathname === "/sitemap.xml") {
     const rows = await env.DB.prepare("SELECT id, updated_at FROM listings WHERE status = 'active' ORDER BY id").all<{ id: number; updated_at: string }>();
