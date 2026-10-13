@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Tello team meeting | Tello</title>
+  <meta name="description" content="Sit in on a meeting with four Tellos: rentals, business chat, video maker and social setup. Each one introduces itself, then you ask out loud or by typing and the right Tello answers." />
+  <link rel="canonical" href="https://tello.live/meeting" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Tello" />
+  <meta property="og:title" content="The Tello team meeting" />
+  <meta property="og:description" content="Four Tellos, one meeting. Ask a question out loud and the right Tello answers." />
+  <meta property="og:url" content="https://tello.live/meeting" />
+  <meta property="og:image" content="https://tello.live/brand/tello-og-1200x630.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/brand/tello-mark.svg" type="image/svg+xml" />
+  <link rel="icon" href="/brand/tello-icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/brand/tello-apple-touch-180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #050505; --deep: #141414; --gold: #ffd23f; --text: #f2f2f2; --muted: #9ea3a7; --line: rgba(255,255,255,0.12); }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.6; }
+    a { color: var(--gold); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; max-width: 1000px; }
+    .brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; font-size: 1.15rem; color: var(--text); } .brand span { color: var(--gold); }
+    nav { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: .92rem; } nav a { color: var(--muted); text-decoration: none; font-weight: 600; } nav a:hover { color: var(--text); }
+    .crumb { font-size: .85rem; color: var(--muted); margin-top: 1.4rem; } .crumb a { color: var(--muted); }
+    h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.08; letter-spacing: -.02em; margin: .8rem 0 1rem; }
+    h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); letter-spacing: -.01em; margin: 2.4rem 0 .6rem; }
+    h3 { font-size: 1.05rem; margin-bottom: .2rem; }
+    p, li { color: #c7cacc; } p + p { margin-top: .8rem; } ul, ol { padding-left: 1.2rem; display: grid; gap: .4rem; }
+    .lede { font-size: 1.1rem; color: var(--muted); max-width: 660px; }
+    .cta { display: flex; gap: .8rem; flex-wrap: wrap; margin-top: 1.4rem; }
+    .btn { display: inline-flex; align-items: center; background: var(--gold); color: var(--ink); font-weight: 700; text-decoration: none; border-radius: 999px; padding: .8rem 1.4rem; }
+    .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid rgba(255,255,255,.3); }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin-top: 1rem; list-style: none; padding: 0; }
+    .steps li, .box { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem; }
+    .steps b { color: var(--gold); display: block; margin-bottom: .2rem; }
+    .faq details { border-bottom: 1px solid var(--line); padding: .9rem 0; } .faq summary { cursor: pointer; font-weight: 700; } .faq p { margin-top: .5rem; }
+    video { width: 100%; max-width: 720px; border-radius: 14px; background: #000; margin-top: 1rem; }
+    .related { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .related a { display: block; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; text-decoration: none; color: var(--text); font-weight: 700; } .related a small { display: block; color: var(--muted); font-weight: 400; margin-top: .2rem; }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .stage { margin-top: 1.4rem; background: radial-gradient(120% 90% at 50% 0%, #17210f 0%, #0a0a0a 60%); border: 1px solid var(--line); border-radius: 22px; padding: clamp(.7rem, 2.5vw, 1.4rem); }
+    .live { display: flex; align-items: center; gap: .5rem; font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .8rem; }
+    .live i { width: 9px; height: 9px; border-radius: 50%; background: #7ddc3c; box-shadow: 0 0 0 0 rgba(125,220,60,.6); animation: lv 2s infinite; }
+    @keyframes lv { 70% { box-shadow: 0 0 0 9px rgba(125,220,60,0); } 100% { box-shadow: 0 0 0 0 rgba(125,220,60,0); } }
+    .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(.5rem, 2vw, 1rem); }
+    .tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: .35rem; text-align: center; padding: clamp(.8rem, 3vw, 1.5rem) .6rem; border-radius: 18px; border: 1.5px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); opacity: .5; transform: scale(.98); transition: opacity .3s, transform .3s, border-color .3s, box-shadow .3s; }
+    .tile img { width: clamp(52px, 12vw, 96px); height: auto; }
+    .tile b { font-size: clamp(.9rem, 2.4vw, 1.1rem); } .tile small { color: var(--muted); font-size: clamp(.7rem, 1.8vw, .85rem); line-height: 1.3; }
+    .tile.on { opacity: 1; transform: scale(1.02); border-color: var(--gold); box-shadow: 0 0 0 4px rgba(255,210,63,.12), 0 10px 40px rgba(255,210,63,.18); }
+    .tile.team { opacity: .85; }
+    .wave { display: flex; gap: 3px; height: 18px; align-items: flex-end; visibility: hidden; }
+    .tile.on .wave { visibility: visible; }
+    .wave span { width: 4px; background: var(--gold); border-radius: 2px; height: 5px; animation: wv .9s ease-in-out infinite; }
+    .wave span:nth-child(2) { animation-delay: .12s; } .wave span:nth-child(3) { animation-delay: .24s; } .wave span:nth-child(4) { animation-delay: .36s; } .wave span:nth-child(5) { animation-delay: .48s; }
+    @keyframes wv { 50% { height: 18px; } }
+    .cap { margin-top: 1rem; min-height: 5.2em; background: rgba(0,0,0,.45); border: 1px solid var(--line); border-radius: 14px; padding: .8rem 1rem; }
+    .cap .who { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+    .cap .txt { color: var(--text); font-size: clamp(.95rem, 2.4vw, 1.1rem); margin-top: .15rem; }
+    .cap .you { color: var(--gold); }
+    .ctl { display: flex; gap: .7rem; flex-wrap: wrap; margin-top: 1rem; align-items: center; }
+    .ask { display: flex; gap: .5rem; margin-top: 1rem; }
+    .ask input { flex: 1; min-width: 0; padding: .75rem .9rem; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.05); color: var(--text); font: inherit; }
+    .ask input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .ask[hidden], .chips[hidden] { display: none; }
+    .ask button.send { background: var(--gold); color: var(--ink); border: 0; border-radius: 12px; padding: 0 1.1rem; font: inherit; font-weight: 700; cursor: pointer; }
+    .ask button.send:disabled { opacity: .55; }
+    .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+    .chips button { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: .4rem .8rem; font: inherit; font-size: .88rem; cursor: pointer; }
+    .chips button:hover { border-color: var(--gold); }
+    .note { color: var(--muted); font-size: .82rem; margin-top: .8rem; }
+    body.vid header, body.vid footer, body.vid .crumb, body.vid .intro, body.vid .ctl, body.vid .ask, body.vid .chips, body.vid .note, body.vid .below, body.vid #tello-hub { display: none !important; }
+    body.vid .wrap { max-width: none; padding: 0; } body.vid { background: #050505; }
+    body.vid .stage { margin: 0; border: 0; border-radius: 0; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 3vw; }
+    body.vid .tile img { width: clamp(64px, 15vw, 150px); } body.vid .cap { min-height: 7em; } body.vid .cap .txt { font-size: clamp(1.1rem, 2.6vw, 1.6rem); }
+    @media (min-aspect-ratio: 4/3) { body.vid .tiles { grid-template-columns: repeat(4, 1fr); } body.vid .tile img { width: clamp(64px, 9vw, 130px); } body.vid .cap { margin-top: 2.2rem; } }
+    @media (prefers-reduced-motion: reduce) { .live i, .wave span { animation: none; } .wave span { height: 12px; } }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="38" height="38" alt="" style="vertical-align:-11px;margin-right:9px" />tello<span>.live</span></a>
+    <nav aria-label="Main"><a href="/business">Tello for your business</a><a href="/make">Make a video</a><a href="/videos">Videos</a><a href="https://ecrentalpm.com">Tello for landlords</a></nav></div></header>
+  <main class="wrap">
+    <div class="crumb"><a href="/">Tello</a> / The team meeting</div>
+    <div class="intro">
+      <h1>Sit in on a Tello team meeting</h1>
+      <p class="lede">Four Tellos introduce what they do, then you ask a question out loud or by typing, and the right Tello answers. They are AI assistants; nothing here is a live person.</p>
+    </div>
+    <section class="stage" aria-label="Tello team meeting">
+      <div class="live"><i></i> Team meeting</div>
+      <div class="tiles">
+        <div class="tile" id="t-rent"><img src="/brand/tello-mark.svg" alt="" /><b>Tello Rentals</b><small>Rent, leases, repairs, California rules</small><div class="wave"><span></span><span></span><span></span><span></span><span></span></div></div>
+        <div class="tile" id="t-biz"><img src="/brand/tello-mark.svg" alt="" /><b>Tello Business</b><small>Answers customers, takes leads</small><div class="wave"><span></span><span></span><span></span><span></span><span></span></div></div>
+        <div class="tile" id="t-vid"><img src="/brand/tello-mark.svg" alt="" /><b>Tello Video</b><small>Short narrated videos</small><div class="wave"><span></span><span></span><span></span><span></span><span></span></div></div>
+        <div class="tile" id="t-soc"><img src="/brand/tello-mark.svg" alt="" /><b>Tello Social</b><small>Handles, bios, sign-up help</small><div class="wave"><span></span><span></span><span></span><span></span><span></span></div></div>
+      </div>
+      <div class="cap" aria-live="polite"><div class="who" id="who">Ready</div><div class="txt" id="txt">Press Start meeting to hear the team.</div></div>
+      <div class="ctl"><button class="btn" id="start" type="button">Start meeting</button><button class="btn ghost" id="mute" type="button" aria-pressed="false">Sound on</button></div>
+      <form class="ask" id="ask" hidden autocomplete="off"><input id="q" maxlength="400" placeholder="Ask the team a question..." aria-label="Your question" /><button class="send" type="submit" id="send">Ask</button></form>
+      <div class="chips" id="chips" hidden></div>
+      <p class="note">Tap the mic to talk, or type. Answers are spoken in Tello's voice. Please do not share health or personal details.</p>
+    </section>
+    <div class="below">
+      <h2>Watch the meeting</h2>
+      <video controls preload="none" poster="/media/tello-meeting-poster.jpg" aria-label="The Tello team meeting: four Tellos introduce themselves and answer two questions"><source src="/media/tello-meeting.mp4" type="video/mp4" /></video>
+      <p class="note">About 75 seconds. A vertical version for Reels and TikTok is at <a href="/media/tello-meeting-vertical.mp4">/media/tello-meeting-vertical.mp4</a>.</p>
+      <h2>Who is in the meeting</h2>
+      <ul>
+        <li><b>Tello Rentals</b> works inside <a href="https://ecrentalpm.com">EC Rental</a> for landlords: rent tracking, leases, repairs and California rental rules.</li>
+        <li><b>Tello Business</b> is the <a href="/business">website chat assistant</a> that answers customers and emails you every lead.</li>
+        <li><b>Tello Video</b> is the <a href="/make">free video maker</a>.</li>
+        <li><b>Tello Social</b> is the <a href="/social-setup">social media setup helper</a>.</li>
+      </ul>
+      <div class="cta"><a class="btn" href="/business">Try Tello for your business</a><a class="btn ghost" href="/videos">Watch the videos</a></div>
+    </div>
+  </main>
+  <footer><div>Tello is an AI and can be wrong. Check names and bios before you publish. <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div></footer>
+  <script src="/js/tello-talk.js"></script>
+<script>
+(function () {
+  var D = {"open": {"who": "host", "text": "Welcome to the Tello team meeting. Four of us are here today. Let's go around the room.", "dur": 4.95}, "rent": {"who": "rent", "text": "I'm Tello for rentals. I track rent, leases and repairs, and I know California rental law. Every morning I tell landlords what needs them: rent not recorded, leases ending, and repairs waiting.", "dur": 12.46}, "biz": {"who": "biz", "text": "I'm Tello for business. I answer your customers on your website around the clock, take their details, and email you every lead.", "dur": 7.51}, "vid": {"who": "vid", "text": "I'm the video maker. Give me a few words and your website, and I'll make a short narrated video for your business.", "dur": 6.21}, "soc": {"who": "soc", "text": "And I'm social setup. I help you pick handles, write your bios and make profile pictures, then walk you through opening each account.", "dur": 7.81}, "ask": {"who": "host", "text": "That's the team. Now it's your turn. Ask us anything, out loud or by typing, and the right Tello will answer.", "dur": 6.63}, "a1": {"who": "biz", "text": "Both are easy to try. Tello for business is free for seven days, and rentals start at three dollars for the first three months.", "dur": 7.36}, "a2": {"who": "soc", "text": "Yes. Tell me your business name and what you do, and I'll give you handle ideas, bios, and a sign-up checklist for each network. Nothing is saved.", "dur": 9.09}, "bye": {"who": "host", "text": "Thanks for joining. Whenever you want a meeting, we're here.", "dur": 3.14}};
+  var NAMES = { host: 'The team', rent: 'Tello Rentals', biz: 'Tello Business', vid: 'Tello Video', soc: 'Tello Social' };
+  var params = new URLSearchParams(location.search), videoMode = params.get('video') === '1';
+  if (videoMode) document.body.classList.add('vid');
+  var $ = function (id) { return document.getElementById(id); };
+  var tiles = { rent: $('t-rent'), biz: $('t-biz'), vid: $('t-vid'), soc: $('t-soc') };
+  var player = null, muted = false, token = 0, events = [], t0 = Date.now();
+  window.__events = events;
+  function light(who) {
+    Object.keys(tiles).forEach(function (k) { tiles[k].classList.toggle('on', who === k); tiles[k].classList.toggle('team', who === 'host'); });
+    if (who === 'host') Object.keys(tiles).forEach(function (k) { tiles[k].classList.add('on'); });
+  }
+  function caption(who, text, you) { $('who').textContent = you ? 'You' : NAMES[who] || who; $('txt').textContent = text; $('txt').className = 'txt' + (you ? ' you' : ''); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // Plays one recorded line (or, in video mode, just waits as long as the line lasts).
+  function line(key, id) {
+    var l = D[key]; light(l.who); caption(l.who, l.text); events.push({ key: key, t: (Date.now() - t0) / 1000 });
+    if (videoMode || muted) return wait(l.dur * 1000 + 350).then(function () { if (id === token) light(''); });
+    return new Promise(function (res) {
+      var a = new Audio('/media/tello-meeting/' + key + '.mp3'); player = a;
+      var done = function () { if (id === token) light(''); res(); };
+      a.onended = done; a.onerror = function () { wait(l.dur * 1000).then(done); };
+      var p = a.play(); if (p && p.catch) p.catch(function () { wait(l.dur * 1000).then(done); });
+    }).then(function () { return wait(250); });
+  }
+  function seq(keys, id) { return keys.reduce(function (p, k) { return p.then(function () { return id === token ? line(k, id) : null; }); }, Promise.resolve()); }
+  function typed(text) {
+    $('who').textContent = 'You'; $('txt').className = 'txt you'; $('txt').textContent = '';
+    var i = 0; return new Promise(function (res) { (function step() { $('txt').textContent = text.slice(0, ++i); if (i < text.length) setTimeout(step, 55); else setTimeout(res, 500); })(); });
+  }
+  function openQa() { $('ask').hidden = false; $('chips').hidden = false; $('q').focus(); }
+
+  var CHIPS = ['How much does it cost?', 'Can you help me get on social media?', 'Who answers my customers when I am closed?', 'How do I make a video for my business?', 'How much can I raise rent in California?'];
+  CHIPS.forEach(function (c) { var b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = function () { ask(c); }; $('chips').appendChild(b); });
+
+  function route(q) {
+    if (/\b(rent|rental|lease|tenant|landlord|deposit|eviction|repair|maintenance|california|property)\b/i.test(q)) return 'rent';
+    if (/\b(video|narrat|record|clip|reel)\b/i.test(q)) return 'vid';
+    if (/\b(social|instagram|facebook|tiktok|youtube|linkedin|handle|bio|profile picture|post)\b/i.test(q)) return 'soc';
+    return 'biz';
+  }
+  var hist = { rent: [], hub: [] }, busy = false;
+  function ask(text) {
+    text = String(text || '').trim(); if (!text || busy) return;
+    busy = true; $('send').disabled = true; $('q').value = ''; token++; stopAudio();
+    var who = route(text); light(''); caption(who, text, true); tiles[who].classList.add('on');
+    var req;
+    if (who === 'rent') req = fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: hist.rent }) });
+    else { hist.hub.push({ role: 'user', content: text }); req = fetch('/api/public/tello-hub/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: hist.hub.slice(-10) }) }); }
+    req.then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'busy'); return j; }); })
+      .then(function (j) {
+        var reply = String(j.reply || j.response || '').replace(/\[SHOW_[A-Z_]+\]/g, '').trim();
+        if (!reply) throw new Error('empty');
+        if (who === 'rent') hist.rent = hist.rent.concat([{ role: 'user', content: text }, { role: 'assistant', content: reply }]).slice(-8); else hist.hub.push({ role: 'assistant', content: reply });
+        caption(who, reply); light(who);
+        if (!muted && window.ECTelloTalk) ECTelloTalk.speak(reply, '');
+        return wait(Math.min(14000, 1500 + reply.split(/\s+/).length * 380)).then(function () { light(''); });
+      })
+      .catch(function () { caption(who, "Sorry, I couldn't answer that just now. Please try again."); light(''); })
+      .then(function () { busy = false; $('send').disabled = false; });
+  }
+  function stopAudio() { try { if (player) { player.pause(); player.onended = null; } } catch (e) {} if (window.ECTelloTalk) ECTelloTalk.stop(); }
+  $('ask').addEventListener('submit', function (e) { e.preventDefault(); ask($('q').value); });
+  if (window.ECTelloTalk) ECTelloTalk.attach({ form: $('ask'), input: $('q'), submit: ask });
+  $('mute').addEventListener('click', function () { muted = !muted; $('mute').textContent = muted ? 'Sound off' : 'Sound on'; $('mute').setAttribute('aria-pressed', String(muted)); if (muted) stopAudio(); });
+  var AGENDA = ['open', 'rent', 'biz', 'vid', 'soc', 'ask'];
+  $('start').addEventListener('click', function () {
+    var id = ++token; stopAudio(); $('start').textContent = 'Restart meeting';
+    seq(AGENDA, id).then(function () { if (id === token) { light(''); caption('host', 'Your turn. Ask us anything.'); openQa(); } });
+  });
+  // Video mode runs the whole meeting by itself: agenda, two questions, goodbye.
+  if (videoMode) {
+    window.__run = function () {
+      t0 = Date.now(); events.length = 0; var id = ++token;
+      return seq(AGENDA, id).then(function () { return typed('How much does it cost?'); })
+        .then(function () { tiles.biz.classList.add('on'); return wait(500); }).then(function () { return line('a1', id); })
+        .then(function () { return typed('Can you help me get on social media?'); }).then(function () { return line('a2', id); })
+        .then(function () { return line('bye', id); }).then(function () { light(''); window.__done = true; });
+    };
+  }
+})();
+</script>
+</body>
+</html>
