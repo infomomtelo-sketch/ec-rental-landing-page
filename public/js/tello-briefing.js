@@ -45,6 +45,17 @@
     return nice || vs[0] || null;
   }
   function stop() { runId++; try { if (player) { player.pause(); player.onended = player.onerror = null; } } catch (e) {} if (canSpeak) { synth.cancel(); } speakingNow = false; document.querySelectorAll('.tb-listen').forEach(function (b) { b.textContent = 'Listen'; }); }
+  // Tello's own recorded voice (Kokoro, the same voice as the Tello videos). One short clip per topic, so no key is needed.
+  function clipList(data) {
+    var items = (data && data.items) || [], base = '/media/tello-voice/', out = [base + 'greet-' + partOfDay() + '.mp3'];
+    if (!items.length) { out.push(base + 'allclear.mp3'); return out; }
+    var n = items.filter(function (i) { return i.urgency !== 'info'; }).length;
+    out.push(base + (n === 0 ? 'head-none' : n === 1 ? 'head-one' : 'head-many') + '.mp3');
+    var seen = {};
+    items.forEach(function (it) { if (!seen[it.kind] && Object.keys(seen).length < 4) { seen[it.kind] = 1; out.push(base + it.kind + '.mp3'); } });
+    out.push(base + 'close.mp3');
+    return out;
+  }
   function speech(data) {
     var items = (data && data.items) || [], hello = (data && data.name ? 'Good ' + partOfDay() + ', ' + data.name + '. ' : 'Good ' + partOfDay() + '. ') + "It's Tello. ";
     if (!items.length) return hello + "You're all caught up. Nothing needs you today.";
@@ -67,10 +78,10 @@
     return out.slice(0, 8);
   }
   var voiceToken = '';
-  function fetchClip(t) {
-    var shared = function () { return fetch('/api/public/video-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t.slice(0, 320) }) })
+  function fetchClip(t, useShared) {
+    var shared = function () { return !useShared ? null : fetch('/api/public/video-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t.slice(0, 320) }) })
       .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : null; }).catch(function () { return null; }); };
-    if (!voiceToken) return shared();
+    if (!voiceToken) return Promise.resolve(shared());
     return fetch('/api/tello/voice', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + voiceToken }, body: JSON.stringify({ text: t.slice(0, 320) }) })
       .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : shared(); }).catch(shared);
   }
@@ -80,28 +91,34 @@
     u.onend = u.onerror = function () { stop(); };
     speakingNow = true; synth.speak(u);
   }
-  function say(text) {
-    if (!text) return;
-    var id = ++runId; speakingNow = true;
-    try { if (player) player.pause(); player = new Audio(); player.src = SILENT; var pr = player.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { player = null; }
-    var clips = chunks(text).map(fetchClip);
+  // Plays a list of audio sources in order; calls bad() if the very first one cannot play.
+  function playList(list, id, bad) {
     var i = 0;
     function next() {
       if (id !== runId) return;
-      if (i >= clips.length) { stop(); return; }
-      clips[i++].then(function (src) {
+      if (i >= list.length) { stop(); return; }
+      Promise.resolve(list[i++]).then(function (src) {
         if (id !== runId) return;
-        if (!src || !player) { if (i === 1) { robotSay(text); } else { stop(); } return; }
-        player.onended = next; player.onerror = function () { if (i === 1) robotSay(text); else stop(); };
-        player.src = src;
-        var p = player.play(); if (p && p.catch) p.catch(function () { if (i === 1) robotSay(text); else stop(); });
+        var first = i === 1, fail = function () { if (id !== runId) return; if (first) bad(); else stop(); };
+        if (!src || !player) { fail(); return; }
+        player.onended = next; player.onerror = fail; player.src = src;
+        var p = player.play(); if (p && p.catch) p.catch(fail);
       });
     }
     next();
   }
-  function listen(data, btn) { if (speakingNow) { stop(); return; } say(speech(data)); if (btn) btn.textContent = 'Stop'; }
+  // say(text, fallbackClips): live voice for the text if available, else the recorded clips, else the browser voice.
+  function say(text, fallbackClips) {
+    if (!text) return;
+    var id = ++runId; speakingNow = true;
+    try { if (player) player.pause(); player = new Audio(); player.src = SILENT; var pr = player.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { player = null; }
+    var robot = function () { if (canSpeak) robotSay(text); else stop(); };
+    var recorded = function () { if (fallbackClips && fallbackClips.length) playList(fallbackClips, id, robot); else robot(); };
+    playList(chunks(text).map(function (t) { return fetchClip(t, !fallbackClips); }), id, recorded);
+  }
+  function listen(data, btn) { if (speakingNow) { stop(); return; } say(speech(data), clipList(data)); if (btn) btn.textContent = 'Stop'; }
   // Called right after the landlord signs in with the login button (a tap, so the browser allows sound).
-  function greet(token) { if (!canVoice || !voiceOn()) return; load(token).then(function (d) { if (voiceOn()) say(speech(d)); }).catch(function () {}); }
+  function greet(token) { if (!canVoice || !voiceOn()) return; load(token).then(function (d) { if (voiceOn()) say(speech(d), clipList(d)); }).catch(function () {}); }
 
   function render(el, data, onNav, opts) {
     opts = opts || {};
