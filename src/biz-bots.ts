@@ -76,11 +76,11 @@ function imageType(b: Uint8Array): string {
 
 /** Tello is not for health care (no PHI, no BAA). Two or more clear health-care words in the business name or website stops setup. */
 const HEALTH_WORDS = /\b(patients?|clinic|clinics|medical|physicians?|dentists?|dental|pharmacy|hospital|therap(?:y|ist|ists)|mental health|nursing|home health|health ?care|medications?|urgent care|chiropract\w*|dermatolog\w*|pediatric\w*|surgeon|surgery|hipaa)\b/gi;
-function looksLikeHealthCare(...texts: string[]): boolean {
+export function looksLikeHealthCare(...texts: string[]): boolean {
   const hits = new Set((texts.join(" ").match(HEALTH_WORDS) || []).map((w) => w.toLowerCase()));
   return hits.size >= 2;
 }
-const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email info@ecrentalpm.com.";
+export const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email info@ecrentalpm.com.";
 
 /** Green Tello, version 1: a spoken-style daily briefing for the owner, built only from their own leads, messages and plan. No email, no AI, nothing guessed. */
 async function buildToday(env: BotEnv, bot: Bot, pro: Pro) {
@@ -153,7 +153,7 @@ Facts about Tello you may use (nothing else about Tello):
 - Free video maker at tello.live/make: chat a few words and a web address, pick a style, and Tello builds a short video made in the browser.
 - Sample videos at tello.live/videos, where people can also request a polished marketing video made for them.
 - Tello for landlords is EC Rental at ecrentalpm.com: rental software with an account-aware Tello that knows California rental rules. The Solo plan is $3 for the first 3 months for sign-ups through December 31, 2026, then $29 a month, cancel any time.
-- No website yet? ownsite.app builds a website for a small business, either with Tello included or just the website. Send them to ownsite.app for details and do not quote a price.
+- No website yet? ownsite.app builds a website for a small business, either with Tello included or just the website. Send them to tello.live/website to ask for one (a short form; the team replies within one business day) and do not quote a price.
 - Questions or help: support@tello.live.
 Rules:
 - Never invent Tello features, prices, dates or promises. If you are not sure about Tello, say so and point to support@tello.live.
