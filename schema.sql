@@ -74,3 +74,4 @@ CREATE INDEX IF NOT EXISTS idx_biz_bots_email ON biz_bots(owner_email, created_a
 CREATE TABLE IF NOT EXISTS biz_leads (id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL, name TEXT DEFAULT '', contact TEXT NOT NULL, message TEXT DEFAULT '', created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_biz_leads_bot ON biz_leads(bot_id, id);
 CREATE TABLE IF NOT EXISTS biz_usage (bot_id TEXT NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (bot_id, day));
+CREATE TABLE IF NOT EXISTS biz_pro (bot_id TEXT PRIMARY KEY, plan TEXT NOT NULL DEFAULT 'starter', audience TEXT DEFAULT '[]', suggestions TEXT DEFAULT '[]', example_q TEXT DEFAULT '', example_a TEXT DEFAULT '', cta TEXT DEFAULT '', updated_at TEXT NOT NULL);

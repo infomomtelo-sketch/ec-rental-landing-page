@@ -70,11 +70,14 @@
       app.textContent = '';
       var d = data, msg = el('p', 'err', ''); msg.id = 'msg';
       var plan = el('section', 'card'); plan.appendChild(el('h2', '', d.business));
-      var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : 'Active') : (d.active ? 'Free trial' : 'Paused')); plan.appendChild(b);
-      var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your Tello is on. $' + d.price + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : (d.active ? 'Your free trial ends ' + fmt(d.trial_ends) + '. After that it is $' + d.price + ' a month, cancel any time.' : 'Your free trial ended, so customers cannot chat right now. Start your plan to switch it back on.'));
+      var isPro = d.plan === 'pro', myPrice = isPro ? d.pro_price : d.price;
+      var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : (isPro ? 'Pro' : 'Starter')) : (d.active ? 'Free trial (Pro included)' : 'Paused')); plan.appendChild(b);
+      var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your Tello ' + (isPro ? 'Pro' : 'Starter') + ' is on. $' + myPrice + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : (d.active ? 'Your free trial ends ' + fmt(d.trial_ends) + '. You can try everything, including Pro, until then. Starter is $' + d.price + ' a month, Pro is $' + d.pro_price + ' a month, cancel any time.' : 'Your free trial ended, so customers cannot chat right now. Pick a plan to switch it back on.'));
       plan.appendChild(p);
       var row = el('div', 'row');
-      if (!d.subscribed && d.billing_on) { var s = el('button', 'btn', d.active ? 'Start my plan ($' + d.price + '/month)' : 'Switch it back on ($' + d.price + '/month)'); s.type = 'button'; s.addEventListener('click', function () { s.disabled = true; api('/checkout', 'POST').then(function (j) { location.href = j.url; }).catch(function (e) { s.disabled = false; msg.textContent = e.message; }); }); row.appendChild(s); }
+      function go(label, path, body, ghost) { var x = el('button', 'btn small' + (ghost ? ' ghost' : ''), label); x.type = 'button'; x.addEventListener('click', function () { x.disabled = true; api(path, 'POST', body).then(function (j) { if (j.url) location.href = j.url; else load(); }).catch(function (e) { x.disabled = false; msg.textContent = e.message; }); }); row.appendChild(x); }
+      if (!d.subscribed && d.billing_on) { go('Start Starter ($' + d.price + '/month)', '/checkout', { plan: 'starter' }, true); go('Start Pro ($' + d.pro_price + '/month)', '/checkout', { plan: 'pro' }); }
+      if (d.subscribed && !d.cancel_at_period_end) { if (isPro) go('Switch to Starter ($' + d.price + '/month)', '/upgrade', { plan: 'starter' }, true); else go('Upgrade to Pro ($' + d.pro_price + '/month)', '/upgrade', { plan: 'pro' }); }
       if (d.subscribed) { var c = el('button', 'btn ghost small', d.cancel_at_period_end ? 'Keep my plan' : 'Cancel plan'); c.type = 'button'; c.addEventListener('click', function () { c.disabled = true; api(d.cancel_at_period_end ? '/resume' : '/cancel', 'POST').then(load).catch(function (e) { c.disabled = false; msg.textContent = e.message; }); }); row.appendChild(c); }
       plan.appendChild(row); plan.appendChild(msg); app.appendChild(plan);
 
@@ -93,11 +96,32 @@
       teach.appendChild(field('Business name', tn)); teach.appendChild(field('Notes from your website', tf)); teach.appendChild(field('Extra notes from you', te)); teach.appendChild(field('Greeting', tg));
       var r2 = el('div', 'row'), save = el('button', 'btn small', 'Save'), ref = el('button', 'btn small ghost', 'Re-read my website'); save.type = ref.type = 'button';
       var m2 = el('p', 'small-note', '');
-      save.addEventListener('click', function () { save.disabled = true; api('', 'PUT', { business: tn.value, facts: tf.value, extra: te.value, greeting: tg.value }).then(function () { m2.textContent = 'Saved.'; m2.className = 'small-note ok'; save.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; save.disabled = false; }); });
+      save.addEventListener('click', function () { save.disabled = true; api('', 'PUT', { business: tn.value, facts: tf.value, extra: te.value, greeting: tg.value }).then(function () { d.business = tn.value; d.facts = tf.value; d.extra = te.value; d.greeting = tg.value; m2.textContent = 'Saved.'; m2.className = 'small-note ok'; save.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; save.disabled = false; }); });
       ref.addEventListener('click', function () { ref.disabled = true; m2.textContent = 'Reading your website...'; m2.className = 'small-note'; api('/refresh', 'POST', { site_url: d.site_url }).then(function (j) { tf.value = j.facts; m2.textContent = 'Updated from your website. Review it, then press Save if you changed anything.'; ref.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; ref.disabled = false; }); });
       r2.appendChild(save); r2.appendChild(ref); teach.appendChild(r2); teach.appendChild(m2); app.appendChild(teach);
 
-      var leads = el('section', 'card'); leads.appendChild(el('h2', '', 'Customer messages'));
+      var pc = el('section', 'card'); pc.appendChild(el('h2', '', 'Your Tello meet page'));
+      if (!d.pro_on) { pc.appendChild(el('p', 'small-note', 'Pro gives you a private meet page: a short animated introduction to Tello for your business, suggested questions, an example conversation, and a way for customers to message your team directly. Upgrade to Pro above to turn it on.')); }
+      else {
+        pc.appendChild(el('p', 'small-note', 'Share this link by text, email, a QR code or your social profile. It opens a short introduction to Tello for your business, then the chat.'));
+        pc.appendChild(copyBox(d.meet_url));
+        var mo = el('a', 'btn small ghost', 'Open my meet page'); mo.href = d.meet_url; mo.target = '_blank'; mo.rel = 'noopener'; pc.appendChild(mo);
+        var ps = d.pro_settings || {};
+        function area(v, ph, max) { var x = el('textarea'); x.value = v; x.placeholder = ph; x.maxLength = max; x.style.minHeight = '90px'; return x; }
+        var pa = area((ps.audience || []).join('\n'), 'One per line, up to 5. Example: Homeowners in Fresno', 400), pq = area((ps.suggestions || []).join('\n'), 'One question per line, up to 6. Example: Do you offer free quotes?', 700);
+        var pe = el('input'); pe.value = ps.example_q || ''; pe.maxLength = 120; pe.placeholder = 'Example question a customer might ask';
+        var pn = el('textarea'); pn.value = ps.example_a || ''; pn.maxLength = 280; pn.placeholder = 'How Tello should answer it (use facts you know are true)'; pn.style.minHeight = '70px';
+        var pt = el('input'); pt.value = ps.cta || ''; pt.maxLength = 120; pt.placeholder = 'Example: Ask for your free quote any time.';
+        pc.appendChild(field('Who Tello is here for', pa)); pc.appendChild(field('Suggested questions (shown as buttons in the chat)', pq)); pc.appendChild(field('Example conversation: question', pe)); pc.appendChild(field('Example conversation: answer', pn)); pc.appendChild(field('Closing line on the last slide', pt));
+        var r3 = el('div', 'row'), sv = el('button', 'btn small', 'Save meet page'); sv.type = 'button'; var m3 = el('p', 'small-note', '');
+        sv.addEventListener('click', function () { sv.disabled = true; var lines = function (t) { return t.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
+          api('', 'PUT', { business: d.business, facts: d.facts, extra: d.extra, greeting: d.greeting, pro: { audience: lines(pa.value), suggestions: lines(pq.value), example_q: pe.value, example_a: pn.value, cta: pt.value } })
+            .then(function () { m3.textContent = 'Saved.'; m3.className = 'small-note ok'; sv.disabled = false; }).catch(function (e) { m3.textContent = e.message; m3.className = 'err'; sv.disabled = false; }); });
+        r3.appendChild(sv); pc.appendChild(r3); pc.appendChild(m3);
+      }
+      app.appendChild(pc);
+
+      var leads = el('section', 'card'); leads.appendChild(el('h2', '', 'Customer messages and leads'));
       if (!d.leads.length) leads.appendChild(el('p', 'small-note', 'No one has left their details yet. When a customer gives a phone number or email in the chat, it shows here and is emailed to you.'));
       d.leads.forEach(function (l) { var x = el('div', 'lead'); var bb = el('b', '', l.contact); x.appendChild(bb); x.appendChild(el('small', '', (l.name ? l.name + ' - ' : '') + fmt(l.created_at))); x.appendChild(el('pre', '', l.message)); leads.appendChild(x); });
       app.appendChild(leads);

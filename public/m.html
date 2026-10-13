@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Meet Tello</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.12); }
+    html, body { height: 100%; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--ink); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .top { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .top button { background: none; border: 0; color: var(--muted); font-size: 13px; letter-spacing: 0; text-transform: none; padding: 6px 4px; }
+    .badge { width: 74px; height: 74px; border-radius: 50%; background: var(--gold); color: var(--ink); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.4rem; box-shadow: 0 0 0 10px rgba(232,162,61,.14), 0 0 0 22px rgba(232,162,61,.07); }
+    /* story */
+    #story { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    #stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 24px; text-align: center; cursor: pointer; }
+    .slide { max-width: 440px; width: 100%; animation: in .45s ease both; }
+    @keyframes in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .slide { animation: none; } }
+    .kick { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-bottom: 1rem; font-weight: 700; }
+    h1 { font-size: clamp(2rem, 8vw, 2.8rem); line-height: 1.1; letter-spacing: -.02em; margin-bottom: .8rem; }
+    .sub { color: var(--muted); font-size: 1.1rem; }
+    ul.rows { list-style: none; text-align: left; display: grid; gap: .6rem; }
+    ul.rows li { display: flex; gap: .8rem; align-items: center; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 14px; padding: .9rem 1rem; font-size: 1.1rem; }
+    ul.rows svg { flex: none; }
+    .ok { color: #7fe0a6; } .no { color: #ff9b8a; }
+    .bub { max-width: 88%; padding: .8rem 1rem; border-radius: 16px; font-size: 1.05rem; line-height: 1.4; text-align: left; margin-bottom: .7rem; }
+    .bub.q { background: rgba(255,255,255,.08); margin-right: auto; border-bottom-left-radius: 4px; }
+    .bub.a { background: var(--deep); border: 1px solid var(--line); margin-left: auto; border-bottom-right-radius: 4px; }
+    .go { background: var(--gold); color: var(--ink); border: 0; border-radius: 999px; padding: .9rem 1.6rem; font-weight: 700; font-size: 1.05rem; margin-top: 1.4rem; }
+    .dots { flex: none; display: flex; justify-content: center; gap: 7px; padding: 6px 0 22px; }
+    .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.2); }
+    .dots i.on { background: var(--gold); }
+    .hint { text-align: center; font-size: 12px; color: var(--muted); padding-bottom: 6px; }
+    /* chat */
+    #chat { flex: 1; display: none; flex-direction: column; min-height: 0; }
+    .who { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 18px 12px; border-bottom: 1px solid var(--line); }
+    .who .badge { width: 38px; height: 38px; margin: 0; box-shadow: none; }
+    .who b { display: block; } .who small { color: var(--muted); font-size: 12px; }
+    .who .sp { flex: 1; }
+    .ghost { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+    #log { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .m { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .m.ai { background: rgba(255,255,255,.07); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .m.me { background: var(--gold); color: var(--ink); align-self: flex-end; border-bottom-right-radius: 4px; }
+    .m.err { background: #3b1a16; border-color: #7a2d22; color: #ffb4a6; }
+    #chips { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 10px; }
+    #chips button { flex: none; background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+    form.send { flex: none; display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); }
+    input, textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; background: rgba(0,0,0,.35); color: var(--text); width: 100%; }
+    form.send input { flex: 1; width: auto; }
+    form.send button { background: var(--gold); color: var(--ink); border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; }
+    button:disabled, input:disabled { opacity: .55; }
+    .foot { flex: none; text-align: center; font-size: 11px; color: var(--muted); padding: 2px 10px 12px; }
+    .foot a { color: var(--gold); }
+    #msgbox { display: none; flex: none; padding: 12px 16px; border-top: 1px solid var(--line); background: rgba(255,255,255,.04); }
+    #msgbox label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    #msgbox textarea { min-height: 70px; resize: vertical; margin-bottom: 8px; }
+    #msgbox .r { display: flex; gap: 8px; } #msgbox .r input { flex: 1; }
+    #msgnote { font-size: 13px; min-height: 1.2em; margin-top: 6px; color: var(--muted); }
+    .hp { position: absolute; left: -9999px; }
+  </style>
+</head>
+<body>
+  <div class="top"><span id="brand">Meet Tello</span><button id="skip" type="button" hidden>Skip to chat</button></div>
+
+  <section id="story" aria-label="Introduction">
+    <div id="stage" aria-live="polite"></div>
+    <p class="hint" id="hint">Tap to continue</p>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+  </section>
+
+  <section id="chat" aria-label="Chat">
+    <div class="who"><span class="badge" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><div><b>Tello</b><small id="role">AI assistant</small></div><span class="sp"></span><button class="ghost" id="again" type="button">New conversation</button></div>
+    <div id="log" aria-live="polite"></div>
+    <div id="chips"></div>
+    <form class="send" id="f" autocomplete="off"><input id="t" maxlength="600" placeholder="Type your question" aria-label="Your message" /><button id="s" type="submit">Send</button></form>
+    <div id="msgbox">
+      <label for="mm">Message the team directly. A real person replies.</label>
+      <textarea id="mm" maxlength="800" placeholder="Your message"></textarea>
+      <div class="r"><input id="mn" maxlength="80" placeholder="Your name" autocomplete="name" /><input id="mc" maxlength="120" placeholder="Phone or email" autocomplete="email" /></div>
+      <input class="hp" id="mw" tabindex="-1" autocomplete="off" aria-hidden="true" />
+      <div class="r" style="margin-top:8px"><button class="go" id="msend" type="button" style="margin:0;padding:.6rem 1.2rem">Send to the team</button><button class="ghost" id="mclose" type="button">Close</button></div>
+      <p id="msgnote" role="status"></p>
+    </div>
+    <div class="foot"><button class="ghost" id="mopen" type="button" style="margin-bottom:6px">Message the team</button><br>I'm an AI and can be wrong. Please don't share card numbers, passwords or health details. Powered by <a href="https://tello.live/business" target="_blank" rel="noopener">Tello</a></div>
+  </section>
+
+  <script>
+  (function () {
+    var id = (location.pathname.match(/\/m\/([a-f0-9]{10})/) || [])[1];
+    var $ = function (x) { return document.getElementById(x); };
+    var stage = $('stage'), dots = $('dots'), info = null, slides = [], cur = -1, timer = null, convo = [], busy = false;
+    var CHECK = '<svg class="ok" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    var CROSS = '<svg class="no" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    var BADGE = '<div class="badge" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div>';
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function rows(items, icon) { var u = el('ul', 'rows'); items.forEach(function (t) { var li = el('li'); li.insertAdjacentHTML('afterbegin', icon); li.appendChild(el('span', '', t)); u.appendChild(li); }); return u; }
+    function slide(kick, h, sub, body) { var d = el('div', 'slide'); d.insertAdjacentHTML('beforeend', BADGE); if (kick) d.appendChild(el('p', 'kick', kick)); if (h) d.appendChild(el('h1', '', h)); if (sub) d.appendChild(el('p', 'sub', sub)); if (body) d.appendChild(body); return d; }
+
+    function build(b) {
+      var biz = b.business;
+      slides = [
+        function () { return slide('', "Hi, I'm Tello.", 'The AI assistant for ' + biz + '.'); },
+        function () { return slide('Who I\'m here for', '', '', rows(b.audience && b.audience.length ? b.audience : ['Customers with questions', 'Anyone deciding if we are the right fit'], CHECK)); },
+        function () { return slide('What I do', '', '', rows(['Answer your questions about ' + biz, 'Anytime, day or night', 'Pass every message to the team'], CHECK)); }
+      ];
+      if (b.example_q && b.example_a) slides.push(function () { var w = el('div'); w.appendChild(el('div', 'bub q', b.example_q)); w.appendChild(el('div', 'bub a', b.example_a)); return slide('Example conversation', '', '', w); });
+      slides.push(function () { return slide("What I don't do", '', '', rows(['Make deals or set prices', 'Promise dates or results', 'Give medical or legal advice'], CROSS)); });
+      slides.push(function () { return slide('', "I'm an AI. A real person replies.", 'For prices and commitments, the team at ' + biz + ' answers you.'); });
+      slides.push(function () { var s = slide('', 'Questions? Ask Tello.', b.cta || 'Ask anything, any time.'); var g = el('button', 'go', 'Start chatting'); g.type = 'button'; g.addEventListener('click', function (e) { e.stopPropagation(); openChat(); }); s.appendChild(g); return s; });
+      dots.textContent = ''; slides.forEach(function () { dots.appendChild(document.createElement('i')); });
+    }
+    function show(i) {
+      clearTimeout(timer); cur = Math.max(0, Math.min(i, slides.length - 1));
+      stage.textContent = ''; stage.appendChild(slides[cur]());
+      Array.prototype.forEach.call(dots.children, function (d, k) { d.className = k === cur ? 'on' : ''; });
+      var last = cur === slides.length - 1; $('hint').style.visibility = last ? 'hidden' : 'visible';
+      if (!last && !matchMedia('(prefers-reduced-motion: reduce)').matches) timer = setTimeout(function () { show(cur + 1); }, 3600);
+    }
+    stage.addEventListener('click', function () { if (cur < slides.length - 1) show(cur + 1); });
+    document.addEventListener('keydown', function (e) { if ($('story').style.display !== 'none' && (e.key === 'ArrowRight' || e.key === ' ')) { e.preventDefault(); if (cur < slides.length - 1) show(cur + 1); } });
+    $('skip').addEventListener('click', openChat);
+
+    function add(cls, text) { var d = el('div', 'm ' + cls, text); $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; return d; }
+    function resetChat() {
+      $('log').textContent = ''; convo = []; add('ai', info.active === false ? 'This assistant is paused. Please contact the business directly.' : (info.greeting || 'Hi! How can I help?'));
+      var c = $('chips'); c.textContent = '';
+      (info.suggestions || []).forEach(function (q) { var b = el('button', '', q); b.type = 'button'; b.addEventListener('click', function () { send(q); }); c.appendChild(b); });
+    }
+    function openChat() { clearTimeout(timer); $('story').style.display = 'none'; $('skip').hidden = true; $('chat').style.display = 'flex'; $('t').focus(); }
+    function send(v) {
+      if (!v || busy || info.active === false) return;
+      add('me', v); $('t').value = ''; $('chips').textContent = ''; convo.push({ role: 'user', content: v }); busy = true; $('s').disabled = true;
+      var w = add('ai', '...');
+      fetch('/api/public/bots/' + id + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (x.ok && x.j.reply) { w.textContent = x.j.reply; convo.push({ role: 'assistant', content: x.j.reply }); }
+          else { w.textContent = x.j.error || 'Sorry, something went wrong. Please try again.'; w.className = 'm ai err'; convo.pop(); }
+        }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
+        .then(function () { busy = false; $('s').disabled = false; $('t').focus(); $('log').scrollTop = $('log').scrollHeight; });
+    }
+    $('f').addEventListener('submit', function (e) { e.preventDefault(); send($('t').value.trim()); });
+    $('again').addEventListener('click', resetChat);
+    $('mopen').addEventListener('click', function () { $('msgbox').style.display = 'block'; $('mm').focus(); });
+    $('mclose').addEventListener('click', function () { $('msgbox').style.display = 'none'; });
+    $('msend').addEventListener('click', function () {
+      var n = $('msgnote'), b = this; n.textContent = ''; b.disabled = true;
+      fetch('/api/public/bots/' + id + '/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: $('mm').value, name: $('mn').value, contact: $('mc').value, website: $('mw').value }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) { b.disabled = false; if (x.ok) { n.textContent = 'Sent. A real person will reply.'; $('mm').value = ''; } else n.textContent = x.j.error || 'Could not send. Please try again.'; })
+        .catch(function () { b.disabled = false; n.textContent = 'Could not reach the server. Please try again.'; });
+    });
+
+    if (!id) { stage.appendChild(slide('', 'This link is not valid.', '')); return; }
+    fetch('/api/public/bots/' + id + '/info').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (b) {
+      info = b; document.title = 'Meet Tello, the assistant for ' + b.business; $('brand').textContent = b.business; $('role').textContent = 'AI assistant for ' + b.business;
+      if (!b.pro) { location.replace('/b/' + id); return; }
+      resetChat(); build(b); $('skip').hidden = false; show(0);
+    }).catch(function () { stage.textContent = ''; stage.appendChild(slide('', 'I could not load this page.', 'Please try again later.')); });
+  })();
+  </script>
+</body>
+</html>

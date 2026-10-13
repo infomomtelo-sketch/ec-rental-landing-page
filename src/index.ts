@@ -155,6 +155,7 @@ export default {
     if (url.hostname === "www.tello.live" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "tello.live"; return Response.redirect(url.toString(), 301); }
     if (url.hostname === "tello.live" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/videos", url).toString(), request)); }
     if (/^\/b\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/b", url).toString(), request)); }
+    if (/^\/m\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/m", url).toString(), request)); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     const visit = await handleVisits(request, env, url); if (visit) return visit;
