@@ -25,7 +25,7 @@ binding = "AI"
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/", "/b/*", "/m/*", "/embed/*", "/api/*", "/feeds/*", "/photos/*", "/listing", "/rentals/*", "/sitemap.xml", "/robots.txt", "/llms.txt", "/media/*"]
+run_worker_first = ["/", "/ask", "/b/*", "/m/*", "/embed/*", "/api/*", "/feeds/*", "/photos/*", "/listing", "/rentals/*", "/sitemap.xml", "/robots.txt", "/llms.txt", "/media/*"]
 
 [[d1_databases]]
 binding = "DB"
