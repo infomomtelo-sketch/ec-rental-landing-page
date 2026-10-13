@@ -252,20 +252,21 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     if (clean(body.website, 100)) return json({ success: true }); // spam trap
-    const business = clean(body.business, 80), email = clean(body.email, 200), name = clean(body.name, 80), site = clean(body.site_url, 300);
+    const business = clean(body.business, 80), email = clean(body.email, 200), name = clean(body.name, 80), site = clean(body.site_url, 300), about = keepLines(body.about, 1200);
     if (!business) return json({ error: "Please enter your business name." }, 400);
     if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Please enter a valid email so we can send your private management link." }, 400);
-    if (!site) return json({ error: "Please paste your website link so Tello can learn your business." }, 400);
+    // No website yet: the owner describes the business instead, and shares the chat link (Google, Instagram, texts).
+    if (!site && about.length < 40) return json({ error: "Please paste your website link, or tell Tello about your business in a few sentences (what you do, where, hours, how to reach you)." }, 400);
     const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM biz_bots WHERE owner_email = ? AND created_at > ?").bind(email.toLowerCase(), new Date(Date.now() - 24 * 3600e3).toISOString()).first<{ n: number }>();
     if ((recent?.n ?? 0) >= 3) return json({ error: "That email already set up a few assistants today. Please use the link we emailed you." }, 429);
-    const r = await readSiteAsPage(site); // the page plus up to 3 of the site's own pages (about, services, prices, contact...)
+    const r: Awaited<ReturnType<typeof readSiteAsPage>> = site ? await readSiteAsPage(site) : {}; // the page plus up to 3 of the site's own pages (about, services, prices, contact...)
     let facts = "", greeting = `Hi! I'm Tello, the assistant for ${business}. How can I help?`, readNote = "";
-    if (looksLikeHealthCare(business, r.page ? [r.page.title, r.page.description, (r.page.headings || []).join(" "), r.page.text || ""].join(" ") : "")) return json({ error: HEALTH_MSG }, 400);
+    if (looksLikeHealthCare(business, [about, ...(r.page ? [r.page.title, r.page.description, (r.page.headings || []).join(" "), r.page.text || ""] : [])].join(" "))) return json({ error: HEALTH_MSG }, 400);
     if (r.page) { const l = await learnSite(env, business, r.page); facts = l.facts; greeting = l.greeting; }
-    else readNote = r.error || "I could not read that page.";
+    else if (site) readNote = r.error || "I could not read that page.";
     const id = botId(), token = rand(24), now = new Date().toISOString();
-    await env.DB.prepare("INSERT INTO biz_bots (id, manage_token, owner_email, owner_name, business, site_url, facts, greeting, extra, status, trial_ends, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'trial', ?, ?, ?)")
-      .bind(id, token, email.toLowerCase(), name, business, r.page ? r.page.url : site, facts, greeting, new Date(Date.now() + BOT_PRICE.trialDays * 86400e3).toISOString(), now, now).run();
+    await env.DB.prepare("INSERT INTO biz_bots (id, manage_token, owner_email, owner_name, business, site_url, facts, greeting, extra, status, trial_ends, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'trial', ?, ?, ?)")
+      .bind(id, token, email.toLowerCase(), name, business, r.page ? r.page.url : site, facts, greeting, about, new Date(Date.now() + BOT_PRICE.trialDays * 86400e3).toISOString(), now, now).run();
     const manage = `${ORIGIN}/business/manage?t=${token}`;
     if (notify) {
       try {

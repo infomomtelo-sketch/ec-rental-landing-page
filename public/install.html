@@ -59,6 +59,8 @@
       <div id="has" hidden>
         <div class="copy-row"><pre id="snip"></pre><button class="btn" id="copy" type="button">Copy</button></div>
         <p class="note">This line is only for your business. Your chat page link also works on its own: <a id="chat" target="_blank" rel="noopener"></a></p>
+        <p style="margin-top:.8rem"><a class="btn gold" id="mailweb" href="#">Send these steps to my web person</a></p>
+        <p class="note">Someone else looks after your website? This opens your email with your line and this page, ready to send.</p>
       </div>
       <div id="none">
         <p class="note">It is on your private Tello page and in the email we sent when you set up Tello. It looks like this:</p>
@@ -104,6 +106,15 @@
       </ol>
     </details>
     <details>
+      <summary>Webflow</summary>
+      <ol>
+        <li>In Webflow, open your site's <b>Site settings</b>, then <b>Custom code</b>.</li>
+        <li>Paste your line into the <b>Footer code</b> box and click Save.</li>
+        <li>Publish your site.</li>
+      </ol>
+      <p>Custom code needs a paid Webflow site plan.</p>
+    </details>
+    <details>
       <summary>Your own website or a web designer</summary>
       <ol>
         <li>Paste your line just above the closing <code>&lt;/body&gt;</code> tag of your pages, or in the shared footer.</li>
@@ -136,6 +147,7 @@
     document.getElementById('snip').textContent = line;
     var a = document.getElementById('chat'); a.href = chat; a.textContent = chat;
     document.getElementById('has').hidden = false; document.getElementById('none').hidden = true;
+    document.getElementById('mailweb').href = 'mailto:?subject=' + encodeURIComponent('Please add our Tello chat to the website') + '&body=' + encodeURIComponent('Hi,\n\nCould you add our Tello chat to our website? Paste this one line just before the closing </body> tag on every page (or in the site-wide footer code):\n\n' + line + '\n\nStep-by-step help for each website builder: https://tello.live/install?id=' + id + '\n\nThank you!');
     var c = document.getElementById('copy');
     c.addEventListener('click', function () {
       var done = function () { c.textContent = 'Copied'; setTimeout(function () { c.textContent = 'Copy'; }, 1800); };

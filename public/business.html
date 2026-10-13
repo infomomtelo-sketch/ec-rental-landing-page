@@ -42,6 +42,8 @@
     textarea { min-height: 110px; resize: vertical; }
     input:focus, textarea:focus, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
     .hp { position: absolute; left: -9999px; }
+    .haves { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .8rem; } .have { flex-direction: row; align-items: center; gap: .45rem; margin: 0; border: 1px solid var(--line); border-radius: 999px; padding: .5rem .9rem; min-height: 44px; cursor: pointer; font-weight: 600; } .have input { width: auto; margin: 0; accent-color: #b88700; } .have:has(input:checked) { border-color: #b88700; background: #fff8dc; }
+    textarea { resize: vertical; } label[hidden] { display: none; }
     .err { color: #ff9b8a; font-size: 0.92rem; margin: 0.4rem 0; min-height: 1.2em; }
     .ok { color: #8fe3b0; }
     .small-note { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
@@ -92,7 +94,7 @@
       <div>
         <p class="kick">Tello for your business</p>
         <h1>Tello works for your business, day and night.</h1>
-        <p class="lede">Paste your website link. Tello answers your customers and sends you every lead.</p>
+        <p class="lede">Paste your website link, or tell Tello about your business. Tello answers your customers and sends you every lead.</p>
         <ul class="chips"><li>Ready in a minute</li><li>One line on your site</li><li>Leads emailed to you</li></ul>
         <p class="price">7 days free, then $19 a month<small>Pro $49 a month. Cancel any time. <a href="/models">Compare models</a></small></p>
       </div>
@@ -101,7 +103,12 @@
           <h2>Set up your Tello</h2>
           <p class="small-note" style="margin:0 0 1rem">Free for 7 days. No card needed.</p>
           <label>Business name<input name="business" maxlength="80" required autocomplete="organization" /></label>
-          <label>Website link<input name="site_url" maxlength="300" placeholder="https://yourbusiness.com" required inputmode="url" autocomplete="url" /></label>
+          <div class="haves" role="radiogroup" aria-label="Do you have a website?">
+            <label class="have"><input type="radio" name="has_site" value="yes" checked /> I have a website</label>
+            <label class="have"><input type="radio" name="has_site" value="no" /> No website yet</label>
+          </div>
+          <label id="siteRow">Website link<input name="site_url" maxlength="300" placeholder="https://yourbusiness.com" inputmode="url" autocomplete="url" /></label>
+          <label><span id="aboutLabel">Anything else Tello should know? (optional)</span><textarea name="about" maxlength="1200" rows="3" placeholder="Prices you're happy to share, service area, hours, how customers reach you"></textarea></label>
           <label>Your email<input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
           <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
           <p class="err" id="err" role="alert"></p>
@@ -122,9 +129,16 @@
           <p class="small-note" id="readnote" style="margin:0 0 .8rem"></p>
           <p style="margin-bottom:.4rem"><b>1. Try it</b></p>
           <a class="btn small" id="chatlink" target="_blank" rel="noopener">Open your chat</a>
+          <div id="shareStep" hidden>
+            <p style="margin:1rem 0 .2rem"><b>2. Share your chat link</b></p>
+            <p class="small-note" style="margin:0 0 .5rem">Put it in your Google Business profile, Instagram or Facebook bio, emails and text replies. Customers tap it and chat with Tello. When you have a website, add Tello to it from your private page.</p>
+            <div class="copy-row"><pre id="chatsnip"></pre><button class="btn small ghost" id="copychat" type="button">Copy</button></div>
+          </div>
+          <div id="siteStep">
           <p style="margin:1rem 0 .2rem"><b>2. Put it on your website</b> (paste before the closing &lt;/body&gt; tag)</p>
           <div class="copy-row"><pre id="snip"></pre><button class="btn small ghost" id="copy" type="button">Copy</button></div>
           <p class="small-note" style="margin:0 0 .4rem"><a id="howto" href="/install" target="_blank" rel="noopener">Step by step for WordPress, Wix, Squarespace, Shopify and more</a></p>
+          </div>
           <p style="margin:1rem 0 .2rem"><b>3. Keep your private link</b></p>
           <p class="small-note" style="margin:0 0 .5rem">It manages your Tello and shows your leads. We also emailed it to you. Anyone with it can manage your Tello, so keep it private.</p>
           <a class="btn small ghost" id="managelink">Manage my Tello</a>
@@ -135,7 +149,7 @@
       <h2 id="howH">How Tello works</h2>
       <div class="ts-deck" aria-label="How Tello works">
         <div class="ts-track">
-          <article class="ts-slide"><span class="num">1</span><h3>Paste your link</h3><p>Tello reads your website: services, prices, hours, contact.</p></article>
+          <article class="ts-slide"><span class="num">1</span><h3>Paste your link</h3><p>Tello reads your website: services, prices, hours, contact. No website? Just tell Tello about your business.</p></article>
           <article class="ts-slide"><span class="num">2</span><h3>Add one line</h3><p>A chat button appears on your site. Customers get answers in your own words.</p></article>
           <article class="ts-slide"><span class="num">3</span><h3>Get the leads</h3><p>Someone wants a quote or a callback? Tello takes their details and emails you.</p></article>
           <article class="ts-slide gold"><span class="tag"><span class="dot g"></span>Gold Tello &middot; available now</span><h3>Your website chat</h3><p>Answers from your public information. Never makes deals, sets prices or promises dates.</p><a class="go" href="/models">See Gold Tello</a></article>
@@ -168,16 +182,33 @@
   })();
   (function () {
     var f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+    var siteRow = document.getElementById('siteRow'), aboutLabel = document.getElementById('aboutLabel');
+    function hasSite() { return f.has_site.value !== 'no'; }
+    function paintHave() {
+      siteRow.hidden = !hasSite();
+      aboutLabel.textContent = hasSite() ? 'Anything else Tello should know? (optional)' : 'Tell Tello about your business';
+      f.about.placeholder = hasSite() ? "Prices you're happy to share, service area, hours, how customers reach you" : 'What you do, the area you serve, your hours, prices you are happy to share, and how customers reach you';
+      f.about.rows = hasSite() ? 3 : 5;
+    }
+    [].forEach.call(f.has_site, function (r) { r.addEventListener('change', paintHave); }); paintHave();
     f.addEventListener('submit', function (e) {
-      e.preventDefault(); err.textContent = ''; go.disabled = true; go.textContent = 'Reading your website...';
+      e.preventDefault(); err.textContent = '';
       var d = {}; new FormData(f).forEach(function (v, k) { d[k] = v; });
+      if (!hasSite()) d.site_url = '';
+      if (!String(d.business || '').trim()) { err.textContent = 'Please enter your business name.'; f.business.focus(); return; }
+      if (hasSite() && !String(d.site_url || '').trim()) { err.textContent = 'Please paste your website link, or choose No website yet.'; f.site_url.focus(); return; }
+      if (!hasSite() && String(d.about || '').trim().length < 40) { err.textContent = 'Please tell Tello a little more about your business: what you do, where, your hours and how customers reach you.'; f.about.focus(); return; }
+      go.disabled = true; go.textContent = hasSite() ? 'Reading your website...' : 'Building your Tello...';
       fetch('/api/public/bots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (x) {
           go.disabled = false; go.textContent = 'Build my Tello';
           if (!x.ok || !x.j.id) { err.textContent = x.j.error || 'Something went wrong. Please try again.'; return; }
-          f.hidden = true; document.getElementById('done').hidden = false;
+          f.hidden = true; document.getElementById('relink').hidden = true; document.getElementById('done').hidden = false;
           document.getElementById('chatlink').href = x.j.chat_url; document.getElementById('managelink').href = x.j.manage_url;
+          var noSite = !hasSite(); document.getElementById('siteStep').hidden = noSite; document.getElementById('shareStep').hidden = !noSite;
+          document.getElementById('chatsnip').textContent = x.j.chat_url;
+          document.getElementById('copychat').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.chat_url) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
           document.getElementById('snip').textContent = x.j.embed; document.getElementById('howto').href = '/install?id=' + x.j.id;
           if (x.j.read_note) document.getElementById('readnote').textContent = 'I could not read your website (' + x.j.read_note + ') so Tello starts with no notes. Open Manage my Tello and type what customers should know.';
           document.getElementById('copy').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.embed) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });

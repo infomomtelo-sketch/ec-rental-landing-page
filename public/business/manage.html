@@ -117,11 +117,12 @@
       var te = el('textarea'); te.value = d.extra; te.maxLength = 1200; te.placeholder = 'Anything else Tello should tell customers';
       var tg = el('input'); tg.value = d.greeting; tg.maxLength = 160;
       var tn = el('input'); tn.value = d.business; tn.maxLength = 80;
-      teach.appendChild(field('Business name', tn)); teach.appendChild(field('Notes from your website', tf)); teach.appendChild(field('Extra notes from you', te)); teach.appendChild(field('Greeting', tg));
-      var r2 = el('div', 'row'), save = el('button', 'btn small', 'Save'), ref = el('button', 'btn small ghost', 'Re-read my website'); save.type = ref.type = 'button';
+      var ts = el('input'); ts.value = d.site_url || ''; ts.maxLength = 300; ts.placeholder = 'https://yourbusiness.com'; ts.inputMode = 'url';
+      teach.appendChild(field('Business name', tn)); teach.appendChild(field('Website link (after adding or changing it, press Read my website)', ts)); teach.appendChild(field('Notes from your website', tf)); teach.appendChild(field('Extra notes from you', te)); teach.appendChild(field('Greeting', tg));
+      var r2 = el('div', 'row'), save = el('button', 'btn small', 'Save'), ref = el('button', 'btn small ghost', d.site_url ? 'Re-read my website' : 'Read my website'); save.type = ref.type = 'button';
       var m2 = el('p', 'small-note', '');
       save.addEventListener('click', function () { save.disabled = true; api('', 'PUT', { business: tn.value, facts: tf.value, extra: te.value, greeting: tg.value }).then(function () { d.business = tn.value; d.facts = tf.value; d.extra = te.value; d.greeting = tg.value; m2.textContent = 'Saved.'; m2.className = 'small-note ok'; save.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; save.disabled = false; }); });
-      ref.addEventListener('click', function () { ref.disabled = true; m2.textContent = 'Reading your website...'; m2.className = 'small-note'; api('/refresh', 'POST', { site_url: d.site_url }).then(function (j) { tf.value = j.facts; m2.textContent = 'Updated from your website. Review it, then press Save if you changed anything.'; ref.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; ref.disabled = false; }); });
+      ref.addEventListener('click', function () { ref.disabled = true; m2.textContent = 'Reading your website...'; m2.className = 'small-note'; if (!ts.value.trim()) { m2.textContent = 'Type your website link first.'; m2.className = 'err'; ref.disabled = false; return; } api('/refresh', 'POST', { site_url: ts.value.trim() }).then(function (j) { tf.value = j.facts; d.site_url = ts.value.trim(); m2.textContent = 'Updated from your website. Review it, then press Save if you changed anything.'; ref.disabled = false; }).catch(function (e) { m2.textContent = e.message; m2.className = 'err'; ref.disabled = false; }); });
       r2.appendChild(save); r2.appendChild(ref); teach.appendChild(r2); teach.appendChild(m2); app.appendChild(teach);
 
       var pc = el('section', 'card'); pc.appendChild(el('h2', '', 'Your Tello meet page'));
