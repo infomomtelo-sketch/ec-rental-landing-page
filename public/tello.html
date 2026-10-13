@@ -44,8 +44,13 @@
     .chips button, .chips a { background: #fff; border: 1px solid #d6d3c9; color: var(--deep); border-radius: 999px; padding: 0.45rem 0.85rem; font: inherit; font-size: 0.88rem; cursor: pointer; text-decoration: none; }
     .chips a.home { border-color: var(--gold); font-weight: 600; }
     .typing { align-self: flex-start; color: var(--gray); font-size: 0.9rem; }
-    form { display: flex; gap: 0.5rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #e7e3d8; max-width: 760px; width: 100%; margin: 0 auto; }
-    form input { flex: 1; min-width: 0; border: 1px solid #d6d3c9; border-radius: 999px; padding: 0.75rem 1rem; font: inherit; font-size: 16px; }
+    form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #e7e3d8; max-width: 760px; width: 100%; margin: 0 auto; }
+    form textarea { order: 0; flex: 1 1 100%; min-width: 0; min-height: 3.2rem; max-height: 9rem; resize: none; border: 1px solid #d6d3c9; border-radius: 18px; padding: 0.8rem 1rem; font: inherit; font-size: 16px; line-height: 1.4; }
+    form button, form .tt-mic { order: 1; min-height: 2.75rem; }
+    form #send { margin-left: auto; padding: 0 1.6rem; }
+    .bar { max-width: 760px; width: 100%; margin: 0 auto; padding: 0.35rem 1rem 0; background: #fff; display: flex; justify-content: flex-end; }
+    .bar[hidden] { display: none; }
+    .bar button { background: none; border: 1px solid #d6d3c9; color: var(--deep); border-radius: 999px; padding: 0.3rem 0.85rem; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
     form button { background: var(--deep); color: var(--cream); border: none; border-radius: 999px; padding: 0 1.2rem; font: inherit; font-weight: 700; cursor: pointer; }
     form button:disabled { opacity: 0.5; }
     form .attach { background: #fff; color: var(--deep); border: 1px solid #d6d3c9; padding: 0 0.85rem; font-size: 1.1rem; }
@@ -88,7 +93,8 @@
     <div class="chips" id="chips"></div>
   </main>
   <div class="pick" id="pick" hidden><img id="pickImg" alt="Picture to send" /><span>Picture attached</span><button type="button" id="pickDrop">Remove</button></div>
-  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><input id="q" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off" /><button type="submit" id="send">Send</button></form>
+  <div class="bar" id="bar" hidden><button type="button" id="newchat">New chat</button></div>
+  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><textarea id="q" rows="2" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off"></textarea><button type="submit" id="send">Send</button></form>
   <p class="note">Tello can be wrong, so check anything that matters. EC Rental confirms every detail. Equal Housing Opportunity.</p>
   <script src="/js/tello-briefing.js"></script>
   <script src="/js/tello-talk.js"></script>
@@ -148,7 +154,7 @@
       });
       function ask(text) {
         text = String(text || '').trim(); var image = mode === 'rent' ? null : picked; if ((!text && !image) || busy) return;
-        busy = true; send.disabled = true; chips.remove(); add('me', text, image); q.value = ''; setPicked(null);
+        busy = true; send.disabled = true; chips.remove(); add('me', text, image); q.value = ''; fit(); document.getElementById('bar').hidden = false; setPicked(null);
         var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Thinking...'; log.appendChild(t);
         var req = mode === 'rent'
           ? fetch('/api/public/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) })
@@ -166,6 +172,16 @@
           .catch(function(err) { var e = document.createElement('div'); e.className = 'err'; e.textContent = err.message; log.appendChild(e); })
           .then(function() { t.remove(); busy = false; send.disabled = false; });
       }
+      function fit() { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight + 2, 144) + 'px'; }
+      q.addEventListener('input', fit);
+      // On a computer Enter sends and Shift+Enter adds a line; on a phone Enter adds a line and Send sends.
+      q.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : ask(q.value); } });
+      document.getElementById('newchat').addEventListener('click', function() {
+        if (window.ECTelloTalk) ECTelloTalk.stop();
+        history = []; busy = false; send.disabled = false; setPicked(null); q.value = ''; fit();
+        log.querySelectorAll('.m, .err, .typing, .chips').forEach(function(n) { n.remove(); });
+        document.getElementById('bar').hidden = true; showChips(); log.scrollTop = 0; q.focus();
+      });
       var talk = window.ECTelloTalk ? ECTelloTalk.attach({ form: form, input: q, submit: function(t) { ask(t); }, token: function() { return inDashboard ? savedToken() : ''; } }) : null;
       form.addEventListener('submit', function(e) { e.preventDefault(); ask(q.value); });
       var start = params.get('mode');
