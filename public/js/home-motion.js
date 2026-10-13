@@ -10,21 +10,23 @@
     groups.forEach(function (sel) {
       var parent = document.querySelector(sel);
       if (!parent) return;
-      Array.prototype.forEach.call(parent.children, function (el, i) {
-        el.setAttribute('data-reveal', '');
-        el.style.setProperty('--d', Math.min(i, 6) * 90 + 'ms');
-      });
+      Array.prototype.forEach.call(parent.children, function (el) { el.setAttribute('data-reveal', ''); });
     });
     document.querySelectorAll('.section-title, .tax-table-wrap, .launch-bonus, .stats').forEach(function (el) {
       el.setAttribute('data-reveal', '');
     });
+    // Only cards that come into view together are staggered, so a card scrolling in on its own (a phone's single
+    // column) shows at once instead of waiting for its place in the grid. Reveals start just before a card is on
+    // screen, so scrolling never shows an empty page.
     var io = new IntersectionObserver(function (entries) {
+      var k = 0;
       entries.forEach(function (e) {
         if (!e.isIntersecting) return;
+        e.target.style.setProperty('--d', Math.min(k++, 3) * 70 + 'ms');
         e.target.classList.add('in');
         io.unobserve(e.target);
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }, { threshold: 0.01, rootMargin: '0px 0px 8% 0px' });
     document.querySelectorAll('[data-reveal]').forEach(function (el) {
       // Anything already on screen shows right away instead of waiting for a scroll.
       var r = el.getBoundingClientRect();

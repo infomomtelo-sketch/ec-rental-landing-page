@@ -31,8 +31,8 @@ const PER_VISITOR = { messages: 60, attachments: 10, searches: 15 };
 const MAX_HISTORY = 30, MAX_USER = 4000, MAX_ASSISTANT = 9000, MAX_BODY = 12 * 1024 * 1024;
 const MAX_FILES = 3, MAX_IMAGE = 4.5 * 1024 * 1024, MAX_PDF = 8 * 1024 * 1024, MAX_PDF_PAGES = 30;
 const MAX_TOOL_ROUNDS = 5, SEARCHES_PER_MESSAGE = 3, PAGE_CHARS = 15000;
-const LINKS = ["/business", "/make", "/videos", "/meeting", "/website", "/social-setup", "https://ecrentalpm.com", "mailto:support@tello.live"];
-const TELLO_PAGES = ["/business", "/make", "/videos", "/meeting", "/website", "/social-setup", "/privacy", "/terms",
+const LINKS = ["/business", "/models", "/make", "/videos", "/meeting", "/website", "/social-setup", "https://ecrentalpm.com", "mailto:support@tello.live"];
+const TELLO_PAGES = ["/business", "/models", "/make", "/videos", "/meeting", "/website", "/social-setup", "/privacy", "/terms",
   "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed",
   "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video"];
 const SUPPORT = "Please email support@tello.live and the team will help.";
@@ -60,7 +60,7 @@ Facts about Tello you may use (nothing else about Tello):
 - Polished marketing videos made by the team: request one at tello.live/videos. The team replies within 1 business day, and the visitor approves a short script before anything is made. Do not quote a price.
 - Social media setup helper at tello.live/social-setup: free. It gives matching handle ideas, ready-to-paste bios, profile pictures and a sign-up checklist for each network. It runs in the browser and nothing typed there is saved. Tello cannot create the accounts; the owner signs up.
 - Team meeting at tello.live/meeting: four Tellos (Rentals, Business, Video, Social) introduce themselves, and the visitor asks questions out loud or by typing.
-- The Tellos: Gold Tello is the website chat, live on tello.live. Green Tello works inside a business with its private details; it is coming soon, so never describe it as available. In-app Tello lives inside EC Rental.
+- The Tellos: Gold Tello is the website chat, live on tello.live. Green Tello works inside a business with its private details; it is coming soon, so never describe it as available. In-app Tello lives inside EC Rental. Compare them at tello.live/models.
 - Tello for landlords is EC Rental at ecrentalpm.com: rental software with an account-aware Tello that knows California rental rules. The Solo plan is $3 for the first 3 months for sign-ups through December 31, 2026, then $29 a month, cancel any time.
 - No website yet? ownsite.app builds a website for a small business, either with Tello included or just the website. Send them to tello.live/website to ask for one (a short form; the team replies within one business day) and do not quote a price.
 - Questions or help: support@tello.live.
