@@ -69,6 +69,27 @@
     function render() {
       app.textContent = '';
       var d = data, msg = el('p', 'err', ''); msg.id = 'msg';
+      var today = el('section', 'card'); today.appendChild(el('h2', '', 'Today with Tello'));
+      var tBody = el('div'); tBody.appendChild(el('p', 'small-note', 'Loading...')); today.appendChild(tBody); app.appendChild(today);
+      api('/today', 'GET').then(function (t) {
+        tBody.textContent = '';
+        t.items.forEach(function (x) { var p0 = el('p', '', x); p0.style.marginBottom = '.4rem'; tBody.appendChild(p0); });
+        var canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window, tr = el('div', 'row');
+        if (canSpeak) {
+          var sp = el('button', 'btn small', 'Read it to me'); sp.type = 'button'; var speaking = false;
+          sp.addEventListener('click', function () { if (speaking) { speechSynthesis.cancel(); speaking = false; sp.textContent = 'Read it to me'; return; } var u = new SpeechSynthesisUtterance(t.speech); u.lang = 'en-US'; u.onend = u.onerror = function () { speaking = false; sp.textContent = 'Read it to me'; }; speaking = true; sp.textContent = 'Stop'; speechSynthesis.cancel(); speechSynthesis.speak(u); });
+          tr.appendChild(sp);
+        }
+        tBody.appendChild(tr);
+        if (t.open.length) { var h = el('p', 'small-note', 'Waiting for a reply'); h.style.marginTop = '1rem'; tBody.appendChild(h); }
+        t.open.forEach(function (o) {
+          var x = el('div', 'lead'); x.appendChild(el('b', '', o.contact)); x.appendChild(el('small', '', (o.name ? o.name + ' - ' : '') + fmt(o.created_at) + (o.waiting ? ' - waiting more than a day' : '')));
+          x.appendChild(el('pre', '', o.snippet));
+          var dn = el('button', 'btn small ghost', 'Mark done'); dn.type = 'button';
+          dn.addEventListener('click', function () { dn.disabled = true; api('/lead-done', 'POST', { id: o.id }).then(load).catch(function () { dn.disabled = false; }); });
+          x.appendChild(dn); tBody.appendChild(x);
+        });
+      }).catch(function () { tBody.textContent = ''; tBody.appendChild(el('p', 'small-note', 'I could not load today just now.')); });
       var plan = el('section', 'card'); plan.appendChild(el('h2', '', d.business));
       var isPro = d.plan === 'pro', myPrice = isPro ? d.pro_price : d.price;
       var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : (isPro ? 'Pro' : 'Starter')) : (d.active ? 'Free trial (Pro included)' : 'Paused')); plan.appendChild(b);

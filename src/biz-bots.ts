@@ -82,6 +82,31 @@ function looksLikeHealthCare(...texts: string[]): boolean {
 }
 const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email info@ecrentalpm.com.";
 
+/** Green Tello, version 1: a spoken-style daily briefing for the owner, built only from their own leads, messages and plan. No email, no AI, nothing guessed. */
+async function buildToday(env: BotEnv, bot: Bot, pro: Pro) {
+  const now = Date.now(), DAY = 24 * 3600e3;
+  const rows = (await env.DB.prepare("SELECT l.id, l.name, l.contact, l.message, l.created_at FROM biz_leads l LEFT JOIN biz_lead_done d ON d.lead_id = l.id WHERE l.bot_id = ? AND d.lead_id IS NULL ORDER BY l.id DESC LIMIT 20").bind(bot.id).all<{ id: number; name: string; contact: string; message: string; created_at: string }>()).results;
+  const snippet = (m: string) => {
+    const lines = m.split("\n"), cust = lines.filter((x) => x.startsWith("Customer: ")).pop();
+    return clean((cust ? cust.slice(10) : m.replace(/^Message to the team:\s*/, "")), 140);
+  };
+  const open = rows.map((r) => ({ id: r.id, name: r.name, contact: r.contact, snippet: snippet(r.message), created_at: r.created_at, waiting: now - Date.parse(r.created_at) > DAY }));
+  const waiting = open.filter((o) => o.waiting).length;
+  const items: string[] = [];
+  if (open.length) {
+    items.push(`You have ${open.length} ${open.length === 1 ? "person" : "people"} waiting for a reply.`);
+    const top = open[0];
+    items.push(`The newest is ${top.name ? "from " + top.name + ", " : ""}${top.contact ? "at " + top.contact + ", " : ""}who wrote: ${top.snippet}.`);
+    if (waiting) items.push(`${waiting} of them ${waiting === 1 ? "has" : "have"} waited more than a day, so please follow up soon.`);
+  } else items.push("No one is waiting for a reply right now.");
+  const subscribed = GOOD.includes(bot.status);
+  if (!botActive(bot)) items.push("Your free trial has ended and your assistant is paused. Start a plan to switch it back on.");
+  else if (!subscribed) { const d = Math.max(0, Math.ceil((Date.parse(bot.trial_ends) - now) / DAY)); items.push(`Your free trial ends in ${d} ${d === 1 ? "day" : "days"}.`); }
+  if (bot.facts.trim().length < 80) items.push("I do not know much about your business yet. Add your services, prices and hours so I can answer customers.");
+  if (proOn(bot, pro) && !pro.suggestions.length) items.push("Add a few suggested questions to your meet page so customers know what to ask.");
+  return { items, speech: `Here is today for ${bot.business}. ` + items.join(" "), open };
+}
+
 function parseAi(out: unknown): any {
   const raw = (out as any)?.response ?? (out as any)?.result?.response ?? "";
   const text = typeof raw === "string" ? raw : JSON.stringify(raw);
@@ -325,6 +350,14 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
         await env.DB.prepare("INSERT INTO biz_settings (bot_id, uploads) VALUES (?, ?) ON CONFLICT(bot_id) DO UPDATE SET uploads = excluded.uploads").bind(bot.id, q.uploads ? 1 : 0).run();
         await savePro(env, bot.id, { ...cur, audience: list(q.audience, 5, 60), suggestions: list(q.suggestions, 6, 100), example_q: noEmoji(clean(q.example_q, 120)), example_a: noEmoji(clean(q.example_a, 280)), cta: noEmoji(clean(q.cta, 120)) });
       }
+      return json({ success: true });
+    }
+    if (sub === "/today" && request.method === "GET") return json(await buildToday(env, bot, await loadPro(env, bot.id)));
+    if (sub === "/lead-done" && request.method === "POST") {
+      const lid = Number(body.id);
+      const own = Number.isInteger(lid) ? await env.DB.prepare("SELECT id FROM biz_leads WHERE id = ? AND bot_id = ?").bind(lid, bot.id).first() : null;
+      if (!own) return json({ error: "Not found." }, 404);
+      await env.DB.prepare("INSERT OR IGNORE INTO biz_lead_done (lead_id, bot_id, done_at) VALUES (?, ?, ?)").bind(lid, bot.id, new Date().toISOString()).run();
       return json({ success: true });
     }
     const fm = sub.match(/^\/file\/([a-f0-9]{24})$/);
