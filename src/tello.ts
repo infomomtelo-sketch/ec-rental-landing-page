@@ -5,7 +5,7 @@
  */
 import { keyMode, type BillingEnv } from "./billing";
 
-export interface TelloEnv extends BillingEnv { DB: D1Database; ELEVENLABS_API_KEY?: string; ELEVENLABS_VOICE_ID?: string; }
+export interface TelloEnv extends BillingEnv { DB: D1Database; ELEVENLABS_API_KEY?: string; ELEVENLABS_VOICE_ID?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; }
 type SendEmail = (to: string, subject: string, html: string, text: string) => Promise<boolean>;
 interface TelloUser { id: number; name: string; role: string; }
 
@@ -158,32 +158,49 @@ export async function handleTelloRoutes(request: Request, env: TelloEnv, url: UR
     await env.DB.prepare("INSERT INTO tello_settings (user_id, morning_email, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET morning_email = excluded.morning_email, updated_at = excluded.updated_at").bind(user.id, on, new Date().toISOString()).run();
     return json({ morning_email: !!on });
   }
-  if (url.pathname === "/api/tello/voice" && request.method === "POST") return elevenLabsVoice(request, env, user.id);
+  if (url.pathname === "/api/tello/voice" && request.method === "POST") return tellVoice(request, env, user.id);
   return json({ error: "Not found" }, 404);
 }
 
 const voiceHits = new Map<number, number[]>();
-/** Tello's natural voice for signed-in landlords. Needs ELEVENLABS_API_KEY; without it the page falls back to the shared AI voice. */
-async function elevenLabsVoice(request: Request, env: TelloEnv, userId: number): Promise<Response> {
-  if (!env.ELEVENLABS_API_KEY) return json({ error: "voice_off" }, 503);
+function b64(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+/** Tello's own voice for signed-in landlords: hosted Kokoro (af_heart, the voice in the Tello videos) when DEEPINFRA_API_KEY is set,
+ *  else ElevenLabs when ELEVENLABS_API_KEY is set. With neither, the page falls back to the shared AI voice. */
+async function tellVoice(request: Request, env: TelloEnv, userId: number): Promise<Response> {
+  if (!env.DEEPINFRA_API_KEY && !env.ELEVENLABS_API_KEY) return json({ error: "voice_off" }, 503);
   const now = Date.now(), list = (voiceHits.get(userId) || []).filter((t) => now - t < 10 * 60 * 1000);
   if (list.length >= 40) return json({ error: "Too many requests. Please wait a few minutes." }, 429);
   list.push(now); voiceHits.set(userId, list);
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const text = String(body.text || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 320);
   if (text.length < 2) return json({ error: "Nothing to say." }, 400);
+  if (env.DEEPINFRA_API_KEY) {
+    try {
+      const r = await fetch("https://api.deepinfra.com/v1/openai/audio/speech", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + env.DEEPINFRA_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "hexgrad/Kokoro-82M", input: text, voice: (env.TELLO_KOKORO_VOICE || "af_heart").replace(/[^a-z_]/g, ""), response_format: "mp3" }),
+      });
+      if (r.ok) {
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        if (bytes.length > 500) return json({ audio: "data:audio/mpeg;base64," + b64(bytes) });
+      } else console.error("tello voice kokoro", r.status);
+    } catch (e) { console.error("tello voice kokoro", (e as Error)?.message); }
+    if (!env.ELEVENLABS_API_KEY) return json({ error: "voice_failed" }, 503);
+  }
   const voice = (env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL").replace(/[^A-Za-z0-9]/g, "");
   try {
     const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`, {
       method: "POST",
-      headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "Content-Type": "application/json", Accept: "audio/mpeg" },
+      headers: { "xi-api-key": env.ELEVENLABS_API_KEY as string, "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({ text, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.25 } }),
     });
     if (!r.ok) { console.error("tello voice elevenlabs", r.status); return json({ error: "voice_failed" }, 503); }
-    const bytes = new Uint8Array(await r.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    return json({ audio: "data:audio/mpeg;base64," + btoa(bin) });
+    return json({ audio: "data:audio/mpeg;base64," + b64(new Uint8Array(await r.arrayBuffer())) });
   } catch (e) { console.error("tello voice elevenlabs", (e as Error)?.message); return json({ error: "voice_failed" }, 503); }
 }
 
