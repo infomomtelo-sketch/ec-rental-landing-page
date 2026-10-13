@@ -133,7 +133,7 @@
       <div class="chead"><span>Tello</span><button type="button" id="newChat">New chat</button></div>
       <div id="log" aria-live="polite"></div>
       <div class="chips" id="chips"></div>
-      <form id="f" autocomplete="off"><textarea id="t" rows="1" maxlength="600" placeholder="Ask about Tello, videos or rentals" aria-label="Your message"></textarea><button class="send" id="s" type="submit">Send</button></form>
+      <form id="f" autocomplete="off"><textarea id="t" rows="1" maxlength="600" placeholder="Ask Tello a question" aria-label="Your message"></textarea><button class="send" id="s" type="submit">Send</button></form>
     </section>
     <p class="note">Tello is an AI and can be wrong. Chats are saved (<a href="/privacy">Privacy</a>). Please don't share card numbers, passwords or health details. Not for health care businesses.</p>
   </main>
@@ -143,7 +143,7 @@
     var log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), chips = document.getElementById('chips'), form = document.getElementById('f'), convo = [], busy = false;
     var LINK = /(tello\.live\/[a-z]+|ecrentalpm\.com|support@tello\.live)/g;
     var voiceOn = true; try { voiceOn = localStorage.getItem('tello_hub_voice') !== 'off'; } catch (e) {}
-    var HELLO = "Hi, I'm Tello. I can help with Tello for your business, making videos, and rentals. What do you need?";
+    var HELLO = "Hi, I'm Tello. Ask me about Tello, videos or rentals, or any everyday question for your business.";
     function fill(el, text) {
       el.textContent = '';
       text.split(LINK).forEach(function (part, i) {
