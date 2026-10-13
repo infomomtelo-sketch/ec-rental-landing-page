@@ -66,9 +66,13 @@
     if (cur.trim()) out.push(cur.trim());
     return out.slice(0, 8);
   }
+  var voiceToken = '';
   function fetchClip(t) {
-    return fetch('/api/public/video-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t.slice(0, 320) }) })
-      .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : null; }).catch(function () { return null; });
+    var shared = function () { return fetch('/api/public/video-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t.slice(0, 320) }) })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : null; }).catch(function () { return null; }); };
+    if (!voiceToken) return shared();
+    return fetch('/api/tello/voice', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + voiceToken }, body: JSON.stringify({ text: t.slice(0, 320) }) })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : shared(); }).catch(shared);
   }
   function robotSay(text) {
     if (!canSpeak || !text) return;
@@ -124,6 +128,7 @@
   }
   function partOfDay() { var h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; }
   function load(token) {
+    voiceToken = token || voiceToken;
     return fetch('/api/tello/briefing', { headers: { Authorization: 'Bearer ' + token } }).then(function (r) { if (!r.ok) throw new Error('briefing ' + r.status); return r.json(); });
   }
   function setMorningEmail(token, on, done) {

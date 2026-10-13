@@ -42,11 +42,15 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
         run: |
           node -e '
             const env = process.env, out = {};
             if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) { out.GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID.trim(); out.GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET.trim(); }
             if (env.ADMIN_EMAILS && env.ADMIN_EMAILS.trim()) out.ADMIN_EMAILS = env.ADMIN_EMAILS.trim();
+            if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.trim()) out.ELEVENLABS_API_KEY = env.ELEVENLABS_API_KEY.trim();
+            if (env.ELEVENLABS_VOICE_ID && env.ELEVENLABS_VOICE_ID.trim()) out.ELEVENLABS_VOICE_ID = env.ELEVENLABS_VOICE_ID.trim();
             process.stdout.write(JSON.stringify(out));
           ' > secrets.json
           if [ "$(cat secrets.json)" != "{}" ]; then
