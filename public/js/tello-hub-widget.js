@@ -3,7 +3,7 @@
 (function () {
   if (window.__telloHub) return; window.__telloHub = 1;
   var STARTERS = ['Try Tello on my website', 'What does it cost?', 'How do I make a free video?'];
-  var NOTE = 'Tello is an AI and can be wrong. Chats aren’t stored unless you leave your email or rate a reply (<a href="/privacy">Privacy</a>). Don’t share card numbers, passwords, IDs or health details. Not for health care businesses.';
+  var NOTE = 'Tello is an AI and can be wrong. Not for health care. <a href="/privacy">Privacy</a>';
   var css = document.createElement('style');
   css.textContent = ''
     + '.th-btn{position:fixed;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:9000;display:flex;align-items:center;gap:.55rem;min-height:48px;background:#ffd23f;color:#050505;border:0;border-radius:999px;padding:.45rem 1.1rem .45rem .5rem;font:700 .95rem Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.3)}'
