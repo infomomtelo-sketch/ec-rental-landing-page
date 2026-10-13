@@ -69,6 +69,14 @@
     footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
     @media (max-width: 820px) { .hero { padding-top: 2.5rem; } .hero .wrap { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
   </style>
+<style>
+    .proof { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .proof a.pc { display: flex; flex-direction: column; gap: .35rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.2rem; color: #e9efe9; text-decoration: none; }
+    .proof a.pc:hover, .proof a.pc:focus-visible { border-color: rgba(232,162,61,0.7); outline: none; }
+    .proof .pt { color: #e8a23d; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .72rem; }
+    .proof h3 { font-size: 1.1rem; } .proof p { color: #a9bdb3; font-size: .93rem; flex: 1; }
+    .proof .go { color: #e8a23d; font-weight: 700; font-size: .92rem; margin-top: .4rem; }
+  </style>
 </head>
 <body>
   <header><div class="wrap"><a class="brand" href="/videos">tello<span>.live</span></a><button type="button" class="btn" data-video-request>Request a video</button></div></header>
@@ -101,6 +109,15 @@
       </div>
     </div></section>
 
+    <section class="wrap" id="at-work" style="padding-top:1.5rem;padding-bottom:1rem">
+      <h2>See Tello at work</h2>
+      <p style="color:#a9bdb3;max-width:560px">Tello is already working on real sites. Open them and try Tello yourself.</p>
+      <div class="proof">
+        <a class="pc" href="https://ecrentalpm.com" target="_blank" rel="noopener"><span class="pt">Tello for landlords</span><h3>ecrentalpm.com</h3><p>Ask Tello about rent, repairs or California rental rules, and see how she works from a landlord's account.</p><span class="go">Open ecrentalpm.com</span></a>
+        <a class="pc" href="https://title-22.com" target="_blank" rel="noopener"><span class="pt">Tello for a company</span><h3>title-22.com</h3><p>Tello answers questions about the company any time, day or night, and passes every message to the team.</p><span class="go">Open title-22.com</span></a>
+        <a class="pc" href="/make"><span class="pt">Tello makes videos</span><h3>The video maker</h3><p>Paste a link and say what you want. Tello writes the script, adds a voice and builds a short video.</p><span class="go">Make a video, free</span></a>
+      </div>
+    </section>
     <div class="wrap"><div class="final">
       <h2>Want a video like these?</h2>
       <p class="sub" style="margin-bottom:0">Fill out a short request and we will get back to you within 1 business day.</p>
