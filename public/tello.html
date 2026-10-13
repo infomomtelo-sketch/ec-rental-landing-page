@@ -156,11 +156,19 @@
         text = String(text || '').trim(); var image = mode === 'rent' ? null : picked; if ((!text && !image) || busy) return;
         busy = true; send.disabled = true; chips.remove(); add('me', text, image); q.value = ''; fit(); document.getElementById('bar').hidden = false; setPicked(null);
         var t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Thinking...'; log.appendChild(t);
-        var req = mode === 'rent'
+        var proposing = inDashboard && !image && savedToken() && ACTION_WORDS.test(text)
+          ? fetch('/api/tello/propose', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ message: text }) }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
+          : Promise.resolve(null);
+        var req = proposing.then(function(p) {
+          if (p && p.action && p.summary) return { ok: true, json: function() { return Promise.resolve({ proposal: p }); } };
+          return chatRequest(text, image);
+        });
+        function chatRequest(text, image) { return mode === 'rent'
           ? fetch('/api/public/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history: history }) })
-          : fetch('/api/chat', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ message: text, history: history, context: inDashboard ? 'dashboard' : undefined, image: image || undefined }) });
+          : fetch('/api/chat', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ message: text, history: history, context: inDashboard ? 'dashboard' : undefined, image: image || undefined }) }); }
         req.then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Tello is busy right now. Please try again.'); return d; }); })
           .then(function(d) {
+            if (d.proposal) { showProposal(d.proposal, text); return; }
             var reply = String(d.reply || d.response || '').replace(/\[SHOW_[A-Z_]+\]/g, '').trim();
             add('bot', reply); if (talk) talk.onReply(reply);
             history.push({ role: 'user', content: (image ? '[sent a picture] ' : '') + text }, { role: 'assistant', content: reply }); history = history.slice(-8);
@@ -171,6 +179,26 @@
           })
           .catch(function(err) { var e = document.createElement('div'); e.className = 'err'; e.textContent = err.message; log.appendChild(e); })
           .then(function() { t.remove(); busy = false; send.disabled = false; });
+      }
+      // Tello only proposes; nothing changes until the landlord taps Confirm.
+      var ACTION_WORDS = /\b(record|log|mark|add|create|set|change|update|resolve|close|reopen|received|paid|got|fix|repair)\b/i;
+      function showProposal(p, text) {
+        var line = 'Here is what I would do: ' + p.summary;
+        add('bot', line); if (talk) talk.onReply(line + ' Tap Confirm to go ahead.');
+        history.push({ role: 'user', content: text }, { role: 'assistant', content: line }); history = history.slice(-8);
+        var box = document.createElement('div'); box.className = 'chips'; box.setAttribute('data-proposal', '1');
+        var yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm'; yes.className = 'home';
+        var no = document.createElement('button'); no.type = 'button'; no.textContent = 'Cancel';
+        function finish(msg) { box.remove(); add('bot', msg); history.push({ role: 'assistant', content: msg }); history = history.slice(-8); }
+        yes.onclick = function() {
+          yes.disabled = no.disabled = true; yes.textContent = 'Working...';
+          fetch('/api/tello/confirm', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ action: p.action }) })
+            .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'That did not work.'); return d; }); })
+            .then(function(d) { finish(d.message); if (talk) talk.onReply(d.message); try { window.parent.postMessage({ type: 'tello-refresh' }, location.origin); } catch (e) {} })
+            .catch(function(err) { finish("I couldn't do that: " + err.message + ' Nothing was changed.'); });
+        };
+        no.onclick = function() { finish('Okay, I did not change anything.'); };
+        box.appendChild(yes); box.appendChild(no); log.appendChild(box); box.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
       function fit() { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight + 2, 144) + 'px'; }
       q.addEventListener('input', fit);

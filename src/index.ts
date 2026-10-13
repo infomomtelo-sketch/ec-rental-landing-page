@@ -80,6 +80,7 @@ function chatImage(value: unknown): number[] | null {
 import { handleRentReminderRoutes, runRentReminders } from "./rent-reminders";
 import { CA_RENTAL_GUIDE } from "./ca-rental-law";
 import { accountGuide, buildBriefing, handleTelloRoutes, runTelloBriefings } from "./tello";
+import { handleTelloActionRoutes } from "./tello-actions";
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
 import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
@@ -345,6 +346,7 @@ export default {
     if (user && url.pathname === "/api/inspection-requests") { try { const res = await handleInspectionRequests(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("inspection-requests", err); } }
 
     // Plans and Stripe billing (src/billing.ts)
+    if (user && (url.pathname === "/api/tello/propose" || url.pathname === "/api/tello/confirm")) { try { if (!(await underLimit(env.CHAT_LIMITER, ["tello-act:" + user.id]))) return tooManyRequests(); const res = await handleTelloActionRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tello-actions", err); } }
     if (user && url.pathname.startsWith("/api/tello/")) { try { const res = await handleTelloRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("tello", err); } }
     if (user && url.pathname === "/api/rent-reminders") { try { const res = await handleRentReminderRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("rent reminders", err); } }
     if (user && (url.pathname === "/api/rent-payments" || url.pathname.startsWith("/api/rent-payments/"))) { try { const res = await handleLandlordRentPayments(request, env, url, user); if (res) return res; } catch (err) { console.error("[rent-payments]", err instanceof Error ? err.message : err); return json({ error: "Stripe is having trouble right now. Please try again in a minute." }, 502); } }
