@@ -74,6 +74,14 @@ function imageType(b: Uint8Array): string {
   return "";
 }
 
+/** Tello is not for health care (no PHI, no BAA). Two or more clear health-care words in the business name or website stops setup. */
+const HEALTH_WORDS = /\b(patients?|clinic|clinics|medical|physicians?|dentists?|dental|pharmacy|hospital|therap(?:y|ist|ists)|mental health|nursing|home health|health ?care|medications?|urgent care|chiropract\w*|dermatolog\w*|pediatric\w*|surgeon|surgery|hipaa)\b/gi;
+function looksLikeHealthCare(...texts: string[]): boolean {
+  const hits = new Set((texts.join(" ").match(HEALTH_WORDS) || []).map((w) => w.toLowerCase()));
+  return hits.size >= 2;
+}
+const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email info@ecrentalpm.com.";
+
 function parseAi(out: unknown): any {
   const raw = (out as any)?.response ?? (out as any)?.result?.response ?? "";
   const text = typeof raw === "string" ? raw : JSON.stringify(raw);
@@ -211,6 +219,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if ((recent?.n ?? 0) >= 3) return json({ error: "That email already set up a few assistants today. Please use the link we emailed you." }, 429);
     const r = await fetchPage(site);
     let facts = "", greeting = `Hi! I'm Tello, the assistant for ${business}. How can I help?`, readNote = "";
+    if (looksLikeHealthCare(business, r.page ? [r.page.title, r.page.description, (r.page.headings || []).join(" "), r.page.text || ""].join(" ") : "")) return json({ error: HEALTH_MSG }, 400);
     if (r.page) { const l = await learnSite(env, business, r.page); facts = l.facts; greeting = l.greeting; }
     else readNote = r.error || "I could not read that page.";
     const id = botId(), token = rand(24), now = new Date().toISOString();
@@ -329,6 +338,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
       const r = await fetchPage(clean(body.site_url, 300) || bot.site_url);
       if (!r.page) return json({ error: r.error || "I could not read that page." }, 400);
+      if (looksLikeHealthCare(bot.business, [r.page.title, r.page.description, (r.page.headings || []).join(" "), r.page.text || ""].join(" "))) return json({ error: HEALTH_MSG }, 400);
       const l = await learnSite(env, bot.business, r.page);
       await env.DB.prepare("UPDATE biz_bots SET site_url = ?, facts = ?, updated_at = ? WHERE id = ?").bind(r.page.url, l.facts, new Date().toISOString(), bot.id).run();
       return json({ success: true, facts: l.facts });
