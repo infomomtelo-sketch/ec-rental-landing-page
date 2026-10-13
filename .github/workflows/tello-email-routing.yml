@@ -1,0 +1,68 @@
+# One-time setup for tello.live email: forwards hello@ and support@tello.live to one inbox with Cloudflare Email Routing.
+# Run it from the Actions tab (or ask Claude to). The destination address is typed in when you run it, so it is not stored in the repo.
+# First run: Cloudflare emails that inbox a verification link, click it, then run this workflow again to create the two forwards.
+# It is safe to run any number of times. It uses the same CLOUDFLARE_API_TOKEN secret as the deploy.
+name: Tello email routing
+
+on:
+  workflow_dispatch:
+    inputs:
+      destination:
+        description: Inbox that should receive hello@ and support@tello.live
+        required: true
+        type: string
+
+jobs:
+  routing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up forwarding
+        env:
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DEST: ${{ inputs.destination }}
+        run: |
+          set -uo pipefail
+          T=$(printf %s "$RAW_TOKEN" | tr -d '[:space:]')
+          DEST=$(printf %s "$DEST" | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+          B=https://api.cloudflare.com/client/v4
+          api() { curl -sS -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$@"; }
+          fail() { echo "::error::$1"; exit 1; }
+          ok() { [ "$(printf %s "$1" | jq -r '.success')" = "true" ]; }
+          [ -n "$T" ] || fail "The CLOUDFLARE_API_TOKEN secret is empty."
+
+          Z=$(api "$B/zones?name=tello.live")
+          ok "$Z" || fail "Could not look up tello.live: $(printf %s "$Z" | jq -c '.errors')"
+          ZONE=$(printf %s "$Z" | jq -r '.result[0].id // empty'); ACC=$(printf %s "$Z" | jq -r '.result[0].account.id // empty')
+          [ -n "$ZONE" ] || fail "tello.live is not in this Cloudflare account."
+          echo "Found the tello.live zone."
+
+          # Turn Email Routing on for the zone (adds its MX and SPF records).
+          R=$(api "$B/zones/$ZONE/email/routing")
+          if [ "$(printf %s "$R" | jq -r '.result.enabled // false')" != "true" ]; then
+            E=$(api -X POST "$B/zones/$ZONE/email/routing/dns" -d '{}')
+            ok "$E" && echo "Email Routing turned on for tello.live." || fail "Could not turn on Email Routing (the token may need the Email Routing permission): $(printf %s "$E" | jq -c '.errors')"
+          else echo "Email Routing is already on."; fi
+
+          # The destination inbox must be verified once.
+          A=$(api "$B/accounts/$ACC/email/routing/addresses?per_page=50")
+          ok "$A" || fail "Could not read destination addresses (the token may need the Email Routing Addresses permission): $(printf %s "$A" | jq -c '.errors')"
+          VERIFIED=$(printf %s "$A" | jq -r --arg d "$DEST" '[.result[] | select(.email == $d)][0].verified // empty')
+          EXISTS=$(printf %s "$A" | jq -r --arg d "$DEST" '[.result[] | select(.email == $d)] | length')
+          if [ "$EXISTS" = "0" ]; then
+            N=$(api -X POST "$B/accounts/$ACC/email/routing/addresses" -d "$(jq -nc --arg e "$DEST" '{email:$e}')")
+            ok "$N" || fail "Could not add the destination: $(printf %s "$N" | jq -c '.errors')"
+            echo "Verification email sent to the destination inbox. Click the link in it, then run this workflow again."; exit 0
+          fi
+          if [ -z "$VERIFIED" ]; then echo "The destination is added but not verified yet. Click the link in the verification email, then run this workflow again."; exit 0; fi
+          echo "Destination is verified."
+
+          RULES=$(api "$B/zones/$ZONE/email/routing/rules?per_page=50")
+          ok "$RULES" || fail "Could not read rules: $(printf %s "$RULES" | jq -c '.errors')"
+          for LOCAL in hello support; do
+            ADDR="$LOCAL@tello.live"
+            if [ "$(printf %s "$RULES" | jq -r --arg a "$ADDR" '[.result[] | select(.matchers[]?.value == $a)] | length')" != "0" ]; then echo "$ADDR already forwards."; continue; fi
+            BODY=$(jq -nc --arg a "$ADDR" --arg d "$DEST" '{name:("Forward " + $a), enabled:true, matchers:[{type:"literal", field:"to", value:$a}], actions:[{type:"forward", value:[$d]}]}')
+            C=$(api -X POST "$B/zones/$ZONE/email/routing/rules" -d "$BODY")
+            ok "$C" && echo "$ADDR now forwards to the destination inbox." || fail "Could not create the rule for $ADDR: $(printf %s "$C" | jq -c '.errors')"
+          done
+          echo "Done. Send a test email to hello@tello.live and support@tello.live."
