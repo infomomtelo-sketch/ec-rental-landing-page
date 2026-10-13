@@ -257,6 +257,7 @@
         x.addEventListener('click', function () { pending.splice(i, 1); paintFiles(); ta.focus(); });
         chip.appendChild(x); files.appendChild(chip);
       });
+      attNote.hidden = !caps.attach || !pending.length; // the warning shows once a file is picked
       fit();
     }
     function addFiles(list) {
@@ -474,7 +475,7 @@
       return Promise.resolve(fallback());
       function fallback() { var x = h('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e) {} x.remove(); }
     }
-    function applyCaps(c) { caps = c || {}; attWrap.hidden = !caps.attach; attNote.hidden = !caps.attach; if (!caps.attach && pending.length) { pending = []; paintFiles(); } }
+    function applyCaps(c) { caps = c || {}; attWrap.hidden = !caps.attach; attNote.hidden = !caps.attach || !pending.length; if (!caps.attach && pending.length) { pending = []; paintFiles(); } }
 
     form.addEventListener('submit', function (e) { e.preventDefault(); if (busy) stop(); else submit(ta.value); });
     send.addEventListener('click', function (e) { if (busy) { e.preventDefault(); stop(); } });

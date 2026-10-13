@@ -39,15 +39,11 @@
     #voiceBtn[aria-pressed="false"] { opacity: .7; }
     main { max-width: 760px; margin: 0 auto; padding: 1.6rem 16px 2.5rem; }
     /* Hero: collapses once the conversation starts. */
-    .hero { text-align: center; display: flex; flex-direction: column; align-items: center; max-height: 640px; overflow: hidden; transition: max-height .4s ease, opacity .3s ease, margin .4s ease; }
+    .hero { text-align: center; display: flex; flex-direction: column; align-items: center; max-height: 640px; overflow: hidden; padding-bottom: 12px; transition: max-height .4s ease, opacity .3s ease, margin .4s ease; }
     body.chatting .hero { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
     .hero .orb { margin: .6rem 0 1.1rem; }
-    .online { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; color: var(--muted); }
-    .online i { width: 8px; height: 8px; border-radius: 50%; background: var(--online); animation: online 2.4s ease-in-out infinite; }
-    @keyframes online { 50% { opacity: .35; } }
     h1 { font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif; font-weight: 800; font-size: clamp(2rem, 8vw, 3rem); letter-spacing: -.035em; line-height: 1.02; margin-top: .55rem; }
     h1 span { display: block; color: var(--gold); }
-    .lede { color: var(--body); margin-top: .7rem; max-width: 30rem; }
     .hear { display: inline-flex; align-items: center; gap: .4rem; margin-top: .8rem; min-height: 40px; background: transparent; color: var(--ink); border: 1px solid var(--line2); border-radius: 999px; padding: .35rem .95rem; font-weight: 600; font-size: .88rem; }
     .hear:hover { border-color: var(--gold); }
     .hear.pulse { animation: pulse 1.6s ease-in-out infinite; }
@@ -71,29 +67,17 @@
     body.chatting #chat .tc-box:focus-within { box-shadow: 0 0 0 4px rgba(255,198,26,.3), 0 14px 0 14px var(--bg); }
     body.chatting #chat .tc-starters { display: none; }
     #chat .tc-starters { justify-content: center; }
-    section.more { margin-top: 2.2rem; }
-    body.chatting section.more { display: none; }
-    h2 { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: .7rem; }
-    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; }
-    .card { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; min-height: 112px; padding: .9rem; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 18px; color: var(--ink); }
-    .card:hover { border-color: var(--gold); }
-    .card svg { color: var(--gold); }
-    .card b { font-size: .95rem; }
-    .card small { color: var(--muted); font-size: .82rem; line-height: 1.35; }
-    .rows { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-    .rows a { display: flex; align-items: center; gap: .8rem; min-height: 60px; padding: .7rem .95rem; color: var(--ink); text-decoration: none; }
-    .rows a + a { border-top: 1px solid var(--line); }
-    .rows a:hover { background: var(--hover); }
-    .rows svg { flex: none; color: var(--gold); }
-    .rows span { display: flex; flex-direction: column; margin-right: auto; font-weight: 600; }
-    .rows small { color: var(--muted); font-weight: 400; font-size: .84rem; }
-    .rows .chev { color: var(--muted); }
+    .more { margin-top: 2rem; }
+    body.chatting .more { display: none; }
+    .links { display: flex; justify-content: center; flex-wrap: wrap; gap: .4rem 1.4rem; }
+    .links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .92rem; }
+    .links a:hover { color: var(--gold); }
     .note { font-size: .78rem; color: var(--muted); text-align: center; margin: 1.6rem auto 0; max-width: 34rem; }
     .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
     body.menu-open .scrim { opacity: 1; pointer-events: auto; }
     #menu { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(86vw, 340px); background: var(--card); border-right: 1px solid var(--line); transform: translateX(-102%); transition: transform .22s ease; overflow-y: auto; padding: .8rem 14px 2rem; visibility: hidden; }
     body.menu-open #menu { transform: none; visibility: visible; }
-    @media (prefers-reduced-motion: reduce) { #menu, .scrim, .hero { transition: none; } .hear.pulse, .online i, #cstatus.run { animation: none; } #cstatus.run { color: var(--muted); background: none; } }
+    @media (prefers-reduced-motion: reduce) { #menu, .scrim, .hero { transition: none; } .hear.pulse, #cstatus.run { animation: none; } #cstatus.run { color: var(--muted); background: none; } }
     .mhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; }
     #menu h2 { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin: 1.1rem 0 .35rem; }
     #menu a.item, #menu button.item { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 10px; padding: .6rem .5rem; color: var(--ink); text-decoration: none; font-weight: 600; font-size: .96rem; }
@@ -146,31 +130,12 @@
     </div>
     <section class="hero" id="hero">
       <span class="orb" id="orbHero"></span>
-      <p class="online"><i aria-hidden="true"></i>Online now &middot; Tello is an AI</p>
       <h1>Hi, I'm Tello.<span>Ask me anything.</span></h1>
-      <p class="lede">I search the web, read your website, look at photos, and talk out loud. Free to try, no sign-up.</p>
       <button type="button" class="hear" id="hear"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="hearLbl">Hear Tello</span></button>
     </section>
     <section id="chat" aria-label="Chat with Tello"></section>
-    <section class="more" aria-labelledby="canH">
-      <h2 id="canH">What Tello can do right now</h2>
-      <div class="cards">
-        <button type="button" class="card" data-prompt="Search the web for "><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><b>Search the web</b><small>Prices, hours, news, with sources</small></button>
-        <button type="button" class="card" data-prompt="Look at my website and tell me what to fix: "><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg><b>Read your website</b><small>Paste a link, get ideas and answers</small></button>
-        <button type="button" class="card" data-prompt="I'll attach a photo or PDF. Tell me what it says and what I should do next."><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg><b>Look at a photo or PDF</b><small>A menu, a flyer, a quote, a form</small></button>
-        <button type="button" class="card" data-prompt="Help me practice what to say when a customer calls about my prices."><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><b>Talk out loud</b><small>Tap the mic and just ask</small></button>
-      </div>
-    </section>
-    <section class="more" aria-labelledby="workH">
-      <h2 id="workH">Put Tello to work</h2>
-      <div class="rows">
-        <a href="/business"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Answer my customers<small>From $19 a month &middot; 7 days free</small></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
-        <a href="/make"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg><span>Make a video<small>Free</small></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
-        <a href="/meeting"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.3c2.8-.4 5.5 1.5 5.5 4.7"/></svg><span>Join the team meeting<small>Four Tellos, ask out loud</small></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
-        <a href="/videos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>Watch videos</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
-      </div>
-    </section>
-    <p class="note">Tello is an AI and can be wrong. Chats aren't stored unless you leave your email or rate a reply (<a href="/privacy">Privacy</a>). Don't share card numbers, passwords, IDs or health details. Not for health care businesses.</p>
+    <nav class="more links" aria-label="Put Tello to work"><a href="/business">Business</a><a href="/make">Video</a><a href="/meeting">Meeting</a><a href="/videos">Watch</a></nav>
+    <p class="note">Tello is an AI and can be wrong. Not for health care. <a href="/privacy">Privacy</a></p>
   </main>
   <script src="/js/tello-talk.js"></script>
   <script src="/js/tello-orb.js"></script>
@@ -183,14 +148,13 @@
     if (window.TelloOrb) { TelloOrb.mount(document.getElementById('orbHero'), { size: 132 }); TelloOrb.mount(document.getElementById('orbSmall'), { size: 36 }); }
     var chat = TelloChat.mount(document.getElementById('chat'), {
       mode: 'page', firstPrimary: true,
-      starters: ['Try Tello on my website', 'What can Tello do for my business?', 'How much does it cost?', 'Can Tello make me a video?', "I'm a landlord"],
+      starters: ['Try Tello on my website', 'What does it cost?', 'Make me a video'],
       onChatting: function (on) { document.body.classList.toggle('chatting', on); if (on) stopIntro(); },
       onStatus: function (t) { cstatus.textContent = t || IDLE; cstatus.classList.toggle('run', !!t && t !== 'Speaking…'); },
       speakTyped: function () { return voiceOn; },
       getVoice: function () { return voiceOn; },
       setVoice: function (on) { setVoice(on); }
     });
-    [].forEach.call(document.querySelectorAll('.card[data-prompt]'), function (c) { c.addEventListener('click', function () { chat.setPrompt(c.getAttribute('data-prompt')); }); });
     document.getElementById('newChat').addEventListener('click', function () { chat.reset(); window.scrollTo(0, 0); chat.focus(); });
 
     // Voice on/off for Tello's spoken answers.
