@@ -90,7 +90,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
-            files=$(git diff --name-only "$BEFORE" HEAD -- 'public/*.html' | grep -v -E '^public/(admin|dashboard|tenant|document|inspection-report|ai-inspection|hub|business|make|videos|ai-chatbot-for-small-business|free-ai-video-maker|how-to-answer-customers-when-your-business-is-closed|small-business-website-faq-page|how-to-follow-up-with-new-leads|how-to-make-a-short-business-video|social-setup|meeting)\.html$' || true)
+            files=$(git diff --name-only "$BEFORE" HEAD -- 'public/*.html' | grep -v -E '^public/(admin|dashboard|tenant|document|inspection-report|ai-inspection|hub|business|make|videos|ai-chatbot-for-small-business|free-ai-video-maker|how-to-answer-customers-when-your-business-is-closed|small-business-website-faq-page|how-to-follow-up-with-new-leads|how-to-make-a-short-business-video|social-setup|meeting|website)\.html$' || true)
           else
             files="public/index.html"
           fi
@@ -106,7 +106,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
-            files=$(git diff --name-only "$BEFORE" HEAD -- public/hub.html public/business.html public/make.html public/videos.html public/ai-chatbot-for-small-business.html public/free-ai-video-maker.html public/how-to-answer-customers-when-your-business-is-closed.html public/small-business-website-faq-page.html public/how-to-follow-up-with-new-leads.html public/how-to-make-a-short-business-video.html public/social-setup.html public/meeting.html || true)
+            files=$(git diff --name-only "$BEFORE" HEAD -- public/hub.html public/business.html public/make.html public/videos.html public/ai-chatbot-for-small-business.html public/free-ai-video-maker.html public/how-to-answer-customers-when-your-business-is-closed.html public/small-business-website-faq-page.html public/how-to-follow-up-with-new-leads.html public/how-to-make-a-short-business-video.html public/social-setup.html public/meeting.html public/website.html || true)
           else
             files="public/hub.html"
           fi
