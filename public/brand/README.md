@@ -12,6 +12,8 @@ The animated SVG moves in browsers; the PNG files use a still frame.
 
 ## Files
 - `tello-mark.svg`: animated mark on a black tile (website header, favicon)
+- `tello-mark-smoke.svg`: same mark with slow smoke rising off the T (large placements)
+- `tello-hero.svg`: big tile-free version where the smoke rises into the page (home page hero)
 - `tello-mark-light.svg`: animated mark on a white tile, for light backgrounds
 - `tello-mark-static.svg` / `tello-mark-static-light.svg`: still versions for email, print and apps that cannot animate
 - `tello-mark-bare.svg`: still mark without the tile
