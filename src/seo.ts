@@ -13,7 +13,7 @@ interface SeoListing {
 const SITE = "https://ecrentalpm.com";
 const TELLO = "https://tello.live";
 // tello.live pages (the Tello front door). Add new public tello.live pages here so the sitemap and search engines find them.
-const TELLO_PAGES = ["/", "/business", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker"];
+const TELLO_PAGES = ["/", "/business", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed", "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video"];
 const TELLO_ROBOTS = `User-agent: *
 Allow: /
 Disallow: /api/
@@ -35,6 +35,10 @@ const TELLO_LLMS = `# Tello
 - [Tello for your business](${TELLO}/business): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
 - [AI chatbot for small business](${TELLO}/ai-chatbot-for-small-business): how the website chat assistant works.
 - [Free AI video maker](${TELLO}/free-ai-video-maker): chat a few words and a web address to get a short narrated video.
+- [How to answer customers when your business is closed](${TELLO}/how-to-answer-customers-when-your-business-is-closed): after-hours message, FAQ and chat assistant.
+- [What to put on a small business FAQ page](${TELLO}/small-business-website-faq-page): which questions to include and how to write answers.
+- [How to follow up with new leads](${TELLO}/how-to-follow-up-with-new-leads): a simple routine for replying and tracking leads.
+- [How to make a short business video](${TELLO}/how-to-make-a-short-business-video): structure, captions and a free video maker.
 - [Make a video](${TELLO}/make): the free video maker.
 - [Sample videos](${TELLO}/videos): examples, and a form to request a polished marketing video.
 
