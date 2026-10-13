@@ -88,6 +88,7 @@
       <label for="mm">Message the team directly. A real person replies.</label>
       <textarea id="mm" maxlength="800" placeholder="Your message"></textarea>
       <div class="r"><input id="mn" maxlength="80" placeholder="Your name" autocomplete="name" /><input id="mc" maxlength="120" placeholder="Phone or email" autocomplete="email" /></div>
+      <div id="photoRow" hidden style="margin-bottom:8px"><label class="ghost" style="display:inline-block;cursor:pointer;font-weight:400">Attach a photo<input id="mp" type="file" accept="image/jpeg,image/png,image/webp" style="display:none" /></label> <span id="mpn" style="font-size:12px;color:var(--muted)"></span><p style="font-size:11px;color:var(--muted);margin-top:4px">One photo, up to 5 MB. Please don't send ID, card or health-related pictures.</p></div>
       <input class="hp" id="mw" tabindex="-1" autocomplete="off" aria-hidden="true" />
       <div class="r" style="margin-top:8px"><button class="go" id="msend" type="button" style="margin:0;padding:.6rem 1.2rem">Send to the team</button><button class="ghost" id="mclose" type="button">Close</button></div>
       <p id="msgnote" role="status"></p>
@@ -182,12 +183,15 @@
     $('f').addEventListener('submit', function (e) { e.preventDefault(); send($('t').value.trim()); });
     $('again').addEventListener('click', resetChat);
     $('mopen').addEventListener('click', function () { $('msgbox').style.display = 'block'; $('mm').focus(); });
+    $('mp').addEventListener('change', function () { $('mpn').textContent = this.files && this.files[0] ? this.files[0].name : ''; });
     $('mclose').addEventListener('click', function () { $('msgbox').style.display = 'none'; });
     $('msend').addEventListener('click', function () {
       var n = $('msgnote'), b = this; n.textContent = ''; b.disabled = true;
-      fetch('/api/public/bots/' + id + '/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: $('mm').value, name: $('mn').value, contact: $('mc').value, website: $('mw').value }) })
+      var fd = new FormData(); fd.append('message', $('mm').value); fd.append('name', $('mn').value); fd.append('contact', $('mc').value); fd.append('website', $('mw').value);
+      var pf = $('mp').files && $('mp').files[0]; if (pf) { if (pf.size > 5 * 1024 * 1024) { b.disabled = false; n.textContent = 'That photo is too large. Please choose one under 5 MB.'; return; } fd.append('photo', pf); }
+      fetch('/api/public/bots/' + id + '/message', { method: 'POST', body: fd })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (x) { b.disabled = false; if (x.ok) { n.textContent = 'Sent. A real person will reply.'; $('mm').value = ''; } else n.textContent = x.j.error || 'Could not send. Please try again.'; })
+        .then(function (x) { b.disabled = false; if (x.ok) { n.textContent = 'Sent. A real person will reply.'; $('mm').value = ''; $('mp').value = ''; $('mpn').textContent = ''; } else n.textContent = x.j.error || 'Could not send. Please try again.'; })
         .catch(function () { b.disabled = false; n.textContent = 'Could not reach the server. Please try again.'; });
     });
 
@@ -195,6 +199,7 @@
     fetch('/api/public/bots/' + id + '/info').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (b) {
       info = b; document.title = 'Meet Tello, the assistant for ' + b.business; $('brand').textContent = b.business; $('role').textContent = 'AI assistant for ' + b.business;
       if (!b.pro) { location.replace('/b/' + id); return; }
+      if (b.uploads) { $('photoRow').hidden = false; }
       resetChat(); build(b); $('skip').hidden = false; show(0);
     }).catch(function () { stage.textContent = ''; stage.appendChild(slide('', 'I could not load this page.', 'Please try again later.')); });
   })();
