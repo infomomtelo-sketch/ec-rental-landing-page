@@ -3,12 +3,17 @@
    Streams replies from /api/public/tello-hub/chat, renders safe markdown (DOM nodes only; model text never goes through
    innerHTML), keeps the last 30 messages in sessionStorage (text only, shared by page and bubble), and offers attach,
    mic + voice mode, Stop, Retry and per-reply Copy / Share / Play / thumbs / Regenerate.
-   Needs /js/tello-talk.js (mic and voice) and /js/tello-orb.js (the orb); both are optional at runtime. */
+   Needs /js/tello-talk.js (mic and voice) and /js/tello-orb.js (the orb); both are optional at runtime.
+   A business's own chat (public/b.html) mounts it with { chatUrl, storageKey, allowHost, voice, feedback: false, config: false,
+   placeholder, logLabel } so it talks to that business's assistant, keeps its own conversation and links to its website. */
 (function () {
   if (window.TelloChat) return;
   var API = '/api/public/tello-hub', KEY = 'tello_hub_chat', VOICE_KEY = 'tello_hub_voice', MAX_KEEP = 30, MAX_TEXT = 4000, MAX_FILES = 3;
   var IMG_MAX_SIDE = 1600, IMG_MAX = 4 * 1024 * 1024, PDF_MAX = 8 * 1024 * 1024, PDF_PAGES = 30;
   var HOSTS = /^(www\.)?(tello\.live|ecrentalpm\.com|ownsite\.app)$/i;
+  var EXTRA = ''; // a business chat's own website host (one chat per page), also turned into links
+  function hostOk(host) { host = String(host || '').toLowerCase(); return HOSTS.test(host) || (!!EXTRA && host.replace(/^www\./, '') === EXTRA); }
+  function escRe(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
   var css = document.createElement('style');
   css.textContent = ''
@@ -110,13 +115,13 @@
   function btn(cls, icon, label) { var b = h('button', cls); b.type = 'button'; b.innerHTML = icon; b.setAttribute('aria-label', label); b.title = label; return b; }
 
   /* ───────── storage (text only, last 30 messages, this tab only) ───────── */
-  function load() { try { var d = JSON.parse(sessionStorage.getItem(KEY) || 'null'); return d && Array.isArray(d.msgs) ? d.msgs : []; } catch (e) { return []; } }
-  function store(msgs) {
+  function load(key) { try { var d = JSON.parse(sessionStorage.getItem(key || KEY) || 'null'); return d && Array.isArray(d.msgs) ? d.msgs : []; } catch (e) { return []; } }
+  function store(msgs, key) {
     try {
       var keep = msgs.filter(function (m) { return m.role === 'user' || m.role === 'assistant'; }).slice(-MAX_KEEP).map(function (m) {
         return { role: m.role, content: String(m.content || '').slice(0, 9000), files: m.files, links: m.links, suggestions: m.suggestions, sources: m.sources, vote: m.vote };
       });
-      sessionStorage.setItem(KEY, JSON.stringify({ v: 1, msgs: keep }));
+      sessionStorage.setItem(key || KEY, JSON.stringify({ v: 1, msgs: keep }));
     } catch (e) {}
   }
   function voicePref() { try { return localStorage.getItem(VOICE_KEY) !== 'off'; } catch (e) { return true; } }
@@ -128,7 +133,7 @@
     if (/^mailto:support@tello\.live$/i.test(url)) return 'mailto:support@tello.live';
     if (/^\/(?!\/)[A-Za-z0-9-]*$/.test(url)) return url; // a page on this site
     if (sources && sources.some(function (s) { return s.url === url; })) return url;
-    try { var u = new URL(url, location.href); if ((u.protocol === 'https:' || u.protocol === 'http:') && HOSTS.test(u.hostname)) return u.href; } catch (e) {}
+    try { var u = new URL(url, location.href); if ((u.protocol === 'https:' || u.protocol === 'http:') && hostOk(u.hostname)) return u.href; } catch (e) {}
     return null;
   }
   var INLINE = /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*)|(\[[^\]\n]+\]\([^)\s]+\))|(https?:\/\/[^\s<>()"]*[^\s<>()".,;:!?'])|(support@tello\.live)|((?:www\.)?(?:tello\.live|ecrentalpm\.com|ownsite\.app)(?:\/[A-Za-z0-9][A-Za-z0-9-]*)*)/gi;
@@ -138,10 +143,10 @@
     parent.appendChild(a);
   }
   function inline(parent, s, sources) {
-    var last = 0, m, re = new RegExp(INLINE.source, 'gi'); // own copy: bold text recurses into inline()
+    var last = 0, m, re = new RegExp(INLINE.source + (EXTRA ? '|((?:www\\.)?' + escRe(EXTRA) + '(?:\\/[A-Za-z0-9][A-Za-z0-9_~-]*(?:\\.[A-Za-z0-9_~-]+)*)*)' : ''), 'gi'); // own copy: bold text recurses into inline()
     while ((m = re.exec(s))) {
       var before = s.charAt(m.index - 1);
-      if (m[6] && /[\w.@-]/.test(before)) continue; // part of a longer word or address
+      if ((m[6] || m[7]) && /[\w.@\/-]/.test(before)) continue; // part of a longer word or address
       if (m.index > last) parent.appendChild(document.createTextNode(s.slice(last, m.index)));
       last = re.lastIndex;
       if (m[1]) parent.appendChild(h('code', null, m[1].slice(1, -1)));
@@ -154,6 +159,7 @@
       else if (m[4]) { var hr = safeHref(m[4], sources); if (hr) link(parent, m[4], hr, true); else parent.appendChild(document.createTextNode(m[4])); }
       else if (m[5]) link(parent, m[5], 'mailto:support@tello.live');
       else if (m[6]) link(parent, m[6], 'https://' + m[6].replace(/^www\./i, ''));
+      else if (m[7]) link(parent, m[7], 'https://' + m[7], true);
     }
     if (last < s.length) parent.appendChild(document.createTextNode(s.slice(last)));
   }
@@ -208,12 +214,14 @@
 
   function mount(root, opts) {
     opts = opts || {};
-    var page = opts.mode === 'page', msgs = load(), busy = false, ctrl = null, pending = [], lastFiles = [], caps = { attach: false };
+    var skey = opts.storageKey || KEY, chatUrl = opts.chatUrl || API + '/chat', useVoice = opts.voice !== false;
+    if (opts.allowHost) EXTRA = String(opts.allowHost).toLowerCase().replace(/^www\./, '');
+    var page = opts.mode === 'page', msgs = load(skey), busy = false, ctrl = null, pending = [], lastFiles = [], caps = { attach: false };
     var voiceTurn = false, speakingBtn = null, vm = null;
     root.classList.add('tc', 'tc-' + (page ? 'page' : 'bubble'));
     root.textContent = '';
     var log = h('div', 'tc-log'), sr = h('div', 'tc-sr'); sr.setAttribute('aria-live', 'polite');
-    log.setAttribute('role', 'log'); log.setAttribute('aria-label', 'Conversation with Tello');
+    log.setAttribute('role', 'log'); log.setAttribute('aria-label', opts.logLabel || 'Conversation with Tello');
     var form = h('form', 'tc-box'); form.setAttribute('autocomplete', 'off');
     var files = h('div', 'tc-files'), row = h('div', 'tc-row');
     var attWrap = h('div', 'tc-attwrap'), attBtn = btn('tc-ibtn', I.plus, 'Attach a photo or PDF'), menu = h('div', 'tc-menu');
@@ -227,7 +235,7 @@
       menu.appendChild(b); attWrap.appendChild(inp); inputs[o[0]] = inp;
     });
     attWrap.appendChild(attBtn); attWrap.appendChild(menu); attWrap.hidden = true;
-    var ta = h('textarea'); ta.rows = 2; ta.maxLength = MAX_TEXT; ta.placeholder = 'Ask Tello anything'; ta.setAttribute('aria-label', 'Message Tello');
+    var ta = h('textarea'); ta.rows = 2; ta.maxLength = MAX_TEXT; ta.placeholder = opts.placeholder || 'Ask Tello anything'; ta.setAttribute('aria-label', 'Message Tello');
     var mic = h('span', 'tc-mic'), send = btn('tc-send', I.send, 'Send'); send.type = 'submit';
     row.appendChild(attWrap); row.appendChild(ta); row.appendChild(mic); row.appendChild(send);
     form.appendChild(files); form.appendChild(row);
@@ -303,7 +311,7 @@
         else copyText(m.content).then(function () { sr.textContent = 'Reply copied, ready to share.'; });
       });
       bar.appendChild(share);
-      if (window.ECTelloTalk) {
+      if (window.ECTelloTalk && useVoice) {
         var play = btn('tc-tool', I.play, 'Play reply aloud');
         play.addEventListener('click', function () {
           if (speakingBtn === play) { ECTelloTalk.stop(); return; }
@@ -312,18 +320,18 @@
         bar.appendChild(play);
       }
       var up = btn('tc-tool', I.up, 'Good reply'), down = btn('tc-tool', I.down, 'Bad reply');
-      [[up, 1], [down, -1]].forEach(function (p) {
+      if (opts.feedback !== false) [[up, 1], [down, -1]].forEach(function (p) {
         p[0].setAttribute('aria-pressed', String(m.vote === p[1]));
         if (m.vote) p[0].disabled = true;
         p[0].addEventListener('click', function () {
-          m.vote = p[1]; store(msgs); up.disabled = down.disabled = true; p[0].setAttribute('aria-pressed', 'true'); sr.textContent = 'Thanks for the feedback.';
+          m.vote = p[1]; store(msgs, skey); up.disabled = down.disabled = true; p[0].setAttribute('aria-pressed', 'true'); sr.textContent = 'Thanks for the feedback.';
           fetch(API + '/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vote: p[1], question: questionFor(i).slice(0, MAX_TEXT), reply: String(m.content).slice(0, MAX_TEXT) }) }).catch(function () {});
         });
         bar.appendChild(p[0]);
       });
       if (last) {
         var again = btn('tc-tool', I.again, 'Regenerate reply');
-        again.addEventListener('click', function () { if (busy) return; msgs.pop(); store(msgs); render(); ask(); });
+        again.addEventListener('click', function () { if (busy) return; msgs.pop(); store(msgs, skey); render(); ask(); });
         bar.appendChild(again);
       }
       return bar;
@@ -375,7 +383,7 @@
       voiceTurn = !!viaVoice;
       lastFiles = pending; pending = []; paintFiles(); fileMsg.textContent = '';
       msgs.push({ role: 'user', content: text, files: lastFiles.map(function (f) { return { name: f.name, kind: f.kind }; }) });
-      store(msgs); ta.value = ''; fit(); render(); toEnd(true); ask();
+      store(msgs, skey); ta.value = ''; fit(); render(); toEnd(true); ask();
     }
     function payload() {
       var hist = msgs.filter(function (m) { return m.role === 'user' || m.role === 'assistant'; }).slice(-MAX_KEEP).map(function (m) {
@@ -404,11 +412,11 @@
         if (done) return; done = true; if (frame) { (window.cancelAnimationFrame || clearTimeout)(frame); frame = 0; }
         var m = { role: 'assistant', content: text.trim() || '…', links: d.links || [], suggestions: d.suggestions || [], sources: d.sources || [] };
         if (d.capabilities) applyCaps(d.capabilities);
-        msgs.push(m); store(msgs); ctrl = null; setBusy(false); render(); toEnd(false);
+        msgs.push(m); store(msgs, skey); ctrl = null; setBusy(false); render(); toEnd(false);
         sr.textContent = 'Tello: ' + m.content.slice(0, 400);
         var speakIt = voiceTurn || (page && opts.speakTyped && opts.speakTyped());
         if (vm && vm.active) vm.answered(m.content);
-        else if (speakIt && window.ECTelloTalk) speakReply(m.content, null);
+        else if (speakIt && useVoice && window.ECTelloTalk) speakReply(m.content, null);
         else state('idle');
       }
       function fail(msg, keepText) {
@@ -428,7 +436,7 @@
         else if (ev === 'done') finish(d);
         else if (ev === 'error') fail(d.error || 'Sorry, something went wrong.');
       }
-      fetch(API + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()), signal: me.signal })
+      fetch(chatUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()), signal: me.signal })
         .then(function (res) {
           if (!/event-stream/.test(res.headers.get('Content-Type') || '')) {
             return res.json().catch(function () { return {}; }).then(function (j) {
@@ -550,15 +558,15 @@
       vBtn.addEventListener('click', function () { voiceOn = !voiceOn; if (page && opts.setVoice) opts.setVoice(voiceOn); else setVoicePref(voiceOn); if (!voiceOn) { ECTelloTalk.stop(); } paintV(); });
       x.focus(); listen();
     }
-    if (window.ECTelloTalk) ECTelloTalk.attach({ form: form, input: ta, placeIn: mic, onMic: openVoice, submit: function (t) { submit(t, true); } });
+    if (window.ECTelloTalk && useVoice) ECTelloTalk.attach({ form: form, input: ta, placeIn: mic, onMic: openVoice, submit: function (t) { submit(t, true); } });
 
     function reset() {
       stop(); if (vm) vm.close(); if (window.ECTelloTalk) ECTelloTalk.stop();
-      msgs = []; pending = []; lastFiles = []; store(msgs); paintFiles(); fileMsg.textContent = ''; setBusy(false); render(); state('idle'); ta.value = ''; fit();
+      msgs = []; pending = []; lastFiles = []; store(msgs, skey); paintFiles(); fileMsg.textContent = ''; setBusy(false); render(); state('idle'); ta.value = ''; fit();
     }
 
     renderStarters(); render(); fit();
-    fetch(API + '/config').then(function (r) { return r.json(); }).then(function (j) { applyCaps(j.capabilities); }).catch(function () {});
+    if (opts.config !== false) fetch(API + '/config').then(function (r) { return r.json(); }).then(function (j) { applyCaps(j.capabilities); }).catch(function () {});
     return {
       el: root, reset: reset, stop: stop, focus: function () { ta.focus(); }, voice: openVoice,
       send: function (t) { submit(t); },

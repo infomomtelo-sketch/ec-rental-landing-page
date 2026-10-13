@@ -214,7 +214,7 @@ const FALLBACK_MODELS = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-5"
 /* ───────────── reply post-processing ───────────── */
 
 /** Holds back streamed text from "<meta>" on, so the visitor never sees the links/suggestions block. */
-class MetaFilter {
+export class MetaFilter {
   private held = ""; meta = ""; inMeta = false;
   push(t: string): string {
     if (this.inMeta) { this.meta += t; return ""; }
@@ -227,7 +227,7 @@ class MetaFilter {
   }
   flush(): string { const r = this.held; this.held = ""; return r; }
 }
-function parseMeta(raw: string): { links: Link[]; suggestions: string[] } {
+export function parseMeta(raw: string): { links: Link[]; suggestions: string[] } {
   const out = { links: [] as Link[], suggestions: [] as string[] };
   const end = raw.indexOf("</meta>"), body = (end >= 0 ? raw.slice(0, end) : raw).trim();
   if (!body) return out;
@@ -362,6 +362,37 @@ export async function claudeReply(env: HubEnv, system: string, msgs: Msg[], maxT
       const text = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
       if (text) return text;
     } catch (err) { console.error(`[biz-bots ${model}]`, err instanceof Error ? err.message : err); }
+  }
+  return "";
+}
+
+/** claudeReply, streamed: onText gets each piece of the reply as it is written. Returns the whole reply, or "" when Claude
+ *  is off, over the business budget, or failed before writing anything (the caller then uses the free model). */
+export async function claudeStream(env: HubEnv, system: string, msgs: Msg[], maxTokens: number, onText: (t: string) => void): Promise<string> {
+  if (!env.ANTHROPIC_API_KEY) return "";
+  const day = "biz-" + today();
+  if ((await spentToday(env, day)) >= (num(env.BIZ_DAILY_CENTS) ?? 1000)) return "";
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 0, timeout: 30_000 });
+  for (const model of [env.HUB_MODEL || DEFAULT_MODEL, BACKUP_MODEL].filter((m, i, a) => a.indexOf(m) === i)) {
+    let text = "";
+    try {
+      const stream = client.beta.messages.stream({
+        model, max_tokens: maxTokens, messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+        ...(modern(model) ? { output_config: { effort: "low" } } : { temperature: 0.3 }),
+        ...(FALLBACK_MODELS.includes(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
+      } as any);
+      for await (const ev of stream as any) {
+        if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") { text += ev.delta.text; onText(ev.delta.text); }
+      }
+      const msg: any = await stream.finalMessage();
+      await addSpend(env, day, msg.usage);
+      if (msg.stop_reason === "refusal") { const t = "Sorry, I can't help with that here. Please contact the business directly."; onText((text ? "\n\n" : "") + t); return text + t; }
+      if (text.trim()) return text;
+    } catch (err) {
+      console.error(`[biz-bots stream ${model}]`, err instanceof Error ? err.message : err);
+      if (text.trim()) return text; // keep what the customer already saw
+    }
   }
   return "";
 }
