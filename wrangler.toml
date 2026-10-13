@@ -47,6 +47,8 @@ HUB_IN_PER_M = "2"
 HUB_OUT_PER_M = "10"
 HUB_SEARCH_PER_K = "10"
 HUB_DAILY_CENTS = "500"
+# Business assistants (tello.live/business) use Claude too, with their own budget across all businesses ($10 a day), then Workers AI.
+BIZ_DAILY_CENTS = "1000"
 
 # Per-IP/per-email limits for login, signup and password reset.
 [[ratelimits]]
