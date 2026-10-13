@@ -61,6 +61,16 @@
     .proof h3 { font-size: 1.1rem; } .proof p { color: #a9bdb3; font-size: .93rem; flex: 1; }
     .proof .go { color: #e8a23d; font-weight: 700; font-size: .92rem; margin-top: .4rem; }
   </style>
+<style>
+    .three { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .three .tc { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
+    .three .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; margin-right: .5rem; vertical-align: -1px; }
+    .three .gold .dot { background: #e8a23d; } .three .green .dot { background: #3fae7a; } .three .app .dot { background: #e9efe9; }
+    .three h3 { font-size: 1.1rem; } .three .tag { color: #a9bdb3; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .three p { color: #a9bdb3; font-size: .93rem; }
+    .three .st { margin-top: auto; padding-top: .4rem; font-weight: 700; font-size: .85rem; color: #e8a23d; }
+    .three .soon .st { color: #a9bdb3; }
+  </style>
 </head>
 <body>
   <header><div class="wrap"><a class="brand" href="/videos">tello<span>.live</span></a><nav class="nav"><a href="/videos">Sample videos</a><a href="/make">Make a video</a></nav></div></header>
@@ -104,6 +114,15 @@
         <a class="pc" href="https://ecrentalpm.com" target="_blank" rel="noopener"><span class="pt">Tello for landlords</span><h3>ecrentalpm.com</h3><p>Ask Tello about rent, repairs or California rental rules, and see how she works from a landlord's account.</p><span class="go">Open ecrentalpm.com</span></a>
         <a class="pc" href="https://title-22.com" target="_blank" rel="noopener"><span class="pt">Tello for a company</span><h3>title-22.com</h3><p>Tello answers questions about the company any time, day or night, and passes every message to the team.</p><span class="go">Open title-22.com</span></a>
         <a class="pc" href="/make"><span class="pt">Tello makes videos</span><h3>The video maker</h3><p>Paste a link and say what you want. Tello writes the script, adds a voice and builds a short video.</p><span class="go">Make a video, free</span></a>
+      </div>
+    </section>
+    <section class="wrap" id="three-tellos" style="padding-top:1.5rem;padding-bottom:1rem">
+      <h2>Three Tellos, three jobs</h2>
+      <p style="color:#a9bdb3;max-width:600px">Every Tello is an AI assistant, but each one works in a different place for a different person.</p>
+      <div class="three">
+        <div class="tc gold"><span class="tag">Answers before you join</span><h3><span class="dot"></span>Gold Tello</h3><p>Works on your website and your private meet page. Answers customers from your public information, takes their contact details and sends them to you. It never makes deals, sets prices or promises dates.</p><span class="st">Live on tello.live</span></div>
+        <div class="tc green soon"><span class="tag">Works inside your business</span><h3><span class="dot"></span>Green Tello</h3><p>Works behind the scenes for you and your team, with the private details only you can see. A real person still makes every decision.</p><span class="st">Coming soon</span></div>
+        <div class="tc app"><span class="tag">Inside the software</span><h3><span class="dot"></span>In-app Tello</h3><p>Lives inside the EC Rental dashboard. Knows a landlord's account, gives a daily briefing and answers with California rental rules.</p><span class="st"><a href="https://ecrentalpm.com" target="_blank" rel="noopener" style="color:inherit">Live at ecrentalpm.com</a></span></div>
       </div>
     </section>
     <section class="wrap" style="padding-top:1rem">
