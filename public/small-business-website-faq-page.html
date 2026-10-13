@@ -21,30 +21,30 @@
   <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Tello", "item": "https://tello.live/"}, {"@type": "ListItem", "position": 2, "name": "Small business FAQ page", "item": "https://tello.live/small-business-website-faq-page"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How many questions should an FAQ page have?", "acceptedAnswer": {"@type": "Answer", "text": "Include the questions customers really ask. For most small businesses that is between 6 and 15."}}, {"@type": "Question", "name": "Where should I put my FAQ page?", "acceptedAnswer": {"@type": "Answer", "text": "Link it from your main menu or footer, and link to it from your contact and pricing pages."}}, {"@type": "Question", "name": "Does an FAQ page help with search?", "acceptedAnswer": {"@type": "Answer", "text": "Clear, honest answers help people and can help search engines understand your page. Write for customers first."}}, {"@type": "Question", "name": "Can Tello answer from my FAQ?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Tello learns your business from your website and the notes you add, and answers customers from that information. It is an AI and can be wrong, so keep your notes accurate."}}]}, {"@type": "Article", "headline": "What to put on a small business website FAQ page", "description": "A simple guide to writing a small business FAQ page: which questions to include, how to write short answers, and how to keep it current.", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "mainEntityOfPage": "https://tello.live/small-business-website-faq-page", "author": {"@type": "Organization", "name": "Tello"}, "publisher": {"@type": "Organization", "name": "Tello", "logo": {"@type": "ImageObject", "url": "https://tello.live/brand/tello-icon-512.png"}}, "image": "https://tello.live/brand/tello-og-1200x630.png"}]}</script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --ink: #050505; --deep: #141414; --gold: #ffd23f; --text: #f2f2f2; --muted: #9ea3a7; --line: rgba(255,255,255,0.12); }
+    :root { --ink: #faf8f4; --deep: #ffffff; --gold: #ffd23f; --text: #16181b; --muted: #5d636a; --line: #e4dfd6; }
     body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.6; }
-    a { color: var(--gold); }
+    a { color: #8a6a00; }
     .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
     header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
     header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; max-width: 1000px; }
-    .brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; font-size: 1.15rem; color: var(--text); } .brand span { color: var(--gold); }
+    .brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; font-size: 1.15rem; color: var(--text); } .brand span { color: #8a6a00; }
     nav { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: .92rem; } nav a { color: var(--muted); text-decoration: none; font-weight: 600; } nav a:hover { color: var(--text); }
     .crumb { font-size: .85rem; color: var(--muted); margin-top: 1.4rem; } .crumb a { color: var(--muted); }
     h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.08; letter-spacing: -.02em; margin: .8rem 0 1rem; }
     h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); letter-spacing: -.01em; margin: 2.4rem 0 .6rem; }
     h3 { font-size: 1.05rem; margin-bottom: .2rem; }
-    p, li { color: #c7cacc; } p + p { margin-top: .8rem; } ul, ol { padding-left: 1.2rem; display: grid; gap: .4rem; }
+    p, li { color: #3b4046; } p + p { margin-top: .8rem; } ul, ol { padding-left: 1.2rem; display: grid; gap: .4rem; }
     .lede { font-size: 1.1rem; color: var(--muted); max-width: 660px; }
     .cta { display: flex; gap: .8rem; flex-wrap: wrap; margin-top: 1.4rem; }
-    .btn { display: inline-flex; align-items: center; background: var(--gold); color: var(--ink); font-weight: 700; text-decoration: none; border-radius: 999px; padding: .8rem 1.4rem; }
-    .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid rgba(255,255,255,.3); }
+    .btn { display: inline-flex; align-items: center; background: var(--gold); color: #1a1400; font-weight: 700; text-decoration: none; border-radius: 999px; padding: .8rem 1.4rem; }
+    .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid #e4dfd6; }
     .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin-top: 1rem; list-style: none; padding: 0; }
-    .steps li, .box { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem; }
-    .steps b { color: var(--gold); display: block; margin-bottom: .2rem; }
+    .steps li, .box { background: #ffffff; border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem; }
+    .steps b { color: #8a6a00; display: block; margin-bottom: .2rem; }
     .faq details { border-bottom: 1px solid var(--line); padding: .9rem 0; } .faq summary { cursor: pointer; font-weight: 700; } .faq p { margin-top: .5rem; }
     video { width: 100%; max-width: 720px; border-radius: 14px; background: #000; margin-top: 1rem; }
     .related { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
-    .related a { display: block; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; text-decoration: none; color: var(--text); font-weight: 700; } .related a small { display: block; color: var(--muted); font-weight: 400; margin-top: .2rem; }
+    .related a { display: block; background: #ffffff; border: 1px solid var(--line); border-radius: 14px; padding: 1rem; text-decoration: none; color: var(--text); font-weight: 700; } .related a small { display: block; color: var(--muted); font-weight: 400; margin-top: .2rem; }
     footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
     a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 </style>

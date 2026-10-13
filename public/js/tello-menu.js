@@ -25,7 +25,7 @@
 
   var css = document.createElement('style');
   css.textContent = '.tm-btn{display:inline-flex;align-items:center;gap:.4rem;height:40px;padding:0 .8rem;margin-right:auto;background:transparent;color:inherit;border:1px solid rgba(128,128,128,.55);border-radius:12px;font:600 .9rem Inter,system-ui,sans-serif;cursor:pointer}'
-    + '.tm-btn:hover{border-color:#b88700}header .wrap>.brand{margin-right:auto}header .wrap>.tm-btn+.brand{margin-right:auto;margin-left:.2rem}header .wrap>.tm-btn{margin-right:.2rem}'
+    + '.tm-btn:hover{border-color:#b88700}header .wrap>.brand{white-space:nowrap}@media(max-width:640px){header .wrap>nav a{display:none}}header .wrap>.brand{margin-right:auto}header .wrap>.tm-btn+.brand{margin-right:auto;margin-left:.2rem}header .wrap>.tm-btn{margin-right:.2rem}'
     + '.tm-scrim{position:fixed;inset:0;background:rgba(20,16,8,.45);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9100}'
     + 'body.tm-open .tm-scrim{opacity:1;pointer-events:auto}'
     + '#tm-menu{position:fixed;z-index:9200;top:0;bottom:0;left:0;width:min(86vw,340px);background:#fff;color:#16181b;border-right:1px solid #e4dfd6;transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;padding:.8rem 14px 2rem;visibility:hidden;font:15px/1.45 Inter,system-ui,sans-serif}'
