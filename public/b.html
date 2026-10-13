@@ -11,6 +11,8 @@
     body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f4f7f6; color: #12231e; display: flex; flex-direction: column; }
     header { background: #0f766e; color: #fff; padding: 12px 16px; font-weight: 700; flex: none; }
     header small { display: block; font-weight: 400; opacity: .85; font-size: 12px; }
+    header .visit { display: inline-block; margin-top: 6px; color: #fff; font-size: 13px; font-weight: 600; }
+    .m a { color: inherit; text-decoration: underline; }
     #log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
     .m { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
     .m.ai { background: #fff; border: 1px solid #d8e2de; align-self: flex-start; border-bottom-left-radius: 4px; }
@@ -33,10 +35,25 @@
   <script>
   (function () {
     var id = (location.pathname.match(/\/b\/([a-f0-9]{10})/) || [])[1], log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), convo = [], busy = false;
-    function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+    var site = null; // the business's own website; only its address is turned into links
+    function fill(el, text) {
+      el.textContent = '';
+      if (!site) { el.textContent = text; return; }
+      var host = site.hostname.replace(/^www\./, '').replace(/[.]/g, '\\.');
+      var re = new RegExp('((?:https?:\\/\\/)?(?:www\\.)?' + host + '(?:\\/[^\\s)]*[^\\s).,!?])?)', 'gi'), last = 0, m;
+      while ((m = re.exec(text))) {
+        if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+        var a = document.createElement('a'); a.textContent = m[1]; a.href = /^https?:/i.test(m[1]) ? m[1] : 'https://' + m[1]; a.target = '_blank'; a.rel = 'noopener'; el.appendChild(a);
+        last = re.lastIndex;
+      }
+      if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+    }
+    function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; fill(d, text); log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
     if (!id) { add('ai err', 'This chat link is not valid.'); t.disabled = s.disabled = true; return; }
     fetch('/api/public/bots/' + id + '/info').then(function (r) { return r.json(); }).then(function (b) {
       if (b.business) { document.getElementById('biz').textContent = 'Chat with ' + b.business; document.title = 'Chat with ' + b.business; }
+      try { var u = new URL(/^https?:\/\//i.test(b.site_url || '') ? b.site_url : 'https://' + b.site_url); if (b.site_url && /^https?:$/.test(u.protocol)) site = u; } catch (e) {}
+      if (site) { var v = document.createElement('a'); v.className = 'visit'; v.href = site.href; v.target = '_blank'; v.rel = 'noopener'; v.textContent = 'Visit ' + site.hostname.replace(/^www\./, ''); document.querySelector('header').appendChild(v); }
       add('ai', b.active === false ? 'This assistant is paused. Please contact the business directly.' : (b.greeting || 'Hi! How can I help?'));
       if (b.active === false) t.disabled = s.disabled = true;
     }).catch(function () { add('ai err', 'I could not load this chat. Please try again later.'); });
@@ -47,7 +64,7 @@
       fetch('/api/public/bots/' + id + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (x) {
-          if (x.ok && x.j.reply) { w.textContent = x.j.reply; convo.push({ role: 'assistant', content: x.j.reply }); }
+          if (x.ok && x.j.reply) { fill(w, x.j.reply); convo.push({ role: 'assistant', content: x.j.reply }); }
           else { w.textContent = x.j.error || 'Sorry, something went wrong. Please try again.'; w.className = 'm ai err'; convo.pop(); }
         }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
         .then(function () { busy = false; s.disabled = false; t.focus(); log.scrollTop = log.scrollHeight; });
