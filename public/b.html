@@ -2,56 +2,93 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="robots" content="noindex" />
   <title>Chat with Tello</title>
+  <link rel="icon" href="/brand/tello-mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <style>
+    /* A business's own Tello chat (/b/<id>): the same chat as tello.live (public/js/tello-chat.js), talking to that
+       business's assistant. With ?embed=1 it is the panel the website snippet opens, and gets a close button. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
-    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f4f7f6; color: #12231e; display: flex; flex-direction: column; }
-    header { background: #0f766e; color: #fff; padding: 12px 16px; font-weight: 700; flex: none; }
-    header small { display: block; font-weight: 400; opacity: .85; font-size: 12px; }
-    #log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .m { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .m.ai { background: #fff; border: 1px solid #d8e2de; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .m.me { background: #0f766e; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
-    .m.err { background: #fdecea; border-color: #f3b6ae; color: #8a2a1d; }
-    form { flex: none; display: flex; gap: 8px; padding: 10px; border-top: 1px solid #d8e2de; background: #fff; }
-    input { flex: 1; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #b9c9c3; border-radius: 10px; }
-    button { font: inherit; font-weight: 600; background: #0f766e; color: #fff; border: 0; border-radius: 10px; padding: 0 16px; cursor: pointer; }
-    button:disabled, input:disabled { opacity: .55; }
-    input:focus-visible, button:focus-visible { outline: 2px solid #e8a23d; outline-offset: 1px; }
-    footer { flex: none; text-align: center; font-size: 11px; color: #5b6f68; padding: 4px 8px 8px; background: #fff; }
-    footer a { color: #0f766e; }
+    body { font: 15px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; background: #faf8f4; color: #16181b; display: flex; flex-direction: column; }
+    .head { flex: none; display: flex; align-items: center; gap: .6rem; padding: .55rem .55rem .55rem .8rem; padding-top: max(.55rem, env(safe-area-inset-top)); border-bottom: 1px solid #e4dfd6; background: #fff; }
+    .orb { flex: none; width: 34px; height: 34px; }
+    .orb img { display: block; width: 34px; height: 34px; }
+    .title { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; min-width: 0; }
+    .title b { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .status { font-size: .78rem; color: #5d636a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .status a { color: #7a5800; }
+    .hbtn { flex: none; min-height: 44px; border: 1px solid #e4dfd6; background: #fff; border-radius: 999px; padding: 0 .85rem; font: 600 .82rem Inter, system-ui, sans-serif; color: #16181b; cursor: pointer; }
+    .hx { flex: none; width: 44px; height: 44px; border: 0; background: transparent; border-radius: 50%; color: #16181b; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .hbtn:hover, .hx:hover { background: #f5f1e8; }
+    .hbtn:focus-visible, .hx:focus-visible, .foot a:focus-visible { outline: 2px solid #b88700; outline-offset: 2px; }
+    #chat { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: .8rem .8rem .5rem; position: relative; }
+    #chat .tc-log { flex: 1; min-height: 0; overflow-y: auto; padding: .1rem .1rem .8rem; display: flex !important; }
+    .paused { margin: auto; max-width: 22rem; text-align: center; color: #5d636a; }
+    .foot { flex: none; text-align: center; font-size: .72rem; color: #5d636a; padding: 0 .9rem .6rem; padding-bottom: max(.6rem, env(safe-area-inset-bottom)); }
+    .foot .from { display: block; font-size: .8rem; font-weight: 600; color: #16181b; margin-bottom: .1rem; }
+    .foot a { color: #7a5800; }
   </style>
 </head>
 <body>
-  <header><span id="biz">Chat with us</span><small>Answers from the business's own information</small></header>
-  <div id="log" aria-live="polite"></div>
-  <form id="f" autocomplete="off"><input id="t" maxlength="600" placeholder="Type your question" aria-label="Your message" /><button id="s" type="submit">Send</button></form>
-  <footer>Tello is an AI and can be wrong. Chats are saved and shared with the business (<a href="https://tello.live/privacy" target="_blank" rel="noopener">Privacy</a>). Please don't share card numbers, passwords or health details here. Powered by <a href="https://tello.live/business" target="_blank" rel="noopener">Tello</a></footer>
+  <div class="head">
+    <span class="orb" id="orb"><img src="/brand/tello-mark-static.svg" alt="" width="34" height="34" /></span>
+    <div class="title"><b id="biz">Chat with us</b><span class="status" id="status" aria-live="polite">Tello · AI assistant</span></div>
+    <button type="button" class="hbtn" id="new" hidden>New chat</button>
+    <button type="button" class="hx" id="close" aria-label="Close chat" hidden>&times;</button>
+  </div>
+  <main id="chat"><p class="paused" id="loading">Loading...</p></main>
+  <div class="foot"><span class="from">Tello is an AI assistant from tello.live. <a href="https://tello.live/" target="_blank" rel="noopener">Try yours</a></span>It can be wrong. Chats are saved and shared with the business (<a href="https://tello.live/privacy" target="_blank" rel="noopener">Privacy</a>). Please don't share card numbers, passwords or health details here.</div>
+  <script src="/js/tello-talk.js"></script>
+  <script src="/js/tello-orb.js"></script>
+  <script src="/js/tello-chat.js"></script>
   <script>
   (function () {
-    var id = (location.pathname.match(/\/b\/([a-f0-9]{10})/) || [])[1], log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), convo = [], busy = false;
-    function add(cls, text) { var d = document.createElement('div'); d.className = 'm ' + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
-    if (!id) { add('ai err', 'This chat link is not valid.'); t.disabled = s.disabled = true; return; }
+    var id = (location.pathname.match(/\/b\/([a-f0-9]{10})/) || [])[1], embed = new URLSearchParams(location.search).get('embed') === '1';
+    var root = document.getElementById('chat'), status = document.getElementById('status'), biz = document.getElementById('biz');
+    var newBtn = document.getElementById('new'), closeBtn = document.getElementById('close'), chat = null, idle = 'Tello · AI assistant';
+    function say(text) { root.textContent = ''; var p = document.createElement('p'); p.className = 'paused'; p.textContent = text; root.appendChild(p); }
+    // In the website snippet's panel: a close button that asks the business's page to hide the panel.
+    if (embed && window.parent !== window) {
+      closeBtn.hidden = false;
+      var close = function () { window.parent.postMessage({ tello: 'close' }, '*'); };
+      closeBtn.addEventListener('click', close);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !document.querySelector('.tc-voice')) close(); });
+    }
+    if (!id) { say('This chat link is not valid.'); return; }
     fetch('/api/public/bots/' + id + '/info').then(function (r) { return r.json(); }).then(function (b) {
-      if (b.business) { document.getElementById('biz').textContent = 'Chat with ' + b.business; document.title = 'Chat with ' + b.business; }
-      add('ai', b.active === false ? 'This assistant is paused. Please contact the business directly.' : (b.greeting || 'Hi! How can I help?'));
-      if (b.active === false) t.disabled = s.disabled = true;
-    }).catch(function () { add('ai err', 'I could not load this chat. Please try again later.'); });
-    document.getElementById('f').addEventListener('submit', function (e) {
-      e.preventDefault(); var v = t.value.trim(); if (!v || busy) return;
-      add('me', v); t.value = ''; convo.push({ role: 'user', content: v }); busy = true; s.disabled = true;
-      var w = add('ai', '...');
-      fetch('/api/public/bots/' + id + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (x) {
-          if (x.ok && x.j.reply) { w.textContent = x.j.reply; convo.push({ role: 'assistant', content: x.j.reply }); }
-          else { w.textContent = x.j.error || 'Sorry, something went wrong. Please try again.'; w.className = 'm ai err'; convo.pop(); }
-        }).catch(function () { w.textContent = 'I could not reach the server. Please try again.'; w.className = 'm ai err'; convo.pop(); })
-        .then(function () { busy = false; s.disabled = false; t.focus(); log.scrollTop = log.scrollHeight; });
-    });
+      if (!b || !b.id) { say('This chat could not be found.'); return; }
+      if (b.business) { biz.textContent = b.business; document.title = 'Chat with ' + b.business; }
+      var site = null;
+      try { var u = new URL(/^https?:\/\//i.test(b.site_url || '') ? b.site_url : 'https://' + b.site_url); if (b.site_url && /^https?:$/.test(u.protocol)) site = u; } catch (e) {}
+      if (site && !embed) {
+        idle = '';
+        status.textContent = 'Tello · AI assistant · ';
+        var a = document.createElement('a'); a.href = site.href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = site.hostname.replace(/^www\./, '');
+        status.appendChild(a);
+      }
+      if (b.active === false) { say('This assistant is paused. Please contact the business directly.'); return; }
+      if (window.TelloOrb) { var o = document.getElementById('orb'); o.textContent = ''; TelloOrb.mount(o, { size: 34 }); }
+      var starters = (b.suggestions || []).filter(function (s) { return s && s.length <= 60; }).slice(0, 3);
+      if (!starters.length) starters = ['What do you offer?', 'What are your hours?', 'How can I reach you?'];
+      chat = TelloChat.mount(root, {
+        mode: 'bubble', starters: starters, firstPrimary: true,
+        greeting: b.greeting || 'Hi! How can I help?',
+        chatUrl: '/api/public/bots/' + id + '/chat', storageKey: 'tello_bot_' + id,
+        allowHost: site ? site.hostname : '', feedback: false, config: false,
+        voice: !!b.pro, // talking to Tello and Listen are part of the Pro plan (and the free trial)
+        placeholder: 'Type your question', logLabel: 'Conversation with ' + (b.business || 'the business'),
+        onStatus: function (t) { if (t) status.textContent = t; else if (idle) status.textContent = idle; else { status.textContent = ''; status.appendChild(document.createTextNode('Tello · AI assistant · ')); var a2 = document.createElement('a'); a2.href = site.href; a2.target = '_blank'; a2.rel = 'noopener'; a2.textContent = site.hostname.replace(/^www\./, ''); status.appendChild(a2); } },
+        voiceHost: function () { return document.body; }
+      });
+      newBtn.hidden = false;
+      newBtn.addEventListener('click', function () { chat.reset(); chat.focus(); });
+      if (!embed && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) chat.focus();
+    }).catch(function () { say('I could not load this chat. Please try again later.'); });
+    // The snippet tells the panel when it opens, so the cursor lands in the message box.
+    window.addEventListener('message', function (e) { if (e.data && e.data.tello === 'opened' && chat && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) chat.focus(); });
   })();
   </script>
 </body>

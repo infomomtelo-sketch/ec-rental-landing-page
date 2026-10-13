@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Tello to your website: WordPress, Wix, Squarespace, Shopify</title>
+  <link rel="icon" href="/brand/tello-mark.svg" type="image/svg+xml" />
+  <link rel="icon" href="/brand/tello-icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/brand/tello-apple-touch-180.png" />
+  <meta name="description" content="How to add your Tello chat to your website in a few minutes: one line of code for WordPress, Wix, Squarespace, Shopify or any site, or a chat link if your builder has no place for code." />
+  <link rel="canonical" href="https://tello.live/install" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Tello" />
+  <meta property="og:title" content="Add Tello to your website" />
+  <meta property="og:description" content="One line of code for WordPress, Wix, Squarespace, Shopify or any site." />
+  <meta property="og:url" content="https://tello.live/install" />
+  <meta property="og:image" content="https://tello.live/brand/tello-og-1200x630.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #faf8f4; --text: #16181b; --muted: #5d636a; --line: #e4dfd6; --gold: #ffd23f; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; }
+    a { color: #7a5800; }
+    :focus-visible { outline: 2px solid #b88700; outline-offset: 2px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 1040px; }
+    .brand { font-weight: 800; text-decoration: none; font-size: 1.15rem; color: var(--text); }
+    .brand span { color: #8a6a00; }
+    .nav a { color: var(--muted); text-decoration: none; font-size: .92rem; margin-left: 1.1rem; }
+    .nav a.ask { color: var(--text); font-weight: 700; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); letter-spacing: -.03em; line-height: 1.1; margin: 2.2rem 0 .5rem; }
+    .lede { color: var(--muted); font-size: 1.05rem; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; margin-top: 1.4rem; }
+    .card h2 { font-size: 1.05rem; margin-bottom: .4rem; }
+    .copy-row { display: flex; gap: .5rem; align-items: stretch; margin-top: .5rem; }
+    pre { flex: 1; background: #f2eee6; border: 1px solid var(--line); border-radius: 10px; padding: .75rem; white-space: pre-wrap; word-break: break-all; font-size: .88rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; padding: .5rem 1.1rem; font: inherit; font-weight: 700; text-decoration: none; border: 1.5px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
+    .btn.gold { background: var(--gold); border-color: var(--gold); color: #1a1400; }
+    .note { color: var(--muted); font-size: .9rem; margin-top: .5rem; }
+    details { background: #fff; border: 1px solid var(--line); border-radius: 14px; margin-top: .7rem; }
+    summary { cursor: pointer; padding: .9rem 1.1rem; font-weight: 700; min-height: 44px; }
+    details ol { padding: 0 1.1rem 1rem 2.5rem; display: flex; flex-direction: column; gap: .35rem; }
+    details p { padding: 0 1.1rem 1rem; color: var(--muted); font-size: .92rem; }
+    h2.sec { font-size: 1.25rem; margin-top: 2rem; }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
+  </style>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Tello", "item": "https://tello.live/"}, {"@type": "ListItem", "position": 2, "name": "Add Tello to your website", "item": "https://tello.live/install"}]}]}</script>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="38" height="38" alt="" style="vertical-align:-11px;margin-right:9px" />tello<span>.live</span></a><nav class="nav"><a class="ask" href="/ask">Ask Tello</a><a href="/">Business</a></nav></div></header>
+  <main class="wrap">
+    <h1>Add Tello to your website</h1>
+    <p class="lede">Paste one line into your website. A round Tello button appears in the corner of every page, and customers can chat with it.</p>
+
+    <section class="card" id="mine">
+      <h2>Your line of code</h2>
+      <div id="has" hidden>
+        <div class="copy-row"><pre id="snip"></pre><button class="btn" id="copy" type="button">Copy</button></div>
+        <p class="note">This line is only for your business. Your chat page link also works on its own: <a id="chat" target="_blank" rel="noopener"></a></p>
+        <p style="margin-top:.8rem"><a class="btn gold" id="mailweb" href="#">Send these steps to my web person</a></p>
+        <p class="note">Someone else looks after your website? This opens your email with your line and this page, ready to send.</p>
+      </div>
+      <div id="none">
+        <p class="note">It is on your private Tello page and in the email we sent when you set up Tello. It looks like this:</p>
+        <pre>&lt;script src="https://tello.live/embed/YOUR-ID.js" async&gt;&lt;/script&gt;</pre>
+        <p class="note">No Tello yet? <a href="/#setup">Set one up, free for 7 days</a>.</p>
+      </div>
+    </section>
+
+    <h2 class="sec">Pick your website builder</h2>
+    <details>
+      <summary>WordPress</summary>
+      <ol>
+        <li>In your WordPress dashboard, go to Plugins, then Add New, and install the free plugin <b>WPCode</b>.</li>
+        <li>Open Code Snippets, then <b>Header &amp; Footer</b>.</li>
+        <li>Paste your line into the <b>Footer</b> box and click Save Changes.</li>
+      </ol>
+      <p>On WordPress.com, plugins need a plan that allows them (Creator, formerly Business, or higher). On a lower plan, share your chat link instead (see the last option).</p>
+    </details>
+    <details>
+      <summary>Wix</summary>
+      <ol>
+        <li>In your Wix dashboard, go to <b>Settings</b> and open <b>Custom Code</b> (under Advanced or Development &amp; integrations).</li>
+        <li>Click <b>Add Custom Code</b> and paste your line.</li>
+        <li>Choose <b>All pages</b>, place the code in <b>Body - end</b>, and click Apply.</li>
+      </ol>
+      <p>Wix only allows custom code on a paid plan with your own domain connected.</p>
+    </details>
+    <details>
+      <summary>Squarespace</summary>
+      <ol>
+        <li>Search your Squarespace menu for <b>Code Injection</b> and open it.</li>
+        <li>Paste your line into the <b>Footer</b> box.</li>
+        <li>Click Save.</li>
+      </ol>
+      <p>Code Injection needs a Squarespace plan that includes it. If you cannot find it, share your chat link instead.</p>
+    </details>
+    <details>
+      <summary>Shopify</summary>
+      <ol>
+        <li>In Shopify admin, go to <b>Online Store</b>, then <b>Themes</b>.</li>
+        <li>Next to your current theme, click the <b>...</b> button and choose <b>Edit code</b>.</li>
+        <li>Open <b>theme.liquid</b> (in the Layout folder), paste your line just above <code>&lt;/body&gt;</code>, and click Save.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>Webflow</summary>
+      <ol>
+        <li>In Webflow, open your site's <b>Site settings</b>, then <b>Custom code</b>.</li>
+        <li>Paste your line into the <b>Footer code</b> box and click Save.</li>
+        <li>Publish your site.</li>
+      </ol>
+      <p>Custom code needs a paid Webflow site plan.</p>
+    </details>
+    <details>
+      <summary>Your own website or a web designer</summary>
+      <ol>
+        <li>Paste your line just above the closing <code>&lt;/body&gt;</code> tag of your pages, or in the shared footer.</li>
+        <li>Publish the change.</li>
+      </ol>
+      <p>Working with a web designer? Send them this page and your line.</p>
+    </details>
+    <details>
+      <summary>No place for code (GoDaddy builder, Facebook, Google Business)</summary>
+      <ol>
+        <li>Copy your chat page link (tello.live/b/...).</li>
+        <li>Add a button or link called <b>Chat with us</b> on your website and point it to that link.</li>
+        <li>You can also put the link in your Google Business profile, Instagram or Facebook bio, emails and text replies.</li>
+      </ol>
+      <p>Customers get the same Tello, on its own page.</p>
+    </details>
+
+    <section class="card">
+      <h2>Check that it works</h2>
+      <p class="note" style="margin-top:0">Open your website in a new window. The round Tello button should be in the bottom right corner. Click it and ask a question a customer would ask. Changes can take a few minutes to show on some builders. Builders sometimes rename their menus; if a step does not match, search their help for "add custom code".</p>
+      <p class="note">Stuck? Email <a href="mailto:support@tello.live?subject=Help%20adding%20Tello%20to%20my%20website">support@tello.live</a> with your website address and builder.</p>
+    </section>
+  </main>
+  <footer><div class="wrap">tello.live &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Tello is an AI and can be wrong, and is not for health care.</div></footer>
+  <script>
+  (function () {
+    var id = new URLSearchParams(location.search).get('id') || '';
+    if (!/^[a-f0-9]{10}$/.test(id)) return;
+    var line = '<script src="https://tello.live/embed/' + id + '.js" async><\/script>', chat = 'https://tello.live/b/' + id;
+    document.getElementById('snip').textContent = line;
+    var a = document.getElementById('chat'); a.href = chat; a.textContent = chat;
+    document.getElementById('has').hidden = false; document.getElementById('none').hidden = true;
+    document.getElementById('mailweb').href = 'mailto:?subject=' + encodeURIComponent('Please add our Tello chat to the website') + '&body=' + encodeURIComponent('Hi,\n\nCould you add our Tello chat to our website? Paste this one line just before the closing </body> tag on every page (or in the site-wide footer code):\n\n' + line + '\n\nStep-by-step help for each website builder: https://tello.live/install?id=' + id + '\n\nThank you!');
+    var c = document.getElementById('copy');
+    c.addEventListener('click', function () {
+      var done = function () { c.textContent = 'Copied'; setTimeout(function () { c.textContent = 'Copy'; }, 1800); };
+      if (navigator.clipboard) navigator.clipboard.writeText(line).then(done, function () {}); else { var r = document.createRange(); r.selectNodeContents(document.getElementById('snip')); getSelection().removeAllRanges(); getSelection().addRange(r); }
+    });
+  })();
+  </script>
+  <script src="/js/tello-menu.js" defer></script>
+</body>
+</html>

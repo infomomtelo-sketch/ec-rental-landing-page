@@ -13,7 +13,7 @@ interface SeoListing {
 const SITE = "https://ecrentalpm.com";
 const TELLO = "https://tello.live";
 // tello.live pages (the Tello front door). Add new public tello.live pages here so the sitemap and search engines find them.
-const TELLO_PAGES = ["/", "/ask", "/models", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed", "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video", "/social-setup", "/meeting", "/website"];
+const TELLO_PAGES = ["/", "/ask", "/models", "/install", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed", "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video", "/social-setup", "/meeting", "/website"];
 const TELLO_ROBOTS = `User-agent: *
 Allow: /
 Disallow: /api/
