@@ -86,3 +86,5 @@ CREATE TABLE IF NOT EXISTS hub_spend (day TEXT PRIMARY KEY, input_tokens INTEGER
 CREATE TABLE IF NOT EXISTS hub_visitors (key TEXT PRIMARY KEY, day TEXT NOT NULL, messages INTEGER NOT NULL DEFAULT 0, attachments INTEGER NOT NULL DEFAULT 0, searches INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS idx_hub_visitors_day ON hub_visitors(day);
 CREATE TABLE IF NOT EXISTS hub_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, vote INTEGER NOT NULL, question TEXT NOT NULL, reply TEXT NOT NULL, created_at TEXT NOT NULL);
+-- "Email me my link" on tello.live: when a manage link was last emailed to an address (one per 10 minutes).
+CREATE TABLE IF NOT EXISTS biz_link_sends (email TEXT PRIMARY KEY, sent_at TEXT NOT NULL);

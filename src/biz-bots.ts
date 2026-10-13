@@ -226,8 +226,8 @@ export async function handleBizBots(request: Request, env: BotEnv, url: URL, all
   if (emb && request.method === "GET") {
     const js = `(function(){if(window.__telloBot)return;window.__telloBot=1;var id=${JSON.stringify(emb[1])},o=${JSON.stringify(ORIGIN)};
 var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Chat with us');b.setAttribute('aria-expanded','false');
-b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483000;width:56px;height:56px;border-radius:50%;border:0;background:#0f766e;color:#fff;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;padding:0';
-b.innerHTML='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>';
+b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483000;width:56px;height:56px;border-radius:50%;border:0;background:#000;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.28);display:block;padding:0;overflow:hidden';b.title='Chat with us (Tello, an AI assistant from tello.live)';
+b.innerHTML='<img src="'+o+'/brand/tello-mark-static.svg" alt="" width="56" height="56" style="display:block;width:56px;height:56px;border:0;margin:0">';
 var f=document.createElement('iframe');f.title='Chat';f.src=o+'/b/'+id+'?embed=1';f.setAttribute('loading','lazy');
 f.style.cssText='position:fixed;right:18px;bottom:86px;z-index:2147483000;width:370px;max-width:calc(100vw - 24px);height:540px;max-height:calc(100vh - 110px);border:0;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.35);background:#fff;display:none';
 b.addEventListener('click',function(){var open=f.style.display==='none';f.style.display=open?'block':'none';b.setAttribute('aria-expanded',String(open));});
@@ -260,8 +260,8 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (notify) {
       try {
         await notify(email, `Your Tello assistant for ${business} is ready`,
-          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>Your free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.</p>`,
-          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nYour free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.`);
+          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.</p>`,
+          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.`);
       } catch (err) { console.error("[biz-bots create email]", err); }
       try { await notify("info@ecrentalpm.com", `tello.live: new business assistant, ${business}`, `<p>${esc(business)} (${esc(email)}) set up a Tello assistant. Site: ${esc(site)}</p>`, `${business} (${email}) set up a Tello assistant. Site: ${site}`); } catch { /* best effort */ }
     }
@@ -269,6 +269,29 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
   }
 
   // Public info and chat.
+  // "Email me my link": sends every private manage link for that email, only ever to that email. The answer is the same
+  // whether or not the email has a Tello, so it cannot be used to find out who uses Tello. One email per address per 10 minutes.
+  if (p === "/api/public/bots/link" && request.method === "POST") {
+    if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const email = clean(body.email, 200).toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Please enter the email you used to set up Tello." }, 400);
+    const sent = { success: true, message: "If that email has a Tello, we just sent its private link there. Check your inbox and spam folder." };
+    const now = new Date().toISOString(), since = new Date(Date.now() - 10 * 60e3).toISOString();
+    const recent = await env.DB.prepare("SELECT sent_at FROM biz_link_sends WHERE email = ?").bind(email).first<{ sent_at: string }>();
+    if (recent && recent.sent_at > since) return json(sent);
+    const { results } = await env.DB.prepare("SELECT id, business, manage_token FROM biz_bots WHERE owner_email = ? ORDER BY created_at DESC LIMIT 10").bind(email).all<{ id: string; business: string; manage_token: string }>();
+    if (!results?.length || !notify) return json(sent);
+    await env.DB.prepare("INSERT INTO biz_link_sends (email, sent_at) VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET sent_at = excluded.sent_at").bind(email, now).run();
+    const rows = results.map((b) => ({ business: b.business, url: `${ORIGIN}/business/manage?t=${b.manage_token}` }));
+    try {
+      await notify(email, "Your private Tello link",
+        `<p>Here is the private link to manage your Tello. Keep it private, it works like a password.</p>${rows.map((r) => `<p><b>${esc(r.business)}</b><br><a href="${r.url}">${r.url}</a></p>`).join("")}<p>Did not ask for this? You can ignore this email.</p>`,
+        `Here is the private link to manage your Tello. Keep it private, it works like a password.\n\n${rows.map((r) => `${r.business}\n${r.url}`).join("\n\n")}\n\nDid not ask for this? You can ignore this email.`);
+    } catch (err) { console.error("[biz-bots link email]", err); }
+    return json(sent);
+  }
+
   const pub = p.match(/^\/api\/public\/bots\/([a-f0-9]{10})\/(info|chat|message)$/);
   if (pub) {
     const bot = await loadById(env, pub[1]);

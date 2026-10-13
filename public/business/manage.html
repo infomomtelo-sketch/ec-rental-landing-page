@@ -106,6 +106,8 @@
       var share = el('section', 'card'); share.appendChild(el('h2', '', 'Put Tello on your website'));
       share.appendChild(el('p', 'small-note', 'Paste this line before the closing </body> tag of your website. A chat button appears in the corner.'));
       share.appendChild(copyBox(d.embed));
+      var how = el('a', '', 'Step by step for WordPress, Wix, Squarespace, Shopify and more'); how.href = '/install?id=' + d.id; how.target = '_blank'; how.rel = 'noopener';
+      var howP = el('p', 'small-note'); howP.appendChild(how); share.appendChild(howP);
       share.appendChild(el('p', 'small-note', 'Or share the chat page directly:')); share.appendChild(copyBox(d.chat_url));
       var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; share.appendChild(tr); app.appendChild(share);
 
@@ -151,7 +153,7 @@
       app.appendChild(leads);
     }
     function load() {
-      return api('', 'GET').then(function (j) { data = j; render(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); app.appendChild(el('a', 'btn small', 'Set up a Tello')).href = '/business'; });
+      return api('', 'GET').then(function (j) { data = j; render(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); var lk = el('p', 'small-note'), a1 = el('a', '', 'Email me my private link'); a1.href = '/#mylink'; lk.appendChild(a1); lk.appendChild(document.createTextNode(' or ')); var a2 = el('a', '', 'set up a new Tello'); a2.href = '/#setup'; lk.appendChild(a2); app.appendChild(lk); });
     }
     load();
   })();

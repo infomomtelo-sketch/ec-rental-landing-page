@@ -57,6 +57,7 @@
     .step h3 { font-size: 1.02rem; margin-bottom: 0.2rem; } .step p { color: var(--muted); font-size: 0.92rem; }
     .perks { list-style: none; margin-top: 1.2rem; color: var(--muted); font-size: 0.95rem; }
     .perks li::before { content: "\2713  "; color: #8a6a00; font-weight: 800; }
+    .relink { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .8rem; } .relink summary { cursor: pointer; font-weight: 600; font-size: .92rem; min-height: 44px; display: flex; align-items: center; } .relink form { margin-top: .4rem; }
     .copy-row { display: flex; gap: 0.5rem; align-items: stretch; } .copy-row pre { flex: 1; margin: 0; }
     @media (max-width: 820px) { .hero .wrap { grid-template-columns: 1fr; } }
   </style>
@@ -108,6 +109,14 @@
           <p class="small-note">No website yet? <a href="/website">Ask us to build you one</a>, with Tello included or just the website.</p>
           <p class="small-note">Please don't use Tello for health, legal or payment information. It is for everyday customer questions.</p>
         </form>
+        <details class="relink" id="relink">
+          <summary>Already have a Tello? Email me my private link</summary>
+          <form id="lf" novalidate>
+            <label>The email you used<input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
+            <button class="btn small" id="lgo" type="submit">Email me my link</button>
+            <p class="small-note" id="lmsg" role="status"></p>
+          </form>
+        </details>
         <div id="done" hidden>
           <h2>Your Tello is ready</h2>
           <p class="small-note" id="readnote" style="margin:0 0 .8rem"></p>
@@ -115,6 +124,7 @@
           <a class="btn small" id="chatlink" target="_blank" rel="noopener">Open your chat</a>
           <p style="margin:1rem 0 .2rem"><b>2. Put it on your website</b> (paste before the closing &lt;/body&gt; tag)</p>
           <div class="copy-row"><pre id="snip"></pre><button class="btn small ghost" id="copy" type="button">Copy</button></div>
+          <p class="small-note" style="margin:0 0 .4rem"><a id="howto" href="/install" target="_blank" rel="noopener">Step by step for WordPress, Wix, Squarespace, Shopify and more</a></p>
           <p style="margin:1rem 0 .2rem"><b>3. Keep your private link</b></p>
           <p class="small-note" style="margin:0 0 .5rem">It manages your Tello and shows your leads. We also emailed it to you. Anyone with it can manage your Tello, so keep it private.</p>
           <a class="btn small ghost" id="managelink">Manage my Tello</a>
@@ -128,7 +138,7 @@
           <article class="ts-slide"><span class="num">1</span><h3>Paste your link</h3><p>Tello reads your website: services, prices, hours, contact.</p></article>
           <article class="ts-slide"><span class="num">2</span><h3>Add one line</h3><p>A chat button appears on your site. Customers get answers in your own words.</p></article>
           <article class="ts-slide"><span class="num">3</span><h3>Get the leads</h3><p>Someone wants a quote or a callback? Tello takes their details and emails you.</p></article>
-          <article class="ts-slide gold"><span class="tag"><span class="dot g"></span>Gold Tello Gold Tello &middot; live</span>middot; available now</span><h3>Your website chat</h3><p>Answers from your public information. Never makes deals, sets prices or promises dates.</p><a class="go" href="/models">See Gold Tello</a></article>
+          <article class="ts-slide gold"><span class="tag"><span class="dot g"></span>Gold Tello &middot; available now</span><h3>Your website chat</h3><p>Answers from your public information. Never makes deals, sets prices or promises dates.</p><a class="go" href="/models">See Gold Tello</a></article>
           <article class="ts-slide green"><span class="tag"><span class="dot n"></span>Green Tello</span><span class="badge">Coming soon</span><h3>Works inside your business</h3><p>For you and your team, with your private details. A person still makes every decision.</p><a class="go" href="/models#green">About Green Tello</a></article>
           <article class="ts-slide dark"><span class="tag" style="color:#c9c1b0">See it at work</span><h3>Tello on ecrentalpm.com</h3><p>Ask about rent, repairs or California rental rules.</p><a class="go" href="https://ecrentalpm.com" target="_blank" rel="noopener">Open ecrentalpm.com</a></article>
         </div>
@@ -146,6 +156,17 @@
   <footer><div class="wrap">tello.live &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Tello is an AI and can be wrong, and is not for health care. Questions? <a href="mailto:support@tello.live">support@tello.live</a></div></footer>
   <script>
   (function () {
+    var lf = document.getElementById('lf'), lmsg = document.getElementById('lmsg'), lgo = document.getElementById('lgo');
+    if (location.hash === '#mylink') document.getElementById('relink').open = true;
+    lf.addEventListener('submit', function (e) {
+      e.preventDefault(); lmsg.textContent = ''; lgo.disabled = true;
+      fetch('/api/public/bots/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: lf.email.value }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) { lgo.disabled = false; lmsg.textContent = j.message || j.error || 'Something went wrong. Please try again.'; })
+        .catch(function () { lgo.disabled = false; lmsg.textContent = 'Something went wrong. Please try again.'; });
+    });
+  })();
+  (function () {
     var f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
     f.addEventListener('submit', function (e) {
       e.preventDefault(); err.textContent = ''; go.disabled = true; go.textContent = 'Reading your website...';
@@ -157,7 +178,7 @@
           if (!x.ok || !x.j.id) { err.textContent = x.j.error || 'Something went wrong. Please try again.'; return; }
           f.hidden = true; document.getElementById('done').hidden = false;
           document.getElementById('chatlink').href = x.j.chat_url; document.getElementById('managelink').href = x.j.manage_url;
-          document.getElementById('snip').textContent = x.j.embed;
+          document.getElementById('snip').textContent = x.j.embed; document.getElementById('howto').href = '/install?id=' + x.j.id;
           if (x.j.read_note) document.getElementById('readnote').textContent = 'I could not read your website (' + x.j.read_note + ') so Tello starts with no notes. Open Manage my Tello and type what customers should know.';
           document.getElementById('copy').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.embed) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
         }).catch(function () { go.disabled = false; go.textContent = 'Build my Tello'; err.textContent = 'Could not reach the server. Check your connection and try again.'; });
