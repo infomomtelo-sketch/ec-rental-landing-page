@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tello | Ask Tello anything</title>
-  <meta name="description" content="Tello is an AI assistant for your business. Ask Tello what it can do, make a free video, or see Tello for landlords." />
+  <title>Tello | AI assistant for your small business</title>
+  <meta name="description" content="Tello is an AI assistant for small businesses. It answers customers on your website around the clock, takes leads, briefs you each day and makes videos. Free for 7 days." />
   <link rel="canonical" href="https://tello.live/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Tello | Ask Tello anything" />
-  <meta property="og:description" content="An AI assistant that answers your customers, makes your videos and keeps you on top of the day." />
+  <meta property="og:title" content="Tello | AI assistant for your small business" />
+  <meta property="og:description" content="Answers your customers around the clock, takes leads, briefs you each day and makes videos." />
   <meta property="og:url" content="https://tello.live/" />
-  <meta property="og:image" content="https://ecrentalpm.com/media/tello-business-poster.jpg" />
+  <meta property="og:image" content="https://tello.live/tello-og.png" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:site_name" content="Tello" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://tello.live/#org", "name": "Tello", "url": "https://tello.live/", "logo": "https://tello.live/tello-512.png", "email": "support@tello.live"}, {"@type": "WebSite", "@id": "https://tello.live/#site", "url": "https://tello.live/", "name": "Tello", "publisher": {"@id": "https://tello.live/#org"}}, {"@type": "SoftwareApplication", "name": "Tello for your business", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "url": "https://tello.live/business", "description": "An AI chat assistant for small business websites that answers customer questions, takes leads and briefs the owner each day.", "offers": [{"@type": "Offer", "name": "Starter", "price": "19", "priceCurrency": "USD", "description": "Per month, 7-day free trial"}, {"@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Per month, 7-day free trial"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is Tello?", "acceptedAnswer": {"@type": "Answer", "text": "Tello is an AI assistant for small businesses. It answers customers' questions on your website around the clock, takes the details of anyone who wants a quote or a callback, briefs you each day on who is waiting, and makes short videos."}}, {"@type": "Question", "name": "How much does Tello cost?", "acceptedAnswer": {"@type": "Answer", "text": "Tello for your business is $19 a month for Starter and $49 a month for Pro. Both start with a 7-day free trial and you can cancel any time. The video maker is free."}}, {"@type": "Question", "name": "How do I add Tello to my website?", "acceptedAnswer": {"@type": "Answer", "text": "Paste your website link on tello.live/business. Tello reads it and builds your assistant, and you add it to your site with one line of code or share your own Tello chat link."}}, {"@type": "Question", "name": "Can Tello make mistakes?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Tello is an AI and can be wrong. It answers only from the information a business gives it, tells customers it is an AI, and offers to pass questions to the business."}}, {"@type": "Question", "name": "Is the Tello video maker free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Chat a few words and paste your web address, and Tello builds a short narrated video for free."}}, {"@type": "Question", "name": "Can health care businesses use Tello?", "acceptedAnswer": {"@type": "Answer", "text": "No. Tello is not available for health care or medical businesses."}}]}]}</script>
   <link rel="icon" href="/tello-icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -51,6 +53,8 @@
     .card:hover, .card:focus-visible { border-color: rgba(232,162,61,.7); outline: none; }
     .card svg { color: var(--gold); } .card h3 { font-size: 1.05rem; } .card p { color: var(--muted); font-size: .92rem; flex: 1; } .card .go { color: var(--gold); font-weight: 700; font-size: .9rem; }
     .hv-row { max-width: none; grid-template-columns: repeat(auto-fit, minmax(240px, 320px)); }
+    .faq details { border-bottom: 1px solid var(--line); padding: .9rem 0; } .faq summary { cursor: pointer; font-weight: 700; } .faq p { margin-top: .5rem; color: var(--muted); }
+    summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
   </style>
 </head>
@@ -83,6 +87,10 @@
       <button type="button" class="hv-card" data-play-video="biz"><img src="/media/tello-business-poster.jpg" alt="" loading="lazy" /><i><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span>Tello for your business<small>49 sec</small></span></button>
       <button type="button" class="hv-card" data-play-video="mk"><img src="/media/tello-make-poster.jpg" alt="" loading="lazy" /><i><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></i><span>Make a video with Tello<small>30 sec</small></span></button>
     </div>
+<h2>Questions</h2>
+    <div class="faq"><details><summary>What is Tello?</summary><p>Tello is an AI assistant for small businesses. It answers customers&#x27; questions on your website around the clock, takes the details of anyone who wants a quote or a callback, briefs you each day on who is waiting, and makes short videos.</p></details><details><summary>How much does Tello cost?</summary><p>Tello for your business is $19 a month for Starter and $49 a month for Pro. Both start with a 7-day free trial and you can cancel any time. The video maker is free.</p></details><details><summary>How do I add Tello to my website?</summary><p>Paste your website link on tello.live/business. Tello reads it and builds your assistant, and you add it to your site with one line of code or share your own Tello chat link.</p></details><details><summary>Can Tello make mistakes?</summary><p>Yes. Tello is an AI and can be wrong. It answers only from the information a business gives it, tells customers it is an AI, and offers to pass questions to the business.</p></details><details><summary>Is the Tello video maker free?</summary><p>Yes. Chat a few words and paste your web address, and Tello builds a short narrated video for free.</p></details><details><summary>Can health care businesses use Tello?</summary><p>No. Tello is not available for health care or medical businesses.</p></details></div>
+    <h2>Guides</h2>
+    <div class="grid"><a class="card" href="/ai-chatbot-for-small-business"><h3>AI chatbot for small business</h3><p>How a website chat assistant answers customers and sends you leads.</p><span class="go">Read the guide</span></a><a class="card" href="/free-ai-video-maker"><h3>Free AI video maker</h3><p>Turn a few words and a web address into a short narrated video.</p><span class="go">Read the guide</span></a></div>
   </main>
   <footer><div class="wrap">tello.live &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Questions? <a href="mailto:support@tello.live">support@tello.live</a></div></footer>
   <script>

@@ -84,7 +84,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
-            files=$(git diff --name-only "$BEFORE" HEAD -- 'public/*.html' | grep -v -E '^public/(admin|dashboard|tenant|document|inspection-report|ai-inspection)\.html$' || true)
+            files=$(git diff --name-only "$BEFORE" HEAD -- 'public/*.html' | grep -v -E '^public/(admin|dashboard|tenant|document|inspection-report|ai-inspection|hub|business|make|videos|ai-chatbot-for-small-business|free-ai-video-maker)\.html$' || true)
           else
             files="public/index.html"
           fi
@@ -93,3 +93,19 @@ jobs:
           echo "$urls"
           body=$(printf '%s\n' $urls | jq -R . | jq -s '{host: "ecrentalpm.com", key: "1842a03c0db4f7bd68c1e491cb74e176", keyLocation: "https://ecrentalpm.com/1842a03c0db4f7bd68c1e491cb74e176.txt", urlList: .}')
           curl -sS -o /dev/null -w "IndexNow answered %{http_code}\n" -X POST https://api.indexnow.org/indexnow -H 'Content-Type: application/json; charset=utf-8' -d "$body"
+      # Same ping for the tello.live front door. The key file is served on both hosts.
+      - name: Ping search engines about changed tello.live pages (IndexNow)
+        continue-on-error: true
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only "$BEFORE" HEAD -- public/hub.html public/business.html public/make.html public/videos.html public/ai-chatbot-for-small-business.html public/free-ai-video-maker.html || true)
+          else
+            files="public/hub.html"
+          fi
+          urls=$(for f in $files; do [ -f "$f" ] || continue; p="${f#public/}"; p="${p%.html}"; [ "$p" = "hub" ] && p=""; echo "https://tello.live/$p"; done)
+          if [ -z "$urls" ]; then echo "No tello.live pages changed."; exit 0; fi
+          echo "$urls"
+          body=$(printf '%s\n' $urls | jq -R . | jq -s '{host: "tello.live", key: "1842a03c0db4f7bd68c1e491cb74e176", keyLocation: "https://tello.live/1842a03c0db4f7bd68c1e491cb74e176.txt", urlList: .}')
+          curl -sS -o /dev/null -w "IndexNow (tello.live) answered %{http_code}\n" -X POST https://api.indexnow.org/indexnow -H 'Content-Type: application/json; charset=utf-8' -d "$body"
