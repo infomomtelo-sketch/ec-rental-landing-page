@@ -40,6 +40,13 @@ bucket_name = "ec-rental-photos"
 [vars]
 # Must be an address on a domain verified in Resend. RESEND_API_KEY is a secret: npx wrangler secret put RESEND_API_KEY
 EMAIL_FROM = "EC Rental <info@ecrentalpm.com>"
+# tello.live assistant (src/tello-hub.ts): Anthropic prices for the daily spend cap, and the cap itself.
+# Claude Sonnet 5.5 is $2 per million input tokens and $10 per million output tokens; web search is $10 per 1,000 searches.
+# When the day's spend reaches HUB_DAILY_CENTS (500 = $5), the chat switches to the free Workers AI model until midnight UTC.
+HUB_IN_PER_M = "2"
+HUB_OUT_PER_M = "10"
+HUB_SEARCH_PER_K = "10"
+HUB_DAILY_CENTS = "500"
 
 # Per-IP/per-email limits for login, signup and password reset.
 [[ratelimits]]
