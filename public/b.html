@@ -25,13 +25,15 @@
     input:focus-visible, button:focus-visible { outline: 2px solid #e8a23d; outline-offset: 1px; }
     footer { flex: none; text-align: center; font-size: 11px; color: #5b6f68; padding: 4px 8px 8px; background: #fff; }
     footer a { color: #0f766e; }
+    footer .from { font-weight: 600; color: #123a30; }
+    footer .from a { font-weight: 700; }
   </style>
 </head>
 <body>
   <header><span id="biz">Chat with us</span><small>Answers from the business's own information</small></header>
   <div id="log" aria-live="polite"></div>
   <form id="f" autocomplete="off"><input id="t" maxlength="600" placeholder="Type your question" aria-label="Your message" /><button id="s" type="submit">Send</button></form>
-  <footer>Tello is an AI and can be wrong. Chats are saved and shared with the business (<a href="https://tello.live/privacy" target="_blank" rel="noopener">Privacy</a>). Please don't share card numbers, passwords or health details here. Powered by <a href="https://tello.live/business" target="_blank" rel="noopener">Tello</a></footer>
+  <footer><span class="from">Tello is an AI assistant from tello.live. <a href="https://tello.live/" target="_blank" rel="noopener">Try yours</a></span><br>It can be wrong. Chats are saved and shared with the business (<a href="https://tello.live/privacy" target="_blank" rel="noopener">Privacy</a>). Please don't share card numbers, passwords or health details here.</footer>
   <script>
   (function () {
     var id = (location.pathname.match(/\/b\/([a-f0-9]{10})/) || [])[1], log = document.getElementById('log'), t = document.getElementById('t'), s = document.getElementById('s'), convo = [], busy = false;
