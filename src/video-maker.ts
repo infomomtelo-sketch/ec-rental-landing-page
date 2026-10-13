@@ -209,8 +209,22 @@ function toBase64(bytes) {
   return btoa(s);
 }
 
-// Warm, natural voice first; a second model as a backup.
-async function speak(ai, text) {
+// Tello's own voice (hosted Kokoro af_heart, the voice in the Tello videos) when a DeepInfra key is set; otherwise a warm
+// Workers AI voice first and a second model as a backup.
+async function kokoro(key, text) {
+  try {
+    const r = await fetch('https://api.deepinfra.com/v1/openai/audio/speech', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'hexgrad/Kokoro-82M', input: text, voice: 'af_heart', response_format: 'mp3' }),
+    });
+    if (!r.ok) { console.error('video-voice kokoro', r.status); return null; }
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return buf.length > 500 ? 'data:audio/mpeg;base64,' + toBase64(buf) : null;
+  } catch (e) { console.error('video-voice kokoro', e && e.message); return null; }
+}
+
+async function speak(ai, text, env) {
+  if (env && env.DEEPINFRA_API_KEY) { const k = await kokoro(env.DEEPINFRA_API_KEY, text); if (k) return k; }
   try {
     const out = await ai.run('@cf/deepgram/aura-1', { text, speaker: 'luna' }, { returnRawResponse: true });
     const buf = out instanceof Response ? new Uint8Array(await out.arrayBuffer()) : out instanceof ArrayBuffer ? new Uint8Array(out) : out && out.audio ? null : null;
@@ -233,7 +247,7 @@ async function voicePost(request, env) {
   try { const raw = await request.text(); if (raw.length > 2000) return json({ error: 'Too long.' }, 413); body = JSON.parse(raw); } catch (e) { return json({ error: 'Bad request.' }, 400); }
   const text = String((body && body.text) || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 320);
   if (text.length < 2) return json({ error: 'Nothing to say.' }, 400);
-  const audio = await speak(env.AI, text);
+  const audio = await speak(env.AI, text, env);
   if (!audio) return json({ error: 'voice_failed' }, 503);
   return json({ audio });
 }

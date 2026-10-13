@@ -20,6 +20,12 @@
   panel.innerHTML = '<div class="th-head"><span>Ask Tello</span><button type="button" class="th-x" aria-label="Close chat">&times;</button></div><div class="th-log" aria-live="polite"></div><form class="th-f" autocomplete="off"><input maxlength="600" placeholder="Ask about plans or videos" aria-label="Your message" /><button type="submit">Send</button></form><div class="th-note">Tello is an AI and can be wrong. Chats are saved (<a href="/privacy">Privacy</a>). Please don\'t share card numbers, passwords or health details.</div>';
   document.body.appendChild(btn); document.body.appendChild(panel);
   var log = panel.querySelector('.th-log'), input = panel.querySelector('input'), send = panel.querySelector('.th-f button'), convo = [], busy = false, started = false;
+  var talk = null;
+  (function () {
+    var form = panel.querySelector('form');
+    function go() { talk = ECTelloTalk.attach({ form: form, input: input, submit: function (t) { input.value = t; form.dispatchEvent(new Event('submit', { cancelable: true })); } }); }
+    if (window.ECTelloTalk) go(); else { var sc = document.createElement('script'); sc.src = '/js/tello-talk.js'; sc.onload = go; document.head.appendChild(sc); }
+  })();
   var LINK = /(tello\.live\/[a-z-]+|ecrentalpm\.com|support@tello\.live)/g;
   function fill(el, text) { el.textContent = ''; text.split(LINK).forEach(function (part, i) { if (i % 2 === 1) { var a = document.createElement('a'); a.textContent = part; a.href = part.indexOf('@') > 0 ? 'mailto:' + part : 'https://' + part; el.appendChild(a); } else if (part) el.appendChild(document.createTextNode(part)); }); }
   function add(cls, text) { var d = document.createElement('div'); d.className = 'th-m ' + cls; fill(d, text); log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
@@ -27,12 +33,13 @@
   btn.addEventListener('click', function () { toggle(!panel.classList.contains('on')); });
   panel.querySelector('.th-x').addEventListener('click', function () { toggle(false); btn.focus(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('on')) toggle(false); });
+  panel.querySelector('.th-x').addEventListener('click', function () { if (talk) talk.stop(); });
   panel.querySelector('form').addEventListener('submit', function (e) {
     e.preventDefault(); var v = input.value.trim(); if (!v || busy) return;
     add('me', v); input.value = ''; convo.push({ role: 'user', content: v }); busy = true; send.disabled = true; var w = add('ai', '...');
     fetch('/api/public/tello-hub/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: convo.slice(-10) }) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (x) { if (x.ok && x.j.reply) { fill(w, x.j.reply); convo.push({ role: 'assistant', content: x.j.reply }); } else { fill(w, x.j.error || 'Sorry, something went wrong. Please try again.'); convo.pop(); } })
+      .then(function (x) { if (x.ok && x.j.reply) { fill(w, x.j.reply); convo.push({ role: 'assistant', content: x.j.reply }); if (talk) talk.onReply(x.j.reply); } else { fill(w, x.j.error || 'Sorry, something went wrong. Please try again.'); convo.pop(); } })
       .catch(function () { w.textContent = 'I could not reach the server. Please try again.'; convo.pop(); })
       .then(function () { busy = false; send.disabled = false; input.focus(); log.scrollTop = log.scrollHeight; });
   });
