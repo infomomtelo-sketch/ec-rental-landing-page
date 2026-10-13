@@ -46,14 +46,18 @@
   }
   function stop() { runId++; try { if (player) { player.pause(); player.onended = player.onerror = null; } } catch (e) {} if (canSpeak) { synth.cancel(); } speakingNow = false; document.querySelectorAll('.tb-listen').forEach(function (b) { b.textContent = 'Listen'; }); }
   // Tello's own recorded voice (Kokoro, the same voice as the Tello videos). One short clip per topic, so no key is needed.
-  function clipList(data) {
-    var items = (data && data.items) || [], base = '/media/tello-voice/', out = [base + 'greet-' + partOfDay() + '.mp3'];
-    if (!items.length) { out.push(base + 'allclear.mp3'); return out; }
+  // Several takes of each line, picked at random, so it never sounds like the same recording.
+  var TAKES = { 'greet-morning': 3, 'greet-afternoon': 3, 'greet-evening': 3, back: 3, 'head-many': 2, 'head-one': 2, 'head-none': 2, allclear: 3, rent: 2, lease: 2, maintenance: 2, document: 2, application: 2, inquiry: 2, tenant: 2, listing: 2, billing: 2, payments: 2, start: 2, close: 2 };
+  function take(name) { var n = TAKES[name] || 1, i = 1 + Math.floor(Math.random() * n); return '/media/tello-voice/' + name + (i === 1 && name !== 'back' ? '' : '-' + i) + '.mp3'; }
+  function clipList(data, short) {
+    var items = (data && data.items) || [], out = [short ? take('back') : take('greet-' + partOfDay())];
+    if (short) return out;
+    if (!items.length) { out.push(take('allclear')); return out; }
     var n = items.filter(function (i) { return i.urgency !== 'info'; }).length;
-    out.push(base + (n === 0 ? 'head-none' : n === 1 ? 'head-one' : 'head-many') + '.mp3');
+    out.push(take(n === 0 ? 'head-none' : n === 1 ? 'head-one' : 'head-many'));
     var seen = {};
-    items.forEach(function (it) { if (!seen[it.kind] && Object.keys(seen).length < 4) { seen[it.kind] = 1; out.push(base + it.kind + '.mp3'); } });
-    out.push(base + 'close.mp3');
+    items.forEach(function (it) { if (!seen[it.kind] && Object.keys(seen).length < 3) { seen[it.kind] = 1; out.push(take(it.kind)); } });
+    if (Math.random() < 0.4) out.push(take('close'));
     return out;
   }
   function speech(data) {
@@ -118,7 +122,13 @@
   }
   function listen(data, btn) { if (speakingNow) { stop(); return; } say(speech(data), clipList(data)); if (btn) btn.textContent = 'Stop'; }
   // Called right after the landlord signs in with the login button (a tap, so the browser allows sound).
-  function greet(token) { if (!canVoice || !voiceOn()) return; load(token).then(function (d) { if (voiceOn()) say(speech(d), clipList(d)); }).catch(function () {}); }
+  // First sign-in of the day gets the full briefing; later ones just a short hello. The Listen button always plays it all.
+  function greet(token) {
+    if (!canVoice || !voiceOn()) return;
+    var today = new Date().toDateString(), seen = false;
+    try { seen = localStorage.getItem('ec_tello_brief_day') === today; localStorage.setItem('ec_tello_brief_day', today); } catch (e) {}
+    load(token).then(function (d) { if (voiceOn()) say(seen ? 'Welcome back.' : speech(d), clipList(d, seen)); }).catch(function () {});
+  }
 
   function render(el, data, onNav, opts) {
     opts = opts || {};
