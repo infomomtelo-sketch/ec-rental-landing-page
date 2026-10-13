@@ -7,7 +7,7 @@ import { stripe, billingEnabled, type BillingEnv } from "./billing";
 import { fetchPage } from "./video-maker";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
-interface BotEnv extends BillingEnv { AI?: Ai; DB: D1Database; }
+interface BotEnv extends BillingEnv { AI?: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface Bot {
   id: string; manage_token: string; owner_email: string; owner_name: string; business: string; site_url: string; facts: string; greeting: string; extra: string;
   status: string; trial_ends: string; customer_id: string | null; subscription_id: string | null; period_end: string | null; cancel_at_period_end: number; created_at: string;
@@ -21,6 +21,7 @@ interface Pro { plan: Plan; audience: string[]; suggestions: string[]; example_q
 const ORIGIN = "https://tello.live";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const DAILY_CAP = 300; // customer messages per bot per day, so a busy or abused bot cannot run up the AI bill
+const MAX_PHOTO = 5 * 1024 * 1024; // one photo per message, 5 MB
 const GOOD = ["active", "trialing", "past_due"];
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
@@ -59,6 +60,18 @@ async function savePro(env: BotEnv, id: string, p: Pro): Promise<void> {
 export function proOn(b: Pick<Bot, "status" | "trial_ends">, pro: Pick<Pro, "plan">, now = Date.now()): boolean {
   if (GOOD.includes(b.status)) return pro.plan === "pro";
   return Date.parse(b.trial_ends) > now;
+}
+
+async function uploadsOn(env: BotEnv, id: string): Promise<boolean> {
+  const r = await env.DB.prepare("SELECT uploads FROM biz_settings WHERE bot_id = ?").bind(id).first<{ uploads: number }>();
+  return !!r?.uploads;
+}
+/** Only real pictures: checks the file's first bytes, not the name or the type the browser claims. */
+function imageType(b: Uint8Array): string {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+  return "";
 }
 
 function parseAi(out: unknown): any {
@@ -128,15 +141,15 @@ async function saveLead(env: BotEnv, bot: Bot, msgs: Msg[], notify?: Notify): Pr
   }
 }
 
-function publicBot(b: Bot, pro: Pro) {
+function publicBot(b: Bot, pro: Pro, uploads: boolean) {
   const on = proOn(b, pro);
-  return { id: b.id, business: b.business, greeting: b.greeting, active: botActive(b), pro: on, ...(on ? { audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta } : {}) };
+  return { id: b.id, business: b.business, greeting: b.greeting, active: botActive(b), pro: on, ...(on ? { uploads, audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta } : {}) };
 }
-function manageView(b: Bot, leads: unknown[], pro: Pro) {
+function manageView(b: Bot, leads: unknown[], pro: Pro, uploads: boolean) {
   return {
     id: b.id, business: b.business, owner_email: b.owner_email, site_url: b.site_url, facts: b.facts, greeting: b.greeting, extra: b.extra,
     status: b.status, active: botActive(b), trial_ends: b.trial_ends, subscribed: GOOD.includes(b.status), period_end: b.period_end, cancel_at_period_end: !!b.cancel_at_period_end,
-    price: BOT_PRICE.cents / 100, pro_price: PRO_PRICE.cents / 100, plan: pro.plan, pro_on: proOn(b, pro), pro_settings: { audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta },
+    price: BOT_PRICE.cents / 100, pro_price: PRO_PRICE.cents / 100, plan: pro.plan, pro_on: proOn(b, pro), pro_settings: { uploads, audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta },
     meet_url: `${ORIGIN}/m/${b.id}`, chat_url: `${ORIGIN}/b/${b.id}`, embed: `<script src="${ORIGIN}/embed/${b.id}.js" async></script>`, leads,
     billing_on: true,
   };
@@ -220,22 +233,44 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
   if (pub) {
     const bot = await loadById(env, pub[1]);
     if (!bot) return json({ error: "This assistant was not found." }, 404);
-    if (pub[2] === "info" && request.method === "GET") return json(publicBot(bot, await loadPro(env, bot.id)));
+    if (pub[2] === "info" && request.method === "GET") return json(publicBot(bot, await loadPro(env, bot.id), await uploadsOn(env, bot.id)));
     if (pub[2] === "message" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Too many messages. Please wait a minute." }, 429);
       if (!botActive(bot) || !proOn(bot, await loadPro(env, bot.id))) return json({ error: "Messaging is not available for this business right now." }, 403);
-      const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+      const isForm = (request.headers.get("Content-Type") || "").includes("multipart/form-data");
+      let body: Record<string, unknown>, photo: File | null = null;
+      if (isForm) {
+        if (Number(request.headers.get("Content-Length") || 0) > MAX_PHOTO + 65536) return json({ error: "That photo is too large. Please send one under 5 MB." }, 413);
+        const fd = await request.formData().catch(() => null);
+        if (!fd) return json({ error: "Bad request." }, 400);
+        body = Object.fromEntries(Array.from(fd.entries()).filter(([, v]) => typeof v === "string"));
+        const f = fd.get("photo"); if (f && typeof f !== "string" && f.size > 0) photo = f;
+      } else body = await request.json().catch(() => ({})) as Record<string, unknown>;
       if (clean(body.website, 100)) return json({ success: true }); // spam trap
       const name = clean(body.name, 80), contact = clean(body.contact, 120), message = noEmoji(clean(body.message, 800));
       if (!EMAIL_RE.test(contact) && !PHONE_RE.test(contact)) return json({ error: "Please give a phone number or email so they can reply." }, 400);
       if (!message) return json({ error: "Please write a message." }, 400);
+      let bytes: Uint8Array | null = null, ctype = "";
+      if (photo) {
+        if (!env.PHOTOS || !(await uploadsOn(env, bot.id))) return json({ error: "This business is not taking photos right now." }, 403);
+        if (photo.size > MAX_PHOTO) return json({ error: "That photo is too large. Please send one under 5 MB." }, 413);
+        bytes = new Uint8Array(await photo.arrayBuffer()); ctype = imageType(bytes);
+        if (!ctype) return json({ error: "Please send a JPG, PNG or WebP picture." }, 400);
+        const today = await env.DB.prepare("SELECT COUNT(*) AS n FROM biz_files WHERE bot_id = ? AND created_at > ?").bind(bot.id, new Date(Date.now() - 24 * 3600e3).toISOString()).first<{ n: number }>();
+        if ((today?.n ?? 0) >= 30) return json({ error: "This business has received a lot of photos today. Please try again tomorrow." }, 429);
+      }
       const dup = await env.DB.prepare("SELECT COUNT(*) AS n FROM biz_leads WHERE bot_id = ? AND created_at > ?").bind(bot.id, new Date(Date.now() - 3600e3).toISOString()).first<{ n: number }>();
       if ((dup?.n ?? 0) >= 20) return json({ error: "This business has received a lot of messages. Please try again later." }, 429);
-      await env.DB.prepare("INSERT INTO biz_leads (bot_id, name, contact, message, created_at) VALUES (?, ?, ?, ?, ?)").bind(bot.id, name, contact, ("Message to the team: " + message).slice(0, 1500), new Date().toISOString()).run();
+      const ins = await env.DB.prepare("INSERT INTO biz_leads (bot_id, name, contact, message, created_at) VALUES (?, ?, ?, ?, ?)").bind(bot.id, name, contact, ("Message to the team: " + message + (bytes ? " (photo attached)" : "")).slice(0, 1500), new Date().toISOString()).run();
+      if (bytes) {
+        const fid = rand(12), key = `biz/${bot.id}/${fid}`;
+        await env.PHOTOS!.put(key, bytes, { httpMetadata: { contentType: ctype } });
+        await env.DB.prepare("INSERT INTO biz_files (id, bot_id, lead_id, r2_key, content_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(fid, bot.id, ins.meta.last_row_id, key, ctype, bytes.length, new Date().toISOString()).run();
+      }
       if (notify) {
         try {
           await notify(bot.owner_email, `New message for ${bot.business}`,
-            `<p>Someone sent you a message from your Tello page.</p><p><b>Name:</b> ${esc(name || "not given")}<br><b>Contact:</b> ${esc(contact)}</p><p>${esc(message).replace(/\n/g, "<br>")}</p><p>See every message: <a href="${ORIGIN}/business/manage?t=${bot.manage_token}">${ORIGIN}/business/manage</a></p>`,
+            `<p>Someone sent you a message from your Tello page${bytes ? " with a photo (open your manage page to see it)" : ""}.</p><p><b>Name:</b> ${esc(name || "not given")}<br><b>Contact:</b> ${esc(contact)}</p><p>${esc(message).replace(/\n/g, "<br>")}</p><p>See every message: <a href="${ORIGIN}/business/manage?t=${bot.manage_token}">${ORIGIN}/business/manage</a></p>`,
             `Someone sent you a message from your Tello page.\n\nName: ${name || "not given"}\nContact: ${contact}\n\n${message}\n\nSee every message: ${ORIGIN}/business/manage?t=${bot.manage_token}`);
         } catch (err) { console.error("[biz-bots message email]", err); }
       }
@@ -270,17 +305,25 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     const sub = p.slice("/api/biz/manage".length);
 
     if (sub === "" && request.method === "GET") {
-      const leads = (await env.DB.prepare("SELECT id, name, contact, message, created_at FROM biz_leads WHERE bot_id = ? ORDER BY id DESC LIMIT 50").bind(bot.id).all()).results;
-      return json({ ...manageView(bot, leads, await loadPro(env, bot.id)), billing_on: billingEnabled(env) });
+      const leads = (await env.DB.prepare("SELECT l.id, l.name, l.contact, l.message, l.created_at, (SELECT f.id FROM biz_files f WHERE f.lead_id = l.id LIMIT 1) AS file_id FROM biz_leads l WHERE l.bot_id = ? ORDER BY l.id DESC LIMIT 50").bind(bot.id).all()).results;
+      return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env) });
     }
     if (sub === "" && request.method === "PUT") {
       await env.DB.prepare("UPDATE biz_bots SET business = ?, greeting = ?, extra = ?, facts = ?, updated_at = ? WHERE id = ?")
         .bind(clean(body.business, 80) || bot.business, noEmoji(clean(body.greeting, 160)) || bot.greeting, noEmoji(clean(body.extra, 1200)), noEmoji(clean(body.facts ?? bot.facts, 1800)), new Date().toISOString(), bot.id).run();
       if (body.pro && typeof body.pro === "object") {
         const q = body.pro as Record<string, unknown>, cur = await loadPro(env, bot.id);
+        await env.DB.prepare("INSERT INTO biz_settings (bot_id, uploads) VALUES (?, ?) ON CONFLICT(bot_id) DO UPDATE SET uploads = excluded.uploads").bind(bot.id, q.uploads ? 1 : 0).run();
         await savePro(env, bot.id, { ...cur, audience: list(q.audience, 5, 60), suggestions: list(q.suggestions, 6, 100), example_q: noEmoji(clean(q.example_q, 120)), example_a: noEmoji(clean(q.example_a, 280)), cta: noEmoji(clean(q.cta, 120)) });
       }
       return json({ success: true });
+    }
+    const fm = sub.match(/^\/file\/([a-f0-9]{24})$/);
+    if (fm && request.method === "GET") {
+      const f = await env.DB.prepare("SELECT r2_key, content_type FROM biz_files WHERE id = ? AND bot_id = ?").bind(fm[1], bot.id).first<{ r2_key: string; content_type: string }>();
+      const obj = f && env.PHOTOS ? await env.PHOTOS.get(f.r2_key) : null;
+      if (!f || !obj) return json({ error: "Photo not found." }, 404);
+      return new Response(obj.body, { headers: { "Content-Type": f.content_type, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'", "Cache-Control": "private, no-store" } });
     }
     if (sub === "/refresh" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);

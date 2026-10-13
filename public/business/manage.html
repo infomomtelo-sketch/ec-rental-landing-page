@@ -112,10 +112,12 @@
         var pe = el('input'); pe.value = ps.example_q || ''; pe.maxLength = 120; pe.placeholder = 'Example question a customer might ask';
         var pn = el('textarea'); pn.value = ps.example_a || ''; pn.maxLength = 280; pn.placeholder = 'How Tello should answer it (use facts you know are true)'; pn.style.minHeight = '70px';
         var pt = el('input'); pt.value = ps.cta || ''; pt.maxLength = 120; pt.placeholder = 'Example: Ask for your free quote any time.';
-        pc.appendChild(field('Who Tello is here for', pa)); pc.appendChild(field('Suggested questions (shown as buttons in the chat)', pq)); pc.appendChild(field('Example conversation: question', pe)); pc.appendChild(field('Example conversation: answer', pn)); pc.appendChild(field('Closing line on the last slide', pt));
+        var up = el('input'); up.type = 'checkbox'; up.checked = !!ps.uploads; up.style.cssText = 'width:auto;margin-right:.5rem';
+        var upl = el('label', ''); upl.style.cssText = 'flex-direction:row;align-items:center;font-weight:600'; upl.appendChild(up); upl.appendChild(document.createTextNode('Let customers attach a photo when they message my team'));
+        var upn = el('p', 'small-note', 'Off by default. Photos are private: only you can open them from this page. Do not turn this on for health care or medical businesses, or if customers might send IDs or personal documents.'); pc.appendChild(field('Suggested questions (shown as buttons in the chat)', pq)); pc.appendChild(field('Example conversation: question', pe)); pc.appendChild(field('Example conversation: answer', pn)); pc.appendChild(field('Closing line on the last slide', pt)); pc.appendChild(upl); pc.appendChild(upn);
         var r3 = el('div', 'row'), sv = el('button', 'btn small', 'Save meet page'); sv.type = 'button'; var m3 = el('p', 'small-note', '');
         sv.addEventListener('click', function () { sv.disabled = true; var lines = function (t) { return t.split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
-          api('', 'PUT', { business: d.business, facts: d.facts, extra: d.extra, greeting: d.greeting, pro: { audience: lines(pa.value), suggestions: lines(pq.value), example_q: pe.value, example_a: pn.value, cta: pt.value } })
+          api('', 'PUT', { business: d.business, facts: d.facts, extra: d.extra, greeting: d.greeting, pro: { uploads: up.checked, audience: lines(pa.value), suggestions: lines(pq.value), example_q: pe.value, example_a: pn.value, cta: pt.value } })
             .then(function () { m3.textContent = 'Saved.'; m3.className = 'small-note ok'; sv.disabled = false; }).catch(function (e) { m3.textContent = e.message; m3.className = 'err'; sv.disabled = false; }); });
         r3.appendChild(sv); pc.appendChild(r3); pc.appendChild(m3);
       }
@@ -123,7 +125,7 @@
 
       var leads = el('section', 'card'); leads.appendChild(el('h2', '', 'Customer messages and leads'));
       if (!d.leads.length) leads.appendChild(el('p', 'small-note', 'No one has left their details yet. When a customer gives a phone number or email in the chat, it shows here and is emailed to you.'));
-      d.leads.forEach(function (l) { var x = el('div', 'lead'); var bb = el('b', '', l.contact); x.appendChild(bb); x.appendChild(el('small', '', (l.name ? l.name + ' - ' : '') + fmt(l.created_at))); x.appendChild(el('pre', '', l.message)); leads.appendChild(x); });
+      d.leads.forEach(function (l) { var x = el('div', 'lead'); var bb = el('b', '', l.contact); x.appendChild(bb); x.appendChild(el('small', '', (l.name ? l.name + ' - ' : '') + fmt(l.created_at))); x.appendChild(el('pre', '', l.message)); if (l.file_id) { var pl = el('a', 'btn small ghost', 'View photo'); pl.href = '/api/biz/manage/file/' + l.file_id + '?t=' + encodeURIComponent(tok); pl.target = '_blank'; pl.rel = 'noopener'; x.appendChild(pl); } leads.appendChild(x); });
       app.appendChild(leads);
     }
     function load() {
