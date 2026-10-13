@@ -36,7 +36,7 @@
 
 
   // Tello's voice: the browser's own text-to-speech. Nothing is recorded or sent anywhere.
-  var synth = window.speechSynthesis, canSpeak = !!synth && 'SpeechSynthesisUtterance' in window, speakingNow = false;
+  var synth = window.speechSynthesis, canSpeak = !!synth && 'SpeechSynthesisUtterance' in window, speakingNow = false, canVoice = canSpeak || typeof Audio !== 'undefined';
   function voiceOn() { try { return localStorage.getItem('ec_tello_voice') !== 'off'; } catch (e) { return true; } }
   function setVoice(on) { try { localStorage.setItem('ec_tello_voice', on ? 'on' : 'off'); } catch (e) {} }
   function pickVoice() {
@@ -44,31 +44,70 @@
     var nice = vs.filter(function (v) { return /Samantha|Google US English|Aria|Jenny|Zira|Ava|Allison|Female/i.test(v.name); })[0];
     return nice || vs[0] || null;
   }
-  function stop() { if (canSpeak) { synth.cancel(); } speakingNow = false; document.querySelectorAll('.tb-listen').forEach(function (b) { b.textContent = 'Listen'; }); }
+  function stop() { runId++; try { if (player) { player.pause(); player.onended = player.onerror = null; } } catch (e) {} if (canSpeak) { synth.cancel(); } speakingNow = false; document.querySelectorAll('.tb-listen').forEach(function (b) { b.textContent = 'Listen'; }); }
   function speech(data) {
-    var items = (data && data.items) || [], hello = (data && data.name ? 'Good ' + partOfDay() + ', ' + data.name + '. ' : 'Good ' + partOfDay() + '. ') + "I'm Tello. ";
-    if (!items.length) return hello + 'All clear. Nothing needs you today.';
+    var items = (data && data.items) || [], hello = (data && data.name ? 'Good ' + partOfDay() + ', ' + data.name + '. ' : 'Good ' + partOfDay() + '. ') + "It's Tello. ";
+    if (!items.length) return hello + "You're all caught up. Nothing needs you today.";
     var n = items.filter(function (i) { return i.urgency !== 'info'; }).length;
-    var out = hello + (n ? (n === 1 ? 'One thing needs you today. ' : n + ' things need you today. ') : 'Nothing urgent today. ');
-    items.slice(0, 4).forEach(function (it) { out += it.title + '. ' + (it.detail || '') + ' '; });
+    var out = hello + (n ? (n === 1 ? "Here's the one thing that needs you today. " : "Here's what needs you today. ") : "Nothing urgent today, just a few notes. ");
+    items.slice(0, 4).forEach(function (it) { out += it.title.replace(/[.!?]+$/, '') + '. ' + (it.detail ? it.detail.replace(/[.!?]*\s*$/, '') + '. ' : ''); });
     if (items.length > 4) out += 'And ' + (items.length - 4) + ' more on your dashboard.';
     return out;
   }
-  function say(text) {
+  // Natural voice first: the same Workers AI voice the video maker uses, one short chunk at a time.
+  // If it is unavailable or blocked, fall back to the browser's own voice so Tello is never silent.
+  var player = null, runId = 0, SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  function chunks(text) {
+    var parts = text.match(/[^.!?]+[.!?]+\s*|[^.!?]+$/g) || [text], out = [], cur = '';
+    parts.forEach(function (p) {
+      if ((cur + p).length > 280 && cur) { out.push(cur.trim()); cur = ''; }
+      cur += p;
+    });
+    if (cur.trim()) out.push(cur.trim());
+    return out.slice(0, 8);
+  }
+  var voiceToken = '';
+  function fetchClip(t) {
+    var shared = function () { return fetch('/api/public/video-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t.slice(0, 320) }) })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : null; }).catch(function () { return null; }); };
+    if (!voiceToken) return shared();
+    return fetch('/api/tello/voice', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + voiceToken }, body: JSON.stringify({ text: t.slice(0, 320) }) })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { return d && d.audio ? d.audio : shared(); }).catch(shared);
+  }
+  function robotSay(text) {
     if (!canSpeak || !text) return;
-    synth.cancel(); var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1; var v = pickVoice(); if (v) u.voice = v;
+    synth.cancel(); var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.96; u.pitch = 1.03; var v = pickVoice(); if (v) u.voice = v;
     u.onend = u.onerror = function () { stop(); };
     speakingNow = true; synth.speak(u);
   }
+  function say(text) {
+    if (!text) return;
+    var id = ++runId; speakingNow = true;
+    try { if (player) player.pause(); player = new Audio(); player.src = SILENT; var pr = player.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { player = null; }
+    var clips = chunks(text).map(fetchClip);
+    var i = 0;
+    function next() {
+      if (id !== runId) return;
+      if (i >= clips.length) { stop(); return; }
+      clips[i++].then(function (src) {
+        if (id !== runId) return;
+        if (!src || !player) { if (i === 1) { robotSay(text); } else { stop(); } return; }
+        player.onended = next; player.onerror = function () { if (i === 1) robotSay(text); else stop(); };
+        player.src = src;
+        var p = player.play(); if (p && p.catch) p.catch(function () { if (i === 1) robotSay(text); else stop(); });
+      });
+    }
+    next();
+  }
   function listen(data, btn) { if (speakingNow) { stop(); return; } say(speech(data)); if (btn) btn.textContent = 'Stop'; }
   // Called right after the landlord signs in with the login button (a tap, so the browser allows sound).
-  function greet(token) { if (!canSpeak || !voiceOn()) return; load(token).then(function (d) { if (voiceOn()) say(speech(d)); }).catch(function () {}); }
+  function greet(token) { if (!canVoice || !voiceOn()) return; load(token).then(function (d) { if (voiceOn()) say(speech(d)); }).catch(function () {}); }
 
   function render(el, data, onNav, opts) {
     opts = opts || {};
     var items = (data && data.items) || [], limit = opts.limit || 5, hello = data && data.name ? 'Good ' + partOfDay() + ', ' + esc(data.name) + '.' : 'Good ' + partOfDay() + '.';
     var urgent = items.filter(function (i) { return i.urgency !== 'info'; }).length;
-    var html = '<div class="tb"><div class="tb-head"><strong>' + hello + '</strong>' + (canSpeak ? '<button type="button" class="tb-listen" aria-label="Listen to Tello read your briefing">Listen</button>' : '<span>What needs you</span>') + '</div><div class="tb-list">';
+    var html = '<div class="tb"><div class="tb-head"><strong>' + hello + '</strong>' + (canVoice ? '<button type="button" class="tb-listen" aria-label="Listen to Tello read your briefing">Listen</button>' : '<span>What needs you</span>') + '</div><div class="tb-list">';
     if (!items.length) html += '<div class="tb-item info" style="cursor:default"><span class="tb-ico">' + icon('clear') + '</span><span><span class="tb-t">All clear. Nothing needs you today.</span><span class="tb-d" style="display:block">Rent, leases, repairs and applications are all up to date.</span></span></div>';
     items.forEach(function (it, n) {
       html += '<button type="button" class="tb-item ' + esc(it.urgency) + '" data-page="' + esc(it.page) + '"' + (n >= limit ? ' hidden' : '') + '><span class="tb-ico">' + icon(it.kind) + '</span><span><span class="tb-t"><span class="tb-tag">' + LABEL[it.urgency] + '</span>' + esc(it.title) + '</span><span class="tb-d" style="display:block">' + esc(it.detail) + '</span></span></button>';
@@ -76,7 +115,7 @@
     html += '</div>';
     if (items.length > limit) html += '<button type="button" class="tb-more">Show all ' + items.length + '</button>';
     if (opts.onMail) html += '<label class="tb-mail"><input type="checkbox"' + (data.morning_email ? ' checked' : '') + ' /> Email me this every morning' + (urgent ? '' : ' (only on days something needs you)') + '</label>';
-    if (canSpeak && opts.onMail) html += '<label class="tb-mail"><input type="checkbox" class="tb-voice"' + (voiceOn() ? ' checked' : '') + ' /> Tello speaks my briefing when I sign in</label>';
+    if (canVoice && opts.onMail) html += '<label class="tb-mail"><input type="checkbox" class="tb-voice"' + (voiceOn() ? ' checked' : '') + ' /> Tello speaks my briefing when I sign in</label>';
     html += '</div>';
     el.innerHTML = html;
     el.querySelectorAll('.tb-item[data-page]').forEach(function (b) { b.addEventListener('click', function () { if (onNav) onNav(b.getAttribute('data-page')); }); });
@@ -89,6 +128,7 @@
   }
   function partOfDay() { var h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; }
   function load(token) {
+    voiceToken = token || voiceToken;
     return fetch('/api/tello/briefing', { headers: { Authorization: 'Bearer ' + token } }).then(function (r) { if (!r.ok) throw new Error('briefing ' + r.status); return r.json(); });
   }
   function setMorningEmail(token, on, done) {
