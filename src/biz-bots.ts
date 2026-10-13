@@ -3,9 +3,9 @@
 // (/embed/<id>.js) for their own site. Customers who leave a phone or email become leads, emailed to the owner.
 // Owners manage the bot from a private link (no password); the plan is $19/month after a 7-day free trial, billed on
 // EC Rental's own Stripe account (never Title 22's).
-import { stripe, billingEnabled, type BillingEnv } from "./billing";
+import { stripe, billingEnabled, ensureAnyWebhook, type BillingEnv } from "./billing";
 import { fetchPage } from "./video-maker";
-import { handleTelloHub, type HubEnv } from "./tello-hub";
+import { handleTelloHub, claudeReply, type HubEnv } from "./tello-hub";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface BotEnv extends BillingEnv { AI?: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
@@ -319,16 +319,19 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (pub[2] === "chat" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Too many messages. Please wait a minute." }, 429);
       if (!botActive(bot)) return json({ error: "This assistant is paused. Please contact the business directly." }, 403);
-      let body: any; try { const t = await request.text(); if (t.length > 12000) return json({ error: "That message is too long." }, 413); body = JSON.parse(t); } catch { return json({ error: "Bad request." }, 400); }
-      const msgs: Msg[] = (Array.isArray(body.messages) ? body.messages : []).filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m: any) => ({ role: m.role, content: clean(m.content, 600) })).filter((m: Msg) => m.content).slice(-10);
+      let body: any; try { const t = await request.text(); if (t.length > 40000) return json({ error: "That message is too long." }, 413); body = JSON.parse(t); } catch { return json({ error: "Bad request." }, 400); }
+      const msgs: Msg[] = (Array.isArray(body.messages) ? body.messages : []).filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m: any) => ({ role: m.role, content: clean(m.content, 1500) })).filter((m: Msg) => m.content).slice(-20);
+      while (msgs.length && msgs[0].role !== "user") msgs.shift(); // Claude needs the conversation to start with the customer
       if (!msgs.length || msgs[msgs.length - 1].role !== "user") return json({ error: "Type a message first." }, 400);
       if (!(await useToday(env, bot.id))) return json({ reply: "We've had a lot of messages today. Please contact the business directly and they'll help you." });
-      if (!env.AI) return json({ error: "The assistant is not available right now." }, 503);
-      let reply = "";
-      try {
-        const out = await env.AI.run(MODEL as any, { messages: [{ role: "system", content: CHAT_SYSTEM(bot) }, ...msgs], max_tokens: 400, temperature: 0.3 } as any) as any;
-        reply = noEmoji(clean(out?.response ?? out?.result?.response ?? "", 900));
-      } catch (err) { console.error("[biz-bots chat]", err instanceof Error ? err.message : err); }
+      // Claude first (tello-hub.ts, its own daily budget), then the free Workers AI model so the chat never goes down.
+      let reply = noEmoji(clean(await claudeReply(env as unknown as HubEnv, CHAT_SYSTEM(bot), msgs, 700), 1500));
+      if (!reply && env.AI) {
+        try {
+          const out = await env.AI.run(MODEL as any, { messages: [{ role: "system", content: CHAT_SYSTEM(bot) }, ...msgs], max_tokens: 400, temperature: 0.3 } as any) as any;
+          reply = noEmoji(clean(out?.response ?? out?.result?.response ?? "", 900));
+        } catch (err) { console.error("[biz-bots chat]", err instanceof Error ? err.message : err); }
+      }
       if (!reply) return json({ error: "Sorry, I could not answer just now. Please try again." }, 503);
       await saveLead(env, bot, msgs, notify).catch((err) => console.error("[biz-bots lead]", err));
       return json({ reply });
@@ -385,6 +388,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (sub === "/checkout" && request.method === "POST") {
       if (!billingEnabled(env)) return json({ error: "Billing is not available yet." }, 503);
       if (GOOD.includes(bot.status)) return json({ error: "Your plan is already active." }, 400);
+      await ensureAnyWebhook(env, ORIGIN); // without a webhook, a paid plan would never reach the bot and it would pause after the trial
       const plan: Plan = body.plan === "pro" ? "pro" : "starter", cents = plan === "pro" ? PRO_PRICE.cents : BOT_PRICE.cents;
       const trialEnd = Math.floor(Date.parse(bot.trial_ends) / 1000);
       const stillTrial = trialEnd > Math.floor(Date.now() / 1000) + 3600; // Stripe needs the trial end to be in the future

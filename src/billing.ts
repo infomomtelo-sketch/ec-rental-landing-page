@@ -178,6 +178,15 @@ export function introEnd(now = new Date()): Date {
   return end;
 }
 
+/** For checkouts outside the landlord flow (Tello for your business): makes sure some webhook endpoint exists for this
+ *  key, so paid plans are reported back. Reuses one the site already created rather than adding a second endpoint
+ *  (which would deliver every event twice). */
+export async function ensureAnyWebhook(env: BillingEnv, origin: string): Promise<void> {
+  if (env.STRIPE_WEBHOOK_SECRET) return;
+  if ((await webhookSecrets(env)).length) return;
+  await ensureWebhook(env, origin);
+}
+
 /** A Stripe Checkout page for the plan. New customers get the intro offer (Solo) or the free trial; returning ones don't. */
 export async function createCheckout(env: BillingEnv, user: BillingUser, plan: string, origin: string): Promise<string> {
   await ensureWebhook(env, origin);
