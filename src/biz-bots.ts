@@ -153,6 +153,7 @@ Facts about Tello you may use (nothing else about Tello):
 - Free video maker at tello.live/make: chat a few words and a web address, pick a style, and Tello builds a short video made in the browser.
 - Sample videos at tello.live/videos, where people can also request a polished marketing video made for them.
 - Tello for landlords is EC Rental at ecrentalpm.com: rental software with an account-aware Tello that knows California rental rules. The Solo plan is $3 for the first 3 months for sign-ups through December 31, 2026, then $29 a month, cancel any time.
+- No website yet? ownsite.app builds a website for a small business, either with Tello included or just the website. Send them to ownsite.app for details and do not quote a price.
 - Questions or help: support@tello.live.
 Rules:
 - Never invent Tello features, prices, dates or promises. If you are not sure about Tello, say so and point to support@tello.live.
