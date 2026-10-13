@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Hidden from search engines until real partner links are added below. Remove this line when the list has links. -->
+  <meta name="robots" content="noindex" />
+  <title>Recommended tools | Tello</title>
+  <meta name="description" content="Tools we recommend for landlords and small businesses." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.1); }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
+    a { color: var(--gold); }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    header a { color: var(--text); font-weight: 800; text-decoration: none; letter-spacing: .02em; font-size: 1.15rem; } header span { color: var(--gold); }
+    h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); line-height: 1.1; letter-spacing: -.02em; margin: 2rem 0 .6rem; }
+    h2 { font-size: 1.05rem; color: var(--gold); text-transform: uppercase; letter-spacing: .1em; margin: 2rem 0 .8rem; }
+    .lede { color: var(--muted); max-width: 620px; }
+    .notice { margin-top: 1.2rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.04); font-size: .92rem; color: var(--text); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+    .card { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; gap: .4rem; }
+    .card h3 { font-size: 1.1rem; } .card p { color: var(--muted); font-size: .93rem; flex: 1; }
+    .card a.go { display: inline-block; margin-top: .4rem; background: var(--gold); color: var(--ink); font-weight: 700; text-decoration: none; border-radius: 999px; padding: .55rem 1.1rem; text-align: center; }
+    .card a.go:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .empty { color: var(--muted); }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; color: var(--muted); font-size: .85rem; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a href="/">tello<span>.live</span></a></div></header>
+  <main class="wrap">
+    <h1>Tools we recommend</h1>
+    <p class="lede">Software we think landlords and small businesses will find useful. We only list tools that fit what you do.</p>
+    <p class="notice"><strong>Disclosure:</strong> some links on this page are affiliate links. If you sign up through one, we may earn a commission at no extra cost to you. It does not change what we recommend.</p>
+    <div id="list"></div>
+  </main>
+  <footer><div class="wrap"><a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Questions? <a href="mailto:info@ecrentalpm.com">info@ecrentalpm.com</a></div></footer>
+  <script>
+  // Add each partner here once you have approved affiliate link. category groups the cards; url is your affiliate link.
+  // Example: { name: 'Example Co', category: 'Tenant screening', blurb: 'One sentence on why a landlord would use it.', url: 'https://example.com/?ref=you' }
+  var PARTNERS = [];
+  (function () {
+    var list = document.getElementById('list');
+    function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+    if (!PARTNERS.length) { list.appendChild(el('p', 'empty', 'We are adding recommended tools soon.')); return; }
+    var cats = {}; PARTNERS.forEach(function (p) { (cats[p.category] = cats[p.category] || []).push(p); });
+    Object.keys(cats).forEach(function (c) {
+      list.appendChild(el('h2', '', c)); var g = el('div', 'grid');
+      cats[c].forEach(function (p) {
+        var card = el('div', 'card'); card.appendChild(el('h3', '', p.name)); card.appendChild(el('p', '', p.blurb));
+        var a = el('a', 'go', 'Visit ' + p.name); a.href = p.url; a.target = '_blank'; a.rel = 'sponsored noopener'; card.appendChild(a); g.appendChild(card);
+      });
+      list.appendChild(g);
+    });
+  })();
+  </script>
+</body>
+</html>
