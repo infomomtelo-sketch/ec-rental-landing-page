@@ -6,8 +6,8 @@
   if (window.ECTelloTalk) return;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var css = document.createElement('style');
-  css.textContent = 'button.tt-mic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:2.4rem;min-width:2.4rem;height:auto;padding:0!important;border-radius:10px;border:1px solid rgba(255,255,255,.25)!important;background:transparent!important;color:inherit!important;cursor:pointer}'
-    + 'button.tt-mic.on{background:#ffd23f!important;color:#050505!important;border-color:#ffd23f!important;animation:ttpulse 1.2s ease-in-out infinite}'
+  css.textContent = 'button.tt-mic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:2.5rem;min-width:2.5rem;height:2.5rem;align-self:center;padding:0!important;border-radius:999px;border:1.5px solid currentColor!important;opacity:.8;background:transparent!important;color:inherit!important;cursor:pointer}'
+    + 'button.tt-mic:hover{opacity:1}button.tt-mic.on{opacity:1;background:#ffd23f!important;color:#050505!important;border-color:#ffd23f!important;animation:ttpulse 1.2s ease-in-out infinite}'
     + 'button.tt-mic.talk{border-color:#ffd23f!important}'
     + '@keyframes ttpulse{50%{box-shadow:0 0 0 6px rgba(255,210,63,.25)}}@media (prefers-reduced-motion:reduce){button.tt-mic.on{animation:none}}'
     + 'button.tt-mic:focus-visible{outline:2px solid #ffd23f;outline-offset:2px}';
