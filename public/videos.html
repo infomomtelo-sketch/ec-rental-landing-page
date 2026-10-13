@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --cream: #f7f3ea; --text: #e9efe9; --muted: #a9bdb3; }
+    :root { --ink: #050505; --deep: #141414; --gold: #ffd23f; --cream: #f7f3ea; --text: #f2f2f2; --muted: #9ea3a7; }
     body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
     a { color: inherit; }
     .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
@@ -32,7 +32,7 @@
     .btn:hover { filter: brightness(1.07); }
     .btn.ghost { background: transparent; color: var(--text); border: 1.5px solid rgba(255,255,255,0.3); }
     .hero { padding: 4rem 0 2.5rem; position: relative; overflow: hidden; }
-    .hero::before { content: ""; position: absolute; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(232,162,61,0.22), transparent 65%); top: -220px; right: -120px; }
+    .hero::before { content: ""; position: absolute; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 210, 63,0.22), transparent 65%); top: -220px; right: -120px; }
     .hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: 2.5rem; align-items: center; }
     .kick { color: var(--gold); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; }
     h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.08; margin: 0.6rem 0 1rem; letter-spacing: -0.02em; }
@@ -52,7 +52,7 @@
     .sub { color: var(--muted); margin-bottom: 1.6rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
     .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; overflow: hidden; text-align: left; color: inherit; font: inherit; cursor: pointer; padding: 0; display: flex; flex-direction: column; }
-    .card:hover { border-color: rgba(232,162,61,0.6); }
+    .card:hover { border-color: rgba(255, 210, 63,0.6); }
     .thumb { position: relative; aspect-ratio: 16 / 9; background: #000; }
     .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .thumb .play i { width: 52px; height: 52px; }
@@ -66,7 +66,7 @@
     .step::before { counter-increment: s; content: counter(s); display: flex; width: 34px; height: 34px; border-radius: 50%; background: var(--deep); color: var(--gold); font-weight: 800; align-items: center; justify-content: center; margin-bottom: 0.7rem; }
     .step h3 { font-size: 1.05rem; margin-bottom: 0.25rem; }
     .step p { color: var(--muted); font-size: 0.93rem; }
-    .final { text-align: center; background: linear-gradient(135deg, var(--deep), #0e2c24); border-radius: 22px; padding: 2.6rem 1.25rem; margin: 1rem 0 3rem; border: 1px solid rgba(232,162,61,0.25); }
+    .final { text-align: center; background: linear-gradient(135deg, var(--deep), #101010); border-radius: 22px; padding: 2.6rem 1.25rem; margin: 1rem 0 3rem; border: 1px solid rgba(255, 210, 63,0.25); }
     .final .cta { justify-content: center; }
     footer { border-top: 1px solid rgba(255,255,255,0.08); padding: 1.5rem 0 2rem; color: var(--muted); font-size: 0.85rem; }
     footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -74,25 +74,25 @@
   </style>
 <style>
     .proof { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
-    .proof a.pc { display: flex; flex-direction: column; gap: .35rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.2rem; color: #e9efe9; text-decoration: none; }
-    .proof a.pc:hover, .proof a.pc:focus-visible { border-color: rgba(232,162,61,0.7); outline: none; }
-    .proof .pt { color: #e8a23d; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .72rem; }
-    .proof h3 { font-size: 1.1rem; } .proof p { color: #a9bdb3; font-size: .93rem; flex: 1; }
-    .proof .go { color: #e8a23d; font-weight: 700; font-size: .92rem; margin-top: .4rem; }
+    .proof a.pc { display: flex; flex-direction: column; gap: .35rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.2rem; color: #f2f2f2; text-decoration: none; }
+    .proof a.pc:hover, .proof a.pc:focus-visible { border-color: rgba(255, 210, 63,0.7); outline: none; }
+    .proof .pt { color: #ffd23f; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .72rem; }
+    .proof h3 { font-size: 1.1rem; } .proof p { color: #9ea3a7; font-size: .93rem; flex: 1; }
+    .proof .go { color: #ffd23f; font-weight: 700; font-size: .92rem; margin-top: .4rem; }
   </style>
 <style>
     .three { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
     .three .tc { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
     .three .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; margin-right: .5rem; vertical-align: -1px; }
-    .three .gold .dot { background: #e8a23d; } .three .green .dot { background: #3fae7a; } .three .app .dot { background: #e9efe9; }
-    .three h3 { font-size: 1.1rem; } .three .tag { color: #a9bdb3; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    .three p { color: #a9bdb3; font-size: .93rem; }
-    .three .st { margin-top: auto; padding-top: .4rem; font-weight: 700; font-size: .85rem; color: #e8a23d; }
-    .three .soon .st { color: #a9bdb3; }
+    .three .gold .dot { background: #ffd23f; } .three .green .dot { background: #46d39a; } .three .app .dot { background: #f2f2f2; }
+    .three h3 { font-size: 1.1rem; } .three .tag { color: #9ea3a7; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .three p { color: #9ea3a7; font-size: .93rem; }
+    .three .st { margin-top: auto; padding-top: .4rem; font-weight: 700; font-size: .85rem; color: #ffd23f; }
+    .three .soon .st { color: #9ea3a7; }
   </style>
 </head>
 <body>
-  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="28" height="28" alt="" style="vertical-align:-7px;margin-right:8px" />tello<span>.live</span></a><button type="button" class="btn" data-video-request>Request a video</button></div></header>
+  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="38" height="38" alt="" style="vertical-align:-11px;margin-right:9px" />tello<span>.live</span></a><button type="button" class="btn" data-video-request>Request a video</button></div></header>
   <main>
     <section class="hero"><div class="wrap">
       <div>
@@ -124,7 +124,7 @@
 
     <section class="wrap" id="at-work" style="padding-top:1.5rem;padding-bottom:1rem">
       <h2>See Tello at work</h2>
-      <p style="color:#a9bdb3;max-width:560px">Tello is already working on real sites. Open them and try Tello yourself.</p>
+      <p style="color:#9ea3a7;max-width:560px">Tello is already working on real sites. Open them and try Tello yourself.</p>
       <div class="proof">
         <a class="pc" href="https://ecrentalpm.com" target="_blank" rel="noopener"><span class="pt">Tello for landlords</span><h3>ecrentalpm.com</h3><p>Ask Tello about rent, repairs or California rental rules, and see how she works from a landlord's account.</p><span class="go">Open ecrentalpm.com</span></a>
         <a class="pc" href="https://title-22.com" target="_blank" rel="noopener"><span class="pt">Tello for a company</span><h3>title-22.com</h3><p>Tello answers questions about the company any time, day or night, and passes every message to the team.</p><span class="go">Open title-22.com</span></a>
@@ -133,7 +133,7 @@
     </section>
     <section class="wrap" id="three-tellos" style="padding-top:1.5rem;padding-bottom:1rem">
       <h2>Three Tellos, three jobs</h2>
-      <p style="color:#a9bdb3;max-width:600px">Every Tello is an AI assistant, but each one works in a different place for a different person.</p>
+      <p style="color:#9ea3a7;max-width:600px">Every Tello is an AI assistant, but each one works in a different place for a different person.</p>
       <div class="three">
         <div class="tc gold"><span class="tag">Answers before you join</span><h3><span class="dot"></span>Gold Tello</h3><p>Works on your website and your private meet page. Answers customers from your public information, takes their contact details and sends them to you. It never makes deals, sets prices or promises dates.</p><span class="st">Live on tello.live</span></div>
         <div class="tc green soon"><span class="tag">Works inside your business</span><h3><span class="dot"></span>Green Tello</h3><p>Works behind the scenes for you and your team, with the private details only you can see. A real person still makes every decision.</p><span class="st">Coming soon</span></div>

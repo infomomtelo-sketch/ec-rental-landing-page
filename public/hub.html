@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --ink: #0b1f19; --deep: #123a30; --gold: #e8a23d; --text: #e9efe9; --muted: #a9bdb3; --line: rgba(255,255,255,0.12); }
+    :root { --ink: #050505; --deep: #141414; --gold: #ffd23f; --text: #f2f2f2; --muted: #9ea3a7; --line: rgba(255,255,255,0.12); }
     body { font-family: 'Inter', system-ui, sans-serif; background: var(--ink); color: var(--text); line-height: 1.5; }
     a { color: var(--gold); }
     .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
@@ -52,7 +52,7 @@
     h2 { font-size: 1.05rem; color: var(--gold); text-transform: uppercase; letter-spacing: .1em; margin: 2.8rem 0 1rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
     .card { display: flex; flex-direction: column; gap: .4rem; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; color: var(--text); text-decoration: none; }
-    .card:hover, .card:focus-visible { border-color: rgba(232,162,61,.7); outline: none; }
+    .card:hover, .card:focus-visible { border-color: rgba(255, 210, 63,.7); outline: none; }
     .card svg { color: var(--gold); } .card h3 { font-size: 1.05rem; } .card p { color: var(--muted); font-size: .92rem; flex: 1; } .card .go { color: var(--gold); font-weight: 700; font-size: .9rem; }
     .hv-row { max-width: none; grid-template-columns: repeat(auto-fit, minmax(240px, 320px)); }
     .faq details { border-bottom: 1px solid var(--line); padding: .9rem 0; } .faq summary { cursor: pointer; font-weight: 700; } .faq p { margin-top: .5rem; color: var(--muted); }
@@ -61,10 +61,11 @@
   </style>
 </head>
 <body>
-  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="28" height="28" alt="" style="vertical-align:-7px;margin-right:8px" />tello<span>.live</span></a>
+  <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="38" height="38" alt="" style="vertical-align:-11px;margin-right:9px" />tello<span>.live</span></a>
     <nav aria-label="Main"><a href="/business">Tello for your business</a><a href="/make">Make a video</a><a href="/videos">Videos</a><a href="https://ecrentalpm.com">Tello for landlords</a></nav></div></header>
   <main class="wrap">
     <section class="hero">
+      <img src="/brand/tello-hero.svg" width="250" height="289" alt="Tello" style="display:block;margin:-50px auto -36px" />
       <div class="kick">Meet Tello</div>
       <h1>Ask Tello anything.</h1>
       <p class="lede">Tello answers your customers, makes your videos and keeps you on top of the day. Ask what it can do for you.</p>
