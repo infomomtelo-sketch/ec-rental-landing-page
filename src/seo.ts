@@ -50,7 +50,7 @@ const TELLO_LLMS = `# Tello
 support@tello.live
 `;
 // Blog URLs mirror scripts/blog-posts.json (written by scripts/build-blog.py); add new articles here too.
-const PAGES = ["/", "/listings", "/rent-review", "/rental-calculator", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/blog/", "/blog/move-in-inspection-checklist", "/blog/california-security-deposit-rules", "/blog/california-rent-increase-limits-ab-1482", "/blog/remote-home-inspection-photos", "/blog/how-to-price-your-rental", "/blog/rental-listing-that-rents-fast", "/privacy", "/terms"];
+const PAGES = ["/", "/listings", "/rent-review", "/rental-calculator", "/cap-rate-calculator", "/cash-on-cash-calculator", "/california-rent-increase-calculator", "/tello-inspect", "/tello", "/features/", "/features/tello", "/features/listings", "/features/applications", "/features/inspections", "/features/maintenance", "/features/tenant-portal", "/features/documents", "/features/accounting", "/blog/", "/blog/move-in-inspection-checklist", "/blog/california-security-deposit-rules", "/blog/california-rent-increase-limits-ab-1482", "/blog/remote-home-inspection-photos", "/blog/how-to-price-your-rental", "/blog/rental-listing-that-rents-fast", "/privacy", "/terms"];
 const TYPE_NAMES: Record<string, string> = { HOUSE: "house", CONDO: "condo", TOWNHOUSE: "townhouse" };
 const SCHEMA_TYPES: Record<string, string> = { HOUSE: "SingleFamilyResidence", CONDO: "Apartment", TOWNHOUSE: "House" };
 

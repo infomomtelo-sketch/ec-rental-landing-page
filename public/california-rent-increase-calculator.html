@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>California Rent Increase Calculator (AB 1482) | EC Rental</title>
+  <meta name="description" content="Free California rent increase calculator. See the most you can raise rent under AB 1482 (5% plus CPI, never over 10%) and how much notice to give." />
+  <link rel="canonical" href="https://ecrentalpm.com/california-rent-increase-calculator" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="California Rent Increase Calculator (AB 1482) | EC Rental" />
+  <meta property="og:description" content="How much can you raise rent in California? Check the AB 1482 cap and notice period. Free." />
+  <meta property="og:url" content="https://ecrentalpm.com/california-rent-increase-calculator" />
+  <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"California Rent Increase Calculator","url":"https://ecrentalpm.com/california-rent-increase-calculator","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"Organization","name":"EC Rental Property Management","url":"https://ecrentalpm.com"}}</script>
+  <style>
+    .lead { font-size: 1.1rem; margin: 0.75rem 0 1.25rem; }
+    .calc { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+    .calc .app-form fieldset { gap: 0.6rem; }
+    .calc input { padding: 0.55rem 0.7rem; }
+    .results { position: sticky; top: 5rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; }
+    .results h2 { margin-top: 0; }
+    .big { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+    .big.pos { color: var(--primary); } .big.neg { color: #991b1b; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 1rem 0; }
+    .stats div { background: var(--light); border-radius: 10px; padding: 0.6rem 0.75rem; }
+    .stats small { display: block; color: var(--gray); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .stats b { font-size: 1.15rem; color: var(--dark); }
+    .breakdown { width: 100%; font-size: 0.88rem; border-collapse: collapse; }
+    .breakdown td { padding: 0.3rem 0; border-bottom: 1px solid #eee; }
+    .breakdown td:last-child { text-align: right; font-weight: 600; }
+    .verdict { font-size: 0.92rem; margin-top: 0.75rem; }
+    .emailbox { margin-top: 1.5rem; }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .terms dt { font-weight: 700; margin-top: 0.75rem; }
+    .cta-box { background: var(--primary); color: var(--white); border-radius: var(--radius); padding: 1.25rem; margin: 2rem 0 1rem; }
+    .cta-box h2 { color: var(--white); margin-top: 0; }
+    .cta-box a.primary-btn { background: var(--accent); color: var(--dark); display: inline-block; text-decoration: none; }
+    .mbar { display: none; }
+    @media (max-width: 800px) { .calc { grid-template-columns: 1fr; } .results { position: static; } .app-form .row { flex-direction: column; } .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--primary); color: var(--white); padding: 0.7rem 1rem; justify-content: space-between; align-items: center; font-weight: 700; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); } .mbar a { color: var(--white); } body { padding-bottom: 3.5rem; } }
+  </style>
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap">
+    <h1>California rent increase calculator</h1>
+    <p class="lead">California's Tenant Protection Act (AB 1482) caps rent increases on many rentals at 5% plus the regional CPI change, and never more than 10% in any 12 months. Enter the rent to see your limit and the notice you need. It's free and there's no sign-up.</p>
+
+    <div class="calc">
+      <form id="calcForm" class="app-form" novalidate>
+        <fieldset><legend>The rental</legend>
+          <label>Property name or address (optional)<input name="label" maxlength="200" placeholder="123 Main St" /></label>
+          <label>Lowest monthly rent in the last 12 months ($)<input name="current_rent" type="number" min="0" inputmode="decimal" step="any" value="2000" /></label>
+          <label>Regional CPI change, April to April (%)<input name="cpi_pct" type="number" min="0" inputmode="decimal" step="0.1" max="50" value="3" /></label>
+          <p class="muted small">CPI is the cost-of-living change for your region. Look up this year's April-to-April figure for your area before you raise rent, since it changes every year.</p>
+          <label>Is the property exempt from AB 1482?<select name="exempt"><option value="no">No, or I'm not sure</option><option value="yes">Yes, it's exempt</option></select></label>
+          <p class="muted small">Common exemptions: buildings first occupied in the last 15 years, single-family homes and condos owned by individuals when the lease has the required exemption notice, and an owner-occupied duplex. <a href="/blog/california-rent-increase-limits-ab-1482">Read the full guide</a>.</p>
+          <label>New rent you're planning (optional, $)<input name="proposed_rent" type="number" min="0" inputmode="decimal" step="any" value="" /></label></fieldset>
+      </form>
+
+      <aside class="results" id="results" aria-live="polite">
+        <h2>Most you can charge</h2><div id="big" class="big pos">$0</div><div class="muted small" id="bigsub"></div>
+        <table class="breakdown"><tr><td>Cap this year</td><td id="r1"></td></tr><tr><td>Largest raise</td><td id="r2"></td></tr><tr><td>Notice to give</td><td id="r3"></td></tr></table>
+        <p class="verdict" id="verdict"></p>
+
+        <div class="emailbox">
+          <h2>Email me this report</h2>
+          <form id="emailForm" class="app-form" novalidate>
+            <label>Your name<input name="name" required maxlength="100" autocomplete="name" /></label>
+            <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email" /></label>
+            <label>Phone (optional)<input name="phone" type="tel" maxlength="30" autocomplete="tel" /></label>
+            <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+            <p class="muted small">We'll email you this report. EC Rental may follow up about your rental. We don't sell your information. See our <a href="/privacy">privacy policy</a>.</p>
+            <button class="primary-btn" type="submit" id="emailBtn">Email my report</button>
+            <p id="emailMsg" class="err" hidden></p>
+          </form>
+        </div>
+      </aside>
+    </div>
+
+    <section class="cta-box">
+      <h2>Already own rentals? Run them with Tello.</h2>
+      <p>EC Rental is property management software for landlords anywhere: listings, online applications, e-signing, rent reminders, online rent payments, maintenance requests and tax-ready reports, with Tello, your AI assistant. Start for $3 for your first 3 months.</p>
+      <p style="margin-top:0.75rem"><a class="primary-btn" href="/#subscribe">Start for $3</a></p>
+    </section>
+
+    <section>
+      <h2>What the numbers mean</h2>
+      <dl class="terms">
+        <dt>The cap</dt><dd>Over any 12 months, rent can rise by 5% plus the regional CPI change, or 10%, whichever is lower. It's measured from the lowest rent in the past 12 months, with at most two increases in that time.</dd>
+        <dt>Notice</dt><dd>Give 30 days' written notice for a raise of 10% or less, and 90 days for more than 10% (only possible on exempt properties).</dd>
+        <dt>Local rent control</dt><dd>Some cities, like Los Angeles, San Francisco and Oakland, have stricter limits. Where a local rule is stricter, it applies instead.</dd>
+      </dl>
+      <p class="muted small" style="margin-top:1rem">This is general information from the numbers you enter, not legal advice. Setting rent for a new tenant? <a href="/rent-review">Get a free rent review</a>, or read <a href="/blog/california-rent-increase-limits-ab-1482">AB 1482 explained</a>.</p>
+    </section>
+  </main>
+  <div class="mbar" aria-hidden="true"><span>Max rent <span id="mbig">0</span></span><a href="#results">See results</a></div>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/blog/">Landlord guides</a> · <a href="/rental-calculator">Rental calculator</a> · <a href="/cap-rate-calculator">Cap rate</a> · <a href="/cash-on-cash-calculator">Cash-on-cash</a> · <a href="/california-rent-increase-calculator">CA rent increase</a> · <a href="/rent-review">Free rent review</a> · <a href="/tello-inspect">Tello Inspect</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script>
+    (function() {
+      var form = document.getElementById('calcForm'), last = null, state = null;
+      function v(name) { var n = Number(form.elements[name].value); return isFinite(n) && n > 0 ? n : 0; }
+      function money(n) { return (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US'); }
+      function pct(n) { return isFinite(n) ? n.toFixed(1) + '%' : 'n/a'; }
+      function set(id, t) { document.getElementById(id).textContent = t; }
+      function big(t, neg) { var el = document.getElementById('big'); el.textContent = t; el.className = 'big ' + (neg ? 'neg' : 'pos'); }
+      function verdict(t) { set('verdict', t); }
+      // Same formulas as src/rental-calculator.ts.
+      function run() {
+        var rent=v('current_rent'), cpi=v('cpi_pct'), ex=form.elements.exempt.value==='yes', prop=v('proposed_rent');
+        var cap=Math.min(5+cpi,10), max=rent*(1+cap/100), rp=rent>0&&prop>0?(prop-rent)/rent*100:NaN, notice=isFinite(rp)&&rp>10?90:30;
+        if (ex) { big('No state cap', false); set('bigsub','Exempt properties are not limited by AB 1482. Local rules may still apply.'); set('r1','None'); set('r2','No state limit'); }
+        else { big(money(max), false); set('bigsub','per month, up from '+money(rent)); set('r1',pct(cap)+(5+cpi>10?' (10% ceiling)':' (5% + '+cpi+'% CPI)')); set('r2',money(max-rent)+' a month'); }
+        set('r3', notice+' days in writing');
+        verdict(!rent?'Enter the current rent to see your limit.':!prop?'Raising rent 10% or less needs 30 days\' written notice. More than 10% needs 90 days.':(ex||prop<=max+0.005)?'Your planned rent of '+money(prop)+' ('+pct(rp)+') fits'+(ex?'':' under the cap')+'. Give '+notice+' days\' written notice.':'Your planned rent of '+money(prop)+' is over the cap. The most you can charge is '+money(max)+'.');
+        return {ok: rent>0, mbar: ex?'No cap':money(max), extra:{exempt: ex?'yes':'no'}};
+      }
+      var FIELDS = ['current_rent', 'cpi_pct', 'proposed_rent'];
+      function update() { state = run(); set('mbig', state.mbar); last = {}; FIELDS.forEach(function(k) { last[k] = v(k); }); if (state.extra) Object.keys(state.extra).forEach(function(k) { last[k] = state.extra[k]; }); }
+      form.addEventListener('input', update); form.addEventListener('change', update); update();
+
+      var ef = document.getElementById('emailForm'), btn = document.getElementById('emailBtn'), msg = document.getElementById('emailMsg');
+      ef.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var data = {}; new FormData(ef).forEach(function(val, k) { data[k] = val; });
+        if (!data.name || !/^\S+@\S+\.\S+$/.test(data.email || '')) { msg.textContent = 'Please enter your name and email.'; msg.hidden = false; return; }
+        if (!state || !state.ok) { msg.textContent = 'Please fill in the numbers above first.'; msg.hidden = false; return; }
+        Object.keys(last).forEach(function(k) { data[k] = last[k]; }); data.label = form.elements.label.value; data.tool = 'rent_increase';
+        btn.disabled = true; btn.textContent = 'Sending...'; msg.hidden = true;
+        fetch('/api/public/calculator-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+          .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); })
+          .then(function(d) {
+            ef.innerHTML = '<p class="ok"><b>' + (d.emailed === false ? 'Got it. We saved your report and will email it to you shortly.' : 'Sent! Check your inbox for your report.') + '</b></p><p class="small">Change any number above and send another anytime.</p>';
+          })
+          .catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Email my report'; });
+      });
+    })();
+  </script>
+<script src="/js/track.js" defer></script>
+</body>
+</html>
