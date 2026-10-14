@@ -60,15 +60,15 @@
   function opts(list, first) { return (first ? '<option value="">' + first + '</option>' : '') + list.map(function (t) { return '<option>' + t + '</option>'; }).join(''); }
   function requestForm() {
     var back = document.createElement('div'); back.className = 'hv-back'; back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', 'Request a marketing video');
-    back.innerHTML = '<button type="button" class="hv-close" aria-label="Close">&times;</button><form class="vr-form" novalidate>'
+    back.innerHTML = '<button type="button" class="hv-close" aria-label="Close">&times;</button><form class="vr-form" novalidate toolname="request_marketing_video" tooldescription="Request a quote for a short marketing video for a business, site or app from tello.live. Sends the request to the team, who reply by email within 1 business day. The user reviews the form and submits it.">'
       + '<p class="vr-brand">tello.live</p><h2>Request a marketing video</h2><p class="vr-sub">Like the Tello video: a short story about your business, with voice, music and captions. Tell us what you need and we will get back to you within 1 business day.</p>'
-      + '<div class="vr-two"><label>Your name *<input name="name" required autocomplete="name" /></label><label>Email *<input name="email" type="email" required autocomplete="email" /></label></div>'
-      + '<div class="vr-two"><label>Phone<input name="phone" type="tel" autocomplete="tel" /></label><label>Business or app name *<input name="business" required autocomplete="organization" /></label></div>'
-      + '<label>Website or app link<input name="site_url" placeholder="yoursite.com" /></label>'
-      + '<div class="vr-two"><label>Kind of video *<select name="video_type" required>' + opts(TYPES, 'Pick one') + '</select></label><label>Budget<select name="budget">' + opts(BUDGETS, 'Pick one (optional)') + '</select></label></div>'
-      + '<label>Needed by<input name="deadline" placeholder="e.g. end of November" /></label>'
-      + '<label>What should the video show? *<textarea name="details" rows="4" required placeholder="Who it is for, what your product does, and where you will post it."></textarea></label>'
-      + '<input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px" />'
+      + '<div class="vr-two"><label>Your name *<input name="name" required autocomplete="name" toolparamdescription="The requester\'s name." /></label><label>Email *<input name="email" type="email" required autocomplete="email" toolparamdescription="Email where the team replies." /></label></div>'
+      + '<div class="vr-two"><label>Phone<input name="phone" type="tel" autocomplete="tel" toolparamdescription="Optional phone number." /></label><label>Business or app name *<input name="business" required autocomplete="organization" toolparamdescription="Name of the business or app the video is for." /></label></div>'
+      + '<label>Website or app link<input name="site_url" placeholder="yoursite.com" toolparamdescription="Optional website or app link." /></label>'
+      + '<div class="vr-two"><label>Kind of video *<select name="video_type" required toolparamdescription="The kind of video wanted.">' + opts(TYPES, 'Pick one') + '</select></label><label>Budget<select name="budget" toolparamdescription="Optional budget range.">' + opts(BUDGETS, 'Pick one (optional)') + '</select></label></div>'
+      + '<label>Needed by<input name="deadline" placeholder="e.g. end of November" toolparamdescription="Optional date the video is needed by, in plain words." /></label>'
+      + '<label>What should the video show? *<textarea name="details" rows="4" required toolparamdescription="What the video should show: audience, what the product does, where it will be posted." placeholder="Who it is for, what your product does, and where you will post it."></textarea></label>'
+      + '<input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" toolparamdescription="Always leave empty." style="position:absolute;left:-9999px" />'
       + '<p class="vr-err" role="alert" hidden></p><button type="submit" class="vr-send">Send request</button></form>';
     var form = back.querySelector('form'), err = back.querySelector('.vr-err');
     function close() { back.remove(); document.removeEventListener('keydown', onKey); }
