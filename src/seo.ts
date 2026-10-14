@@ -13,7 +13,7 @@ interface SeoListing {
 const SITE = "https://ecrentalpm.com";
 const TELLO = "https://tello.live";
 // tello.live pages (the Tello front door). Add new public tello.live pages here so the sitemap and search engines find them.
-const TELLO_PAGES = ["/", "/ask", "/models", "/install", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed", "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video", "/social-setup", "/meeting", "/website"];
+const TELLO_PAGES = ["/", "/business", "/models", "/install", "/make", "/videos", "/ai-chatbot-for-small-business", "/free-ai-video-maker", "/how-to-answer-customers-when-your-business-is-closed", "/small-business-website-faq-page", "/how-to-follow-up-with-new-leads", "/how-to-make-a-short-business-video", "/social-setup", "/meeting", "/website"];
 const TELLO_ROBOTS = `User-agent: *
 Allow: /
 Disallow: /api/
@@ -31,9 +31,9 @@ const TELLO_LLMS = `# Tello
 > Tello is an AI assistant for small businesses. It answers customers' questions on a business's website around the clock, takes the details of anyone who wants a quote or a callback, briefs the owner each day, and makes short videos. Not for health care businesses.
 
 ## Pages
-- [Tello for your business](${TELLO}/) (home): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
+- [Tello for your business](${TELLO}/business): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
 - [Pick your Tello](${TELLO}/models): Gold Tello (website chat, available now) and Green Tello (inside your business: available now for landlords in EC Rental, coming soon for other businesses).
-- [Ask Tello](${TELLO}/ask): a free AI chat (daily limits, no sign-up). Ask anything; Tello can search the web with sources, read a web page you link, look at a photo or PDF and answer out loud. Also explains what Tello does, what it costs and where to start.
+- [Ask Tello](${TELLO}/) (home): a free AI chat (daily limits, no sign-up). Ask anything; Tello can search the web with sources, read a web page you link, look at a photo or PDF and answer out loud. Also explains what Tello does, what it costs and where to start.
 - [AI chatbot for small business](${TELLO}/ai-chatbot-for-small-business): how the website chat assistant works.
 - [Free AI video maker](${TELLO}/free-ai-video-maker): chat a few words and a web address to get a short narrated video.
 - [How to answer customers when your business is closed](${TELLO}/how-to-answer-customers-when-your-business-is-closed): after-hours message, FAQ and chat assistant.

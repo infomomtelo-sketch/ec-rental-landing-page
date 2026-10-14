@@ -108,9 +108,9 @@ jobs:
           if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
             files=$(git diff --name-only "$BEFORE" HEAD -- public/hub.html public/business.html public/models.html public/make.html public/videos.html public/ai-chatbot-for-small-business.html public/free-ai-video-maker.html public/how-to-answer-customers-when-your-business-is-closed.html public/small-business-website-faq-page.html public/how-to-follow-up-with-new-leads.html public/how-to-make-a-short-business-video.html public/social-setup.html public/meeting.html public/website.html || true)
           else
-            files="public/business.html"
+            files="public/hub.html"
           fi
-          urls=$(for f in $files; do [ -f "$f" ] || continue; p="${f#public/}"; p="${p%.html}"; [ "$p" = "business" ] && p=""; [ "$p" = "hub" ] && p="ask"; echo "https://tello.live/$p"; done)
+          urls=$(for f in $files; do [ -f "$f" ] || continue; p="${f#public/}"; p="${p%.html}"; [ "$p" = "hub" ] && p=""; echo "https://tello.live/$p"; done)
           if [ -z "$urls" ]; then echo "No tello.live pages changed."; exit 0; fi
           echo "$urls"
           body=$(printf '%s\n' $urls | jq -R . | jq -s '{host: "tello.live", key: "1842a03c0db4f7bd68c1e491cb74e176", keyLocation: "https://tello.live/1842a03c0db4f7bd68c1e491cb74e176.txt", urlList: .}')
