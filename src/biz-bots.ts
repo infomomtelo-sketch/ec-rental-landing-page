@@ -84,7 +84,7 @@ export function looksLikeHealthCare(...texts: string[]): boolean {
   const hits = new Set((texts.join(" ").match(HEALTH_WORDS) || []).map((w) => w.toLowerCase()));
   return hits.size >= 2;
 }
-export const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email info@ecrentalpm.com.";
+export const HEALTH_MSG = "Tello is not available for health care or medical businesses. If this is a mistake, email support@tello.live.";
 
 /** Green Tello, version 1: a spoken-style daily briefing for the owner, built only from their own leads, messages and plan. No email, no AI, nothing guessed. */
 async function buildToday(env: BotEnv, bot: Bot, pro: Pro) {
@@ -495,7 +495,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       if (!bot.subscription_id || !GOOD.includes(bot.status)) return json({ error: "Start a plan first." }, 400);
       const cur = await stripe(env, "GET", "subscriptions/" + bot.subscription_id);
       const item = cur.items?.data?.[0];
-      if (!item) return json({ error: "Could not find your plan. Please email info@ecrentalpm.com." }, 400);
+      if (!item) return json({ error: "Could not find your plan. Please email support@tello.live." }, 400);
       const toPro = body.plan !== "starter", cents = toPro ? PRO_PRICE.cents : BOT_PRICE.cents;
       const s = await stripe(env, "POST", "subscriptions/" + bot.subscription_id, {
         items: [{ id: item.id, price_data: { currency: "usd", unit_amount: cents, recurring: { interval: "month" }, product: item.price?.product } }],
