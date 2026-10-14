@@ -32,8 +32,9 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 function rand(bytes: number): string { const a = new Uint8Array(bytes); crypto.getRandomValues(a); return Array.from(a).map((b) => b.toString(16).padStart(2, "0")).join(""); }
 const botId = () => rand(5); // 10 hex characters
 
-export function botActive(b: Pick<Bot, "status" | "trial_ends">, now = Date.now()): boolean {
-  return GOOD.includes(b.status) || Date.parse(b.trial_ends) > now;
+/** The website chat is free, so an assistant is never paused for lack of a plan (the old trial columns are kept but unused). */
+export function botActive(_b?: Pick<Bot, "status" | "trial_ends">, _now = Date.now()): boolean {
+  return true;
 }
 
 async function loadById(env: BotEnv, id: string): Promise<Bot | null> {
@@ -57,10 +58,9 @@ async function savePro(env: BotEnv, id: string, p: Pro): Promise<void> {
   await env.DB.prepare("INSERT INTO biz_pro (bot_id, plan, audience, suggestions, example_q, example_a, cta, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(bot_id) DO UPDATE SET plan = excluded.plan, audience = excluded.audience, suggestions = excluded.suggestions, example_q = excluded.example_q, example_a = excluded.example_a, cta = excluded.cta, updated_at = excluded.updated_at")
     .bind(id, p.plan, JSON.stringify(p.audience), JSON.stringify(p.suggestions), p.example_q, p.example_a, p.cta, new Date().toISOString()).run();
 }
-/** Pro features are on for paying Pro customers and, so owners can try them, for everyone during the free trial. */
-export function proOn(b: Pick<Bot, "status" | "trial_ends">, pro: Pick<Pro, "plan">, now = Date.now()): boolean {
-  if (GOOD.includes(b.status)) return pro.plan === "pro";
-  return Date.parse(b.trial_ends) > now;
+/** Pro features are on only for customers who already pay for Pro (it is no longer sold). */
+export function proOn(b: Pick<Bot, "status" | "trial_ends">, pro: Pick<Pro, "plan">, _now = Date.now()): boolean {
+  return GOOD.includes(b.status) && pro.plan === "pro";
 }
 
 async function uploadsOn(env: BotEnv, id: string): Promise<boolean> {
@@ -100,9 +100,6 @@ async function buildToday(env: BotEnv, bot: Bot, pro: Pro) {
     items.push(`The newest is ${top.name ? "from " + top.name + ", " : ""}${top.contact ? "at " + top.contact + ", " : ""}who wrote: ${top.snippet}.`);
     if (waiting) items.push(`${waiting} of them ${waiting === 1 ? "has" : "have"} waited more than a day, so please follow up soon.`);
   } else items.push("No one is waiting for a reply right now.");
-  const subscribed = GOOD.includes(bot.status);
-  if (!botActive(bot)) items.push("Your free trial has ended and your assistant is paused. Start a plan to switch it back on.");
-  else if (!subscribed) { const d = Math.max(0, Math.ceil((Date.parse(bot.trial_ends) - now) / DAY)); items.push(`Your free trial ends in ${d} ${d === 1 ? "day" : "days"}.`); }
   if (bot.facts.trim().length < 80) items.push("I do not know much about your business yet. Add your services, prices and hours so I can answer customers.");
   if (proOn(bot, pro) && !pro.suggestions.length) items.push("Add a few suggested questions to your meet page so customers know what to ask.");
   return { items, speech: `Here is today for ${bot.business}. ` + items.join(" "), open };
@@ -297,8 +294,8 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (notify) {
       try {
         await notify(email, `Your Tello assistant for ${business} is ready`,
-          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.</p>`,
-          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.`);
+          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your Tello chat is free, with no card needed.</p>`,
+          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour Tello chat is free, with no card needed.`);
       } catch (err) { console.error("[biz-bots create email]", err); }
       try { await notify("info@ecrentalpm.com", `tello.live: new business assistant, ${business}`, `<p>${esc(business)} (${esc(email)}) set up a Tello assistant. Site: ${esc(site)}</p>`, `${business} (${email}) set up a Tello assistant. Site: ${site}`); } catch { /* best effort */ }
     }
@@ -475,6 +472,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (sub === "/checkout" && request.method === "POST") {
       if (!billingEnabled(env)) return json({ error: "Billing is not available yet." }, 503);
       if (GOOD.includes(bot.status)) return json({ error: "Your plan is already active." }, 400);
+      return json({ error: "The Tello website chat is free, so there is nothing to buy right now." }, 400);
       await ensureAnyWebhook(env, ORIGIN); // without a webhook, a paid plan would never reach the bot and it would pause after the trial
       const plan: Plan = body.plan === "pro" ? "pro" : "starter", cents = plan === "pro" ? PRO_PRICE.cents : BOT_PRICE.cents;
       const trialEnd = Math.floor(Date.parse(bot.trial_ends) / 1000);

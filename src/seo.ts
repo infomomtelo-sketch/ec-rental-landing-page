@@ -31,7 +31,7 @@ const TELLO_LLMS = `# Tello
 > Tello is an AI assistant for small businesses. It answers customers' questions on a business's website around the clock, takes the details of anyone who wants a quote or a callback, briefs the owner each day, and makes short videos. Not for health care businesses.
 
 ## Pages
-- [Tello for your business](${TELLO}/business): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
+- [Tello for your business](${TELLO}/business): set up a chat assistant for your website. free, no card needed.
 - [Pick your Tello](${TELLO}/models): Gold Tello (website chat, available now) and Green Tello (inside your business: available now for landlords in EC Rental, coming soon for other businesses).
 - [Ask Tello](${TELLO}/) (home): a free AI chat (daily limits, no sign-up). Ask anything; Tello can search the web with sources, read a web page you link, look at a photo or PDF and answer out loud. Also explains what Tello does, what it costs and where to start.
 - [AI chatbot for small business](${TELLO}/ai-chatbot-for-small-business): how the website chat assistant works.
