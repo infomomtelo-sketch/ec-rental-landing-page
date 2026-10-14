@@ -51,6 +51,8 @@
 <body>
   <header><div class="wrap"><a class="brand" href="/">tello<span>.live</span></a><span class="small-note" style="margin:0">Private page. Do not share this link.</span></div></header>
   <main class="wrap" id="app"><p class="small-note">Loading...</p></main>
+  <script src="/vendor/qrcode-generator/qrcode.js"></script>
+  <script src="/js/tello-share.js"></script>
   <script>
   (function () {
     var app = document.getElementById('app'), tok = new URLSearchParams(location.search).get('t') || '', data = null;
@@ -157,13 +159,19 @@
         ob.href = '/build?' + new URLSearchParams({ from: 'tello', tello: d.id, business: String(d.business || '').slice(0, 80), about: String(d.extra || d.facts || '').slice(0, 1200) }).toString();
         ow.appendChild(ob); app.appendChild(ow);
       }
+      var link = el('section', 'card'); link.appendChild(el('h2', '', 'Share your chat link'));
+      link.appendChild(el('p', 'small-note', 'The quickest way to start: put this link in your Google Business profile, Instagram or Facebook bio, emails and text replies. No website needed.'));
+      link.appendChild(copyBox(d.chat_url));
+      if (window.TelloShare) link.appendChild(TelloShare.qr(d.chat_url));
+      var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; link.appendChild(tr); app.appendChild(link);
       var share = el('section', 'card'); share.appendChild(el('h2', '', 'Put Tello on your website'));
       share.appendChild(el('p', 'small-note', 'Paste this line before the closing </body> tag of your website. A chat button appears in the corner.'));
       share.appendChild(copyBox(d.embed));
       var how = el('a', '', 'Step by step for WordPress, Wix, Squarespace, Shopify and more'); how.href = '/install?id=' + d.id; how.target = '_blank'; how.rel = 'noopener';
       var howP = el('p', 'small-note'); howP.appendChild(how); share.appendChild(howP);
-      share.appendChild(el('p', 'small-note', 'Or share the chat page directly:')); share.appendChild(copyBox(d.chat_url));
-      var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; share.appendChild(tr); app.appendChild(share);
+      share.appendChild(el('p', 'small-note', 'Someone else builds your website? Email them the line and the steps:'));
+      if (window.TelloShare) share.appendChild(TelloShare.emailForm(tok));
+      app.appendChild(share);
 
       var teach = el('section', 'card'); teach.appendChild(el('h2', '', 'What Tello knows'));
       teach.appendChild(el('p', 'small-note', 'Tello answers only from these notes. Fix anything that is wrong and add what customers ask about: prices, hours, service area, how to book.'));

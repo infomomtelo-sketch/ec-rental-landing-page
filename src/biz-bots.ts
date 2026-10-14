@@ -449,6 +449,21 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       return json({ success: true });
     }
     if (sub === "/today" && request.method === "GET") return json(await buildToday(env, bot, await loadPro(env, bot.id)));
+    if (sub === "/email-steps" && request.method === "POST") {
+      if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
+      const to = clean(body.to, 200).toLowerCase();
+      if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) return json({ error: "Please enter a valid email address." }, 400);
+      if (!notify) return json({ error: "Email is not available right now." }, 503);
+      const day = "steps-" + new Date().toISOString().slice(0, 10);
+      const used = (await env.DB.prepare("SELECT n FROM biz_usage WHERE bot_id = ? AND day = ?").bind(bot.id, day).first<{ n: number }>())?.n ?? 0;
+      if (used >= 3) return json({ error: "You can send these steps 3 times a day. Try again tomorrow." }, 429);
+      const snippet = `<script src="${ORIGIN}/embed/${bot.id}.js" async></script>`, steps = `${ORIGIN}/install?id=${bot.id}`;
+      await notify(to, `Please add the Tello chat to ${bot.business}'s website`,
+        `<p>${esc(bot.business)} would like the Tello chat assistant added to its website. It takes one minute:</p><p>Paste this line just before the closing &lt;/body&gt; tag of every page (or into the site's custom code or footer scripts setting):</p><pre style="background:#f4f4f4;padding:10px;border-radius:6px;white-space:pre-wrap">${esc(snippet)}</pre><p>Step by step for WordPress, Wix, Squarespace, Shopify and more: <a href="${steps}">${steps}</a></p><p>A chat button then appears in the corner of the site. Questions? Reply to this email and it goes to ${esc(bot.business)}.</p><p style="color:#666;font-size:12px">Sent by Tello for ${esc(bot.business)}.</p>`,
+        `${bot.business} would like the Tello chat assistant added to its website. It takes one minute.\n\nPaste this line just before the closing </body> tag of every page (or into the site's custom code or footer scripts setting):\n\n${snippet}\n\nStep by step for WordPress, Wix, Squarespace, Shopify and more: ${steps}\n\nA chat button then appears in the corner of the site. Questions? Reply to this email and it goes to ${bot.business}.\n\nSent by Tello for ${bot.business}.`, bot.owner_email);
+      await env.DB.prepare("INSERT INTO biz_usage (bot_id, day, n) VALUES (?, ?, 1) ON CONFLICT(bot_id, day) DO UPDATE SET n = n + 1").bind(bot.id, day).run();
+      return json({ success: true, message: `Sent to ${to}. Replies come to you at ${bot.owner_email}.` });
+    }
     if ((sub === "/tello" || sub === "/tello-confirm") && request.method === "POST") {
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
       const g = await handleGreen(env, bot, sub, body, notify); if (g) return g;

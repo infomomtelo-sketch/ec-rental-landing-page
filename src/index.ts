@@ -87,6 +87,7 @@ import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
 import { handleRentalCalculator } from "./rental-calculator";
+import { runGreenBriefings } from "./biz-green";
 import { handleVideoRequest } from "./video-request";
 import { handleWebsiteRequest } from "./website-request";
 import { handleVideoMaker } from "./video-maker";
@@ -329,10 +330,10 @@ export default {
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
     try { const calcRes = await handleRentalCalculator(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (calcRes) return calcRes; } catch (err) { return dbErrorResponse("rental-calculator", err); }
-    try { const bizRes = await handleBizBots(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (bizRes) return bizRes; } catch (err) { console.error("[biz-bots]", err); return json({ error: "Something went wrong. Please try again." }, 500); }
+    try { const bizRes = await handleBizBots(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notifyTello); if (bizRes) return bizRes; } catch (err) { console.error("[biz-bots]", err); return json({ error: "Something went wrong. Please try again." }, 500); }
     try { const makerRes = await handleVideoMaker(request, env, url); if (makerRes) return makerRes; } catch (err) { console.error("[video-maker]", err); return json({ error: "The video maker hit a problem. Please try again." }, 500); }
-    try { const siteRes = await handleWebsiteRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (siteRes) return siteRes; } catch (err) { return dbErrorResponse("website-request", err); }
-    try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
+    try { const siteRes = await handleWebsiteRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notifyTello); if (siteRes) return siteRes; } catch (err) { return dbErrorResponse("website-request", err); }
+    try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notifyTello); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
@@ -428,6 +429,7 @@ export default {
 
   // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const notifyTello = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text, "Tello <info@ecrentalpm.com>", "support@tello.live");
     ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[rent-reminders] sent", n))
       .catch((err) => console.error("[rent-reminders]", err instanceof Error ? err.message : err)));
@@ -437,6 +439,9 @@ export default {
     ctx.waitUntil(runTelloBriefings(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[tello-briefings] sent", n))
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
+    ctx.waitUntil(runGreenBriefings(env, notifyTello, "https://tello.live")
+      .then((n) => console.log("[green-briefings] sent", n))
+      .catch((err) => console.error("[green-briefings]", err instanceof Error ? err.message : err)));
   },
 };
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
