@@ -133,9 +133,9 @@ async function underLimit(limiter: RateLimit | undefined, keys: string[]): Promi
 const tooManyRequests = () => json({ error: "Too many requests. Please wait a minute and try again." }, 429);
 function escapeHtml(str: string): string { return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-async function sendEmail(env: Env, to: string, subject: string, html: string, text: string): Promise<boolean> {
+async function sendEmail(env: Env, to: string, subject: string, html: string, text: string, from?: string, replyTo?: string): Promise<boolean> {
   if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY not set; email to " + to + " not sent"); return false; }
-  const res = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html, text }) });
+  const res = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: from || env.EMAIL_FROM, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }) });
   if (!res.ok) console.error("Resend " + res.status + ": " + (await res.text()));
   return res.ok;
 }
@@ -320,16 +320,18 @@ export default {
 
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
+    // Mail for tello.live products (business assistants, website and video requests) says Tello, not EC Rental, and replies go to support@tello.live.
+    const notifyTello = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text, "Tello <info@ecrentalpm.com>", "support@tello.live");
     if (env.ASSETS) { try { const seoRes = await handleSeoRoutes(request, env, url); if (seoRes) return seoRes; } catch (err) { console.error("[seo]", err); } }
     if (env.ASSETS) { try { const mediaRes = await handleMedia(request, env, url); if (mediaRes) return mediaRes; } catch (err) { console.error("[media]", err); } }
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
     try { const chatRes = await handleRenterChat(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (chatRes) return chatRes; } catch (err) { return dbErrorResponse("renter-chat", err); }
     try { const reviewRes = await handleRentReview(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (reviewRes) return reviewRes; } catch (err) { return dbErrorResponse("rent-review", err); }
     try { const calcRes = await handleRentalCalculator(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (calcRes) return calcRes; } catch (err) { return dbErrorResponse("rental-calculator", err); }
-    try { const bizRes = await handleBizBots(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (bizRes) return bizRes; } catch (err) { console.error("[biz-bots]", err); return json({ error: "Something went wrong. Please try again." }, 500); }
+    try { const bizRes = await handleBizBots(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (bizRes) return bizRes; } catch (err) { console.error("[biz-bots]", err); return json({ error: "Something went wrong. Please try again." }, 500); }
     try { const makerRes = await handleVideoMaker(request, env, url); if (makerRes) return makerRes; } catch (err) { console.error("[video-maker]", err); return json({ error: "The video maker hit a problem. Please try again." }, 500); }
-    try { const siteRes = await handleWebsiteRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (siteRes) return siteRes; } catch (err) { return dbErrorResponse("website-request", err); }
-    try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
+    try { const siteRes = await handleWebsiteRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (siteRes) return siteRes; } catch (err) { return dbErrorResponse("website-request", err); }
+    try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), nnotifyTello); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
