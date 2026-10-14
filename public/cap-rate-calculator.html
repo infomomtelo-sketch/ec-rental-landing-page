@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cap Rate Calculator for Rental Property (Free) | EC Rental</title>
+  <meta name="description" content="Free cap rate calculator for rental property. Enter the price, rent and yearly costs to see net operating income and cap rate instantly. No sign-up." />
+  <link rel="canonical" href="https://ecrentalpm.com/cap-rate-calculator" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Cap Rate Calculator for Rental Property (Free) | EC Rental" />
+  <meta property="og:description" content="Work out a rental's cap rate in seconds. Free, no sign-up." />
+  <meta property="og:url" content="https://ecrentalpm.com/cap-rate-calculator" />
+  <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Cap Rate Calculator","url":"https://ecrentalpm.com/cap-rate-calculator","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"Organization","name":"EC Rental Property Management","url":"https://ecrentalpm.com"}}</script>
+  <style>
+    .lead { font-size: 1.1rem; margin: 0.75rem 0 1.25rem; }
+    .calc { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+    .calc .app-form fieldset { gap: 0.6rem; }
+    .calc input { padding: 0.55rem 0.7rem; }
+    .results { position: sticky; top: 5rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; }
+    .results h2 { margin-top: 0; }
+    .big { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+    .big.pos { color: var(--primary); } .big.neg { color: #991b1b; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 1rem 0; }
+    .stats div { background: var(--light); border-radius: 10px; padding: 0.6rem 0.75rem; }
+    .stats small { display: block; color: var(--gray); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .stats b { font-size: 1.15rem; color: var(--dark); }
+    .breakdown { width: 100%; font-size: 0.88rem; border-collapse: collapse; }
+    .breakdown td { padding: 0.3rem 0; border-bottom: 1px solid #eee; }
+    .breakdown td:last-child { text-align: right; font-weight: 600; }
+    .verdict { font-size: 0.92rem; margin-top: 0.75rem; }
+    .emailbox { margin-top: 1.5rem; }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .terms dt { font-weight: 700; margin-top: 0.75rem; }
+    .cta-box { background: var(--primary); color: var(--white); border-radius: var(--radius); padding: 1.25rem; margin: 2rem 0 1rem; }
+    .cta-box h2 { color: var(--white); margin-top: 0; }
+    .cta-box a.primary-btn { background: var(--accent); color: var(--dark); display: inline-block; text-decoration: none; }
+    .mbar { display: none; }
+    @media (max-width: 800px) { .calc { grid-template-columns: 1fr; } .results { position: static; } .app-form .row { flex-direction: column; } .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--primary); color: var(--white); padding: 0.7rem 1rem; justify-content: space-between; align-items: center; font-weight: 700; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); } .mbar a { color: var(--white); } body { padding-bottom: 3.5rem; } }
+  </style>
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap">
+    <h1>Cap rate calculator</h1>
+    <p class="lead">Cap rate tells you how much a rental earns compared with its price, as if you paid cash. Enter the price, rent and yearly operating costs to see net operating income and cap rate. It's free and there's no sign-up.</p>
+
+    <div class="calc">
+      <form id="calcForm" class="app-form" novalidate>
+        <fieldset><legend>The property</legend>
+          <label>Property name or address (optional)<input name="label" maxlength="200" placeholder="123 Main St" /></label>
+          <label>Purchase price or value ($)<input name="price" type="number" min="0" inputmode="decimal" step="any" value="350000" /></label>
+          <div class="row"><label>Monthly rent ($)<input name="rent" type="number" min="0" inputmode="decimal" step="any" value="2500" /></label><label>Other monthly income ($)<input name="other_income" type="number" min="0" inputmode="decimal" step="any" value="0" /></label></div>
+          <label>Vacancy (% of the year empty)<input name="vacancy_pct" type="number" min="0" inputmode="decimal" step="any" value="5" /></label>
+          <label>Yearly operating costs ($)<input name="opex_year" type="number" min="0" inputmode="decimal" step="any" value="7500" /></label>
+          <p class="muted small">Operating costs are property tax, insurance, HOA, repairs, management and any utilities you pay. Don't include the mortgage. The starting numbers are only an example.</p></fieldset>
+      </form>
+
+      <aside class="results" id="results" aria-live="polite">
+        <h2>Cap rate</h2><div id="big" class="big pos">0%</div><div class="muted small" id="bigsub"></div>
+        <table class="breakdown"><tr><td>Income after vacancy (year)</td><td id="r1"></td></tr><tr><td>Operating costs (year)</td><td id="r2"></td></tr><tr><td>Net operating income (year)</td><td id="r3"></td></tr></table>
+        <p class="verdict" id="verdict"></p>
+
+        <div class="emailbox">
+          <h2>Email me this report</h2>
+          <form id="emailForm" class="app-form" novalidate>
+            <label>Your name<input name="name" required maxlength="100" autocomplete="name" /></label>
+            <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email" /></label>
+            <label>Phone (optional)<input name="phone" type="tel" maxlength="30" autocomplete="tel" /></label>
+            <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+            <p class="muted small">We'll email you this report. EC Rental may follow up about your rental. We don't sell your information. See our <a href="/privacy">privacy policy</a>.</p>
+            <button class="primary-btn" type="submit" id="emailBtn">Email my report</button>
+            <p id="emailMsg" class="err" hidden></p>
+          </form>
+        </div>
+      </aside>
+    </div>
+
+    <section class="cta-box">
+      <h2>Already own rentals? Run them with Tello.</h2>
+      <p>EC Rental is property management software for landlords anywhere: listings, online applications, e-signing, rent reminders, online rent payments, maintenance requests and tax-ready reports, with Tello, your AI assistant. Start for $3 for your first 3 months.</p>
+      <p style="margin-top:0.75rem"><a class="primary-btn" href="/#subscribe">Start for $3</a></p>
+    </section>
+
+    <section>
+      <h2>What the numbers mean</h2>
+      <dl class="terms">
+        <dt>Net operating income (NOI)</dt><dd>Yearly rent after vacancy, minus operating costs. It leaves out the mortgage, so you can compare properties no matter how they're financed.</dd>
+        <dt>Cap rate</dt><dd>NOI divided by the price. A higher cap rate means more income for each dollar of price, often with more risk or work.</dd>
+        <dt>What's a good cap rate?</dt><dd>It depends on the area, the property and interest rates. Compare it with similar rentals nearby and with what your money could earn elsewhere.</dd>
+      </dl>
+      <p class="muted small" style="margin-top:1rem">These are estimates from the numbers you enter, not financial, tax or lending advice. Need the full picture with the mortgage? Try the <a href="/rental-calculator">rental property calculator</a> or the <a href="/cash-on-cash-calculator">cash-on-cash calculator</a>.</p>
+    </section>
+  </main>
+  <div class="mbar" aria-hidden="true"><span>Cap rate <span id="mbig">0</span></span><a href="#results">See results</a></div>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/blog/">Landlord guides</a> · <a href="/rental-calculator">Rental calculator</a> · <a href="/cap-rate-calculator">Cap rate</a> · <a href="/cash-on-cash-calculator">Cash-on-cash</a> · <a href="/california-rent-increase-calculator">CA rent increase</a> · <a href="/rent-review">Free rent review</a> · <a href="/tello-inspect">Tello Inspect</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script>
+    (function() {
+      var form = document.getElementById('calcForm'), last = null, state = null;
+      function v(name) { var n = Number(form.elements[name].value); return isFinite(n) && n > 0 ? n : 0; }
+      function money(n) { return (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US'); }
+      function pct(n) { return isFinite(n) ? n.toFixed(1) + '%' : 'n/a'; }
+      function set(id, t) { document.getElementById(id).textContent = t; }
+      function big(t, neg) { var el = document.getElementById('big'); el.textContent = t; el.className = 'big ' + (neg ? 'neg' : 'pos'); }
+      function verdict(t) { set('verdict', t); }
+      // Same formulas as src/rental-calculator.ts.
+      function run() {
+        var price=v('price'), inc=(v('rent')+v('other_income'))*12*(1-Math.min(v('vacancy_pct'),100)/100), opex=v('opex_year'), noi=inc-opex, cap=price>0?noi/price*100:NaN;
+        big(pct(cap), noi<0); set('bigsub', money(noi)+' net operating income per year'); set('r1',money(inc)); set('r2',money(opex)); set('r3',money(noi));
+        verdict(!price||!v('rent')?'Enter a price and rent to see results.':'Every $100,000 of price earns about '+money(noi/price*100000)+' a year before the mortgage.');
+        return {ok: price>0 && v('rent')>0, mbar: pct(cap)};
+      }
+      var FIELDS = ['price', 'rent', 'other_income', 'vacancy_pct', 'opex_year'];
+      function update() { state = run(); set('mbig', state.mbar); last = {}; FIELDS.forEach(function(k) { last[k] = v(k); }); if (state.extra) Object.keys(state.extra).forEach(function(k) { last[k] = state.extra[k]; }); }
+      form.addEventListener('input', update); form.addEventListener('change', update); update();
+
+      var ef = document.getElementById('emailForm'), btn = document.getElementById('emailBtn'), msg = document.getElementById('emailMsg');
+      ef.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var data = {}; new FormData(ef).forEach(function(val, k) { data[k] = val; });
+        if (!data.name || !/^\S+@\S+\.\S+$/.test(data.email || '')) { msg.textContent = 'Please enter your name and email.'; msg.hidden = false; return; }
+        if (!state || !state.ok) { msg.textContent = 'Please fill in the numbers above first.'; msg.hidden = false; return; }
+        Object.keys(last).forEach(function(k) { data[k] = last[k]; }); data.label = form.elements.label.value; data.tool = 'cap_rate';
+        btn.disabled = true; btn.textContent = 'Sending...'; msg.hidden = true;
+        fetch('/api/public/calculator-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+          .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); })
+          .then(function(d) {
+            ef.innerHTML = '<p class="ok"><b>' + (d.emailed === false ? 'Got it. We saved your report and will email it to you shortly.' : 'Sent! Check your inbox for your report.') + '</b></p><p class="small">Change any number above and send another anytime.</p>';
+          })
+          .catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Email my report'; });
+      });
+    })();
+  </script>
+<script src="/js/track.js" defer></script>
+</body>
+</html>
