@@ -228,11 +228,13 @@ export async function handleBizBots(request: Request, env: BotEnv, url: URL, all
   const emb = p.match(/^\/embed\/([a-f0-9]{10})\.js$/);
   if (emb && request.method === "GET") {
     const js = `(function(){if(window.__telloBot)return;window.__telloBot=1;var id=${JSON.stringify(emb[1])},o=${JSON.stringify(ORIGIN)};
+// data-bottom="<px>" on the script tag lifts the button above a site's own bottom bar (cookie banner, chat box, menu).
+var me=document.currentScript||document.querySelector('script[src*="/embed/'+id+'.js"]'),lift=Math.max(0,Math.min(400,parseInt(me&&me.getAttribute('data-bottom'),10)||0)),bb=18+lift;
 var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Chat with us');b.setAttribute('aria-expanded','false');
-b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483000;width:56px;height:56px;border-radius:50%;border:0;background:#000;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.28);display:block;padding:0;overflow:hidden';b.title='Chat with us (Tello, an AI assistant from tello.live)';
+b.style.cssText='position:fixed;right:18px;bottom:'+bb+'px;z-index:2147483000;width:56px;height:56px;border-radius:50%;border:0;background:#000;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.28);display:block;padding:0;overflow:hidden';b.title='Chat with us (Tello, an AI assistant from tello.live)';
 b.innerHTML='<img src="'+o+'/brand/tello-mark-static.svg" alt="" width="56" height="56" style="display:block;width:56px;height:56px;border:0;margin:0">';
 var f=document.createElement('iframe');f.title='Chat with Tello';f.src=o+'/b/'+id+'?embed=1';f.setAttribute('loading','lazy');f.setAttribute('allow','microphone; autoplay; clipboard-write');
-var big='position:fixed;right:18px;bottom:86px;z-index:2147483000;width:400px;max-width:calc(100vw - 24px);height:620px;max-height:calc(100vh - 110px);border:0;border-radius:18px;box-shadow:0 14px 44px rgba(0,0,0,.35);background:#faf8f4;',
+var big='position:fixed;right:18px;bottom:'+(bb+68)+'px;z-index:2147483000;width:400px;max-width:calc(100vw - 24px);height:620px;max-height:calc(100vh - '+(bb+92)+'px);border:0;border-radius:18px;box-shadow:0 14px 44px rgba(0,0,0,.35);background:#faf8f4;',
 small='position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483001;width:100%;height:100%;border:0;border-radius:0;background:#faf8f4;';
 var phone=function(){return window.matchMedia&&matchMedia('(max-width: 520px)').matches;};
 function show(open,user){f.style.cssText=(phone()?small:big)+'display:'+(open?'block':'none');b.setAttribute('aria-expanded',String(open));b.style.display=open&&phone()?'none':'block';
