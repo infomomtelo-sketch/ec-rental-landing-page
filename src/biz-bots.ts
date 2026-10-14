@@ -5,9 +5,10 @@
 // EC Rental's own Stripe account (never Title 22's).
 import { stripe, billingEnabled, ensureAnyWebhook, type BillingEnv } from "./billing";
 import { readSiteAsPage } from "./site-reader";
+import { handleGreen } from "./biz-green";
 import { handleTelloHub, claudeReply, claudeStream, MetaFilter, parseMeta, type HubEnv } from "./tello-hub";
 
-type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
+type Notify = (to: string, subject: string, html: string, text: string, replyTo?: string) => Promise<unknown>;
 interface BotEnv extends BillingEnv { AI?: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface Bot {
   id: string; manage_token: string; owner_email: string; owner_name: string; business: string; site_url: string; facts: string; greeting: string; extra: string;
@@ -213,7 +214,7 @@ function manageView(b: Bot, leads: unknown[], pro: Pro, uploads: boolean) {
     status: b.status, active: botActive(b), trial_ends: b.trial_ends, subscribed: GOOD.includes(b.status), period_end: b.period_end, cancel_at_period_end: !!b.cancel_at_period_end,
     price: BOT_PRICE.cents / 100, pro_price: PRO_PRICE.cents / 100, plan: pro.plan, pro_on: proOn(b, pro), pro_settings: { uploads, audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta },
     meet_url: `${ORIGIN}/m/${b.id}`, chat_url: `${ORIGIN}/b/${b.id}`, embed: `<script src="${ORIGIN}/embed/${b.id}.js" async></script>`, leads,
-    billing_on: true,
+    billing_on: true, green_on: GOOD.includes(b.status),
   };
 }
 
@@ -296,8 +297,8 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (notify) {
       try {
         await notify(email, `Your Tello assistant for ${business} is ready`,
-          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your Tello chat is free, with no card needed.</p>`,
-          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour Tello chat is free, with no card needed.`);
+          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your Tello chat is free, with no card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.</p>`,
+          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour Tello chat is free, with no card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.`);
       } catch (err) { console.error("[biz-bots create email]", err); }
       try { await notify("info@ecrentalpm.com", `tello.live: new business assistant, ${business}`, `<p>${esc(business)} (${esc(email)}) set up a Tello assistant. Site: ${esc(site)}</p>`, `${business} (${email}) set up a Tello assistant. Site: ${site}`); } catch { /* best effort */ }
     }
@@ -448,6 +449,10 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       return json({ success: true });
     }
     if (sub === "/today" && request.method === "GET") return json(await buildToday(env, bot, await loadPro(env, bot.id)));
+    if ((sub === "/tello" || sub === "/tello-confirm") && request.method === "POST") {
+      if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
+      const g = await handleGreen(env, bot, sub, body, notify); if (g) return g;
+    }
     if (sub === "/lead-done" && request.method === "POST") {
       const lid = Number(body.id);
       const own = Number.isInteger(lid) ? await env.DB.prepare("SELECT id FROM biz_leads WHERE id = ? AND bot_id = ?").bind(lid, bot.id).first() : null;
@@ -474,15 +479,13 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (sub === "/checkout" && request.method === "POST") {
       if (!billingEnabled(env)) return json({ error: "Billing is not available yet." }, 503);
       if (GOOD.includes(bot.status)) return json({ error: "Your plan is already active." }, 400);
-      return json({ error: "The Tello website chat is free, so there is nothing to buy right now." }, 400);
-      await ensureAnyWebhook(env, ORIGIN); // without a webhook, a paid plan would never reach the bot and it would pause after the trial
-      const plan: Plan = body.plan === "pro" ? "pro" : "starter", cents = plan === "pro" ? PRO_PRICE.cents : BOT_PRICE.cents;
-      const trialEnd = Math.floor(Date.parse(bot.trial_ends) / 1000);
-      const stillTrial = trialEnd > Math.floor(Date.now() / 1000) + 3600; // Stripe needs the trial end to be in the future
+      if (body.plan === "pro") return json({ error: "Pro is no longer sold. Green Tello is the paid plan." }, 400);
+      await ensureAnyWebhook(env, ORIGIN); // without a webhook, a paid plan would never reach the bot
+      const plan: Plan = "starter", cents = BOT_PRICE.cents; // "starter" is the stored name of the paid Green Tello plan
       const session = await stripe(env, "POST", "checkout/sessions", {
         mode: "subscription", customer_email: bot.owner_email, client_reference_id: bot.id,
-        line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: cents, recurring: { interval: "month" }, product_data: { name: `${plan === "pro" ? "Tello Pro" : "Tello assistant"} for ${bot.business}` } } }],
-        subscription_data: { metadata: { bot_id: bot.id, plan }, ...(stillTrial ? { trial_end: trialEnd } : {}) },
+        line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: cents, recurring: { interval: "month" }, product_data: { name: `Green Tello for ${bot.business}` } } }],
+        subscription_data: { metadata: { bot_id: bot.id, plan }, trial_period_days: BOT_PRICE.trialDays },
         metadata: { bot_id: bot.id, plan }, allow_promotion_codes: "true",
         success_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=success`, cancel_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=canceled`,
       });
