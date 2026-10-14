@@ -47,6 +47,8 @@
     .hear { display: inline-flex; align-items: center; gap: .4rem; margin-top: .8rem; min-height: 40px; background: transparent; color: var(--ink); border: 1px solid var(--line2); border-radius: 999px; padding: .35rem .95rem; font-weight: 600; font-size: .88rem; }
     .hear:hover { border-color: var(--gold); }
     .hear.pulse { animation: pulse 1.6s ease-in-out infinite; }
+    #chat .tc-chip { transition: box-shadow .25s, transform .25s; }
+    #chat .tc-chip.tour-lit { box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(255,210,63,.45); transform: translateY(-2px); }
     @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(255,198,26,.25); } }
     /* Compact header while chatting. */
     .cbar { display: none; position: sticky; top: 64px; z-index: 15; align-items: center; gap: .65rem; margin: -1.6rem -16px 1rem; padding: .55rem 16px; background: rgba(18,17,16,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
@@ -179,15 +181,46 @@
     vb.addEventListener('click', function () { setVoice(!voiceOn); });
     paintVoice();
 
-    // Tello's spoken intro (a recorded clip in Tello's own voice).
-    function stopIntro() { if (intro) { try { intro.pause(); } catch (e) {} intro = null; if (window.TelloOrb && TelloOrb.state === 'speaking') TelloOrb.set('idle'); } hl.textContent = 'Hear Tello'; hear.classList.remove('pulse'); }
-    function playIntro(auto) {
-      stopIntro(); intro = new Audio('/media/tello-voice/hub-intro.mp3'); var a = intro;
-      a.onended = function () { if (intro === a) stopIntro(); };
-      var p = a.play();
-      if (p && p.then) p.then(function () { if (intro === a) { hl.textContent = 'Stop'; if (window.TelloOrb) { TelloOrb.set('speaking'); TelloOrb.follow(a); } } }).catch(function () { if (intro === a) { intro = null; if (auto) hear.classList.add('pulse'); } });
+    // Tello's spoken tour (recorded clips in Tello's own voice): an intro, then each sample question is lit up while
+    // Tello explains it, then a closing line. Browsers often block sound before a first tap, so if the page cannot
+    // start talking by itself, the tour starts on the visitor's first tap anywhere that is not already an action.
+    var TOUR = [{ s: 'tour-intro' }, { s: 'tour-site', chip: 0 }, { s: 'tour-cost', chip: 1 }, { s: 'tour-video', chip: 2 }, { s: 'tour-end' }];
+    var tour = null, tourAudio = null, orbHooked = false;
+    function lit(i) { var cs = document.querySelectorAll('#chat .tc-chip'); for (var j = 0; j < cs.length; j++) cs[j].classList.toggle('tour-lit', j === i); }
+    function stopIntro() {
+      if (tour) { tour = null; try { tourAudio.pause(); } catch (e) {} if (window.TelloOrb && TelloOrb.state === 'speaking') TelloOrb.set('idle'); }
+      lit(-1); hl.textContent = 'Hear Tello'; hear.classList.remove('pulse');
     }
-    hear.addEventListener('click', function () { if (intro) stopIntro(); else { if (window.ECTelloTalk) ECTelloTalk.stop(); if (window.TelloOrb) TelloOrb.unlock(); playIntro(false); } });
+    function playStep(t, i) {
+      if (tour !== t) return;
+      if (i >= TOUR.length) { stopIntro(); return; }
+      var a = tourAudio; a.src = '/media/tello-voice/' + TOUR[i].s + '.mp3';
+      a.onended = function () { playStep(t, i + 1); };
+      a.onerror = function () { if (tour === t) stopIntro(); };
+      var p = a.play();
+      lit(TOUR[i].chip === undefined ? -1 : TOUR[i].chip);
+      if (p && p.catch) p.catch(function () { if (tour === t) { tour = null; lit(-1); if (t.auto) armTap(); else stopIntro(); } });
+    }
+    function playIntro(auto) {
+      stopIntro(); if (!tourAudio) tourAudio = new Audio(); var t = tour = { auto: auto };
+      hl.textContent = 'Stop';
+      if (window.TelloOrb) { TelloOrb.set('speaking'); if (!orbHooked) { orbHooked = true; TelloOrb.follow(tourAudio); } }
+      playStep(t, 0);
+    }
+    function armTap() {
+      hl.textContent = 'Tap to hear Tello'; hear.classList.add('pulse');
+      var evs = ['pointerdown', 'keydown'];
+      function go(e) {
+        evs.forEach(function (n) { document.removeEventListener(n, go, true); });
+        if (!voiceOn || chat.chatting || tour) return;
+        var el = e.target && e.target.closest ? e.target.closest('#hear, #chat, #menu, #menuBtn, #voiceBtn, .more, a, button, textarea, input') : null;
+        if (el) { stopIntro(); return; }
+        if (window.TelloOrb) TelloOrb.unlock();
+        playIntro(false);
+      }
+      evs.forEach(function (n) { document.addEventListener(n, go, true); });
+    }
+    hear.addEventListener('click', function () { if (tour) stopIntro(); else { if (window.ECTelloTalk) ECTelloTalk.stop(); if (window.TelloOrb) TelloOrb.unlock(); playIntro(false); } });
     if (voiceOn && !chat.chatting) playIntro(true);
 
     // Slide menu.
