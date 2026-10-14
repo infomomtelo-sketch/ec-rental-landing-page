@@ -32,3 +32,13 @@ The animated SVG moves in browsers; the PNG files use a still frame.
 - Do not stretch or recolor the mark, and do not add outlines. Never put it on a busy photo without its tile.
 - Use the still versions wherever motion is distracting (print, email, tiny sizes).
 - The wordmark in the SVG files is converted to outlines from Inter ExtraBold, so no font is needed.
+
+## EC Rental (ecrentalpm.com)
+
+Keyhole house mark, picked by eli on 2026-10-14. Green #1a5632, dark green #0f3d22, gold #c9a227, white.
+
+- `ec-rental-icon.svg`: app icon (green rounded square). Also used as the browser tab icon and next to the "EC Rental PM" wordmark in site headers.
+- `ec-rental-mark.svg`: the house on its own, for light backgrounds.
+- `ec-rental-logo-horizontal.svg`: icon plus "EC Rental / Property Management" wordmark.
+- `ec-rental-icon-32/192/512/1024.png`, `ec-rental-icon-maskable-512.png`: PNG sizes. `/favicon.ico`, `/apple-touch-icon.png` and `/site.webmanifest` sit at the site root.
+- Social: `ec-rental-profile-1080.png` (profile picture), `ec-rental-facebook-cover-1640x624.png`, `ec-rental-linkedin-banner-1584x396.png`, `ec-rental-x-header-1500x500.png`, `ec-rental-post-square-1080.png`. `/og-image.png` is the link-share image.
