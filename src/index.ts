@@ -322,7 +322,7 @@ export default {
     // Public listings, listing photos and the Zillow feed
     const notify = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text);
     // Mail for tello.live products (business assistants, website and video requests) says Tello, not EC Rental, and replies go to support@tello.live.
-    const notifyTello = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text, "Tello <info@ecrentalpm.com>", "support@tello.live");
+    const notifyTello = (to: string, subject: string, html: string, text: string, replyTo?: string) => sendEmail(env, to, subject, html, text, "Tello <info@ecrentalpm.com>", replyTo || "support@tello.live");
     if (env.ASSETS) { try { const seoRes = await handleSeoRoutes(request, env, url); if (seoRes) return seoRes; } catch (err) { console.error("[seo]", err); } }
     if (env.ASSETS) { try { const mediaRes = await handleMedia(request, env, url); if (mediaRes) return mediaRes; } catch (err) { console.error("[media]", err); } }
     try { const mapRes = await handleMapRoute(request, env, url); if (mapRes) return mapRes; } catch (err) { return dbErrorResponse("listing-map", err); }
