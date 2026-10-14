@@ -107,7 +107,12 @@ export async function handleSeoRoutes(request: Request, env: SeoEnv, url: URL): 
     const text = (body: string, type: string) => new Response(body, { headers: { "Content-Type": type, "Cache-Control": "public, max-age=3600" } });
     if (url.pathname === "/robots.txt") return text(TELLO_ROBOTS, "text/plain; charset=utf-8");
     if (url.pathname === "/llms.txt") return text(TELLO_LLMS, "text/plain; charset=utf-8");
-    if (url.pathname === "/sitemap.xml") return text(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${TELLO_PAGES.map((p) => `<url><loc>${TELLO}${p}</loc></url>`).join("\n")}\n</urlset>\n`, "application/xml; charset=utf-8");
+    if (url.pathname === "/sitemap.xml") {
+      // tello.live's own pages, plus every published business website (tello.live/s/<name>).
+      let sites: string[] = [];
+      try { const { results } = await env.DB.prepare("SELECT slug FROM biz_sites WHERE published = 1 ORDER BY updated_at DESC LIMIT 5000").all<{ slug: string }>(); sites = (results || []).map((r) => `/s/${r.slug}`); } catch { /* table not there yet */ }
+      return text(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[...TELLO_PAGES, ...sites].map((p) => `<url><loc>${TELLO}${p}</loc></url>`).join("\n")}\n</urlset>\n`, "application/xml; charset=utf-8");
+    }
   }
 
   if (url.pathname === "/sitemap.xml") {

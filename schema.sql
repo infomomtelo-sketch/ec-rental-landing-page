@@ -88,3 +88,5 @@ CREATE INDEX IF NOT EXISTS idx_hub_visitors_day ON hub_visitors(day);
 CREATE TABLE IF NOT EXISTS hub_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, vote INTEGER NOT NULL, question TEXT NOT NULL, reply TEXT NOT NULL, created_at TEXT NOT NULL);
 -- "Email me my link" on tello.live: when a manage link was last emailed to an address (one per 10 minutes).
 CREATE TABLE IF NOT EXISTS biz_link_sends (email TEXT PRIMARY KEY, sent_at TEXT NOT NULL);
+-- Tello websites (src/tello-sites.ts): each business's own website at tello.live/s/<slug>, its text as JSON.
+CREATE TABLE IF NOT EXISTS biz_sites (bot_id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, content TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);

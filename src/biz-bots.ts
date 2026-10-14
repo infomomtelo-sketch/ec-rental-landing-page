@@ -5,6 +5,7 @@
 // EC Rental's own Stripe account (never Title 22's).
 import { stripe, billingEnabled, ensureAnyWebhook, type BillingEnv } from "./billing";
 import { readSiteAsPage } from "./site-reader";
+import { renderSite, siteBySlug, loadSite, contentOf, draftFromNotes, saveSite, freeSlug, slugFor, validSlug, tidy, COLORS } from "./tello-sites";
 import { handleTelloHub, claudeReply, claudeStream, MetaFilter, parseMeta, type HubEnv } from "./tello-hub";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
@@ -241,8 +242,46 @@ show(false);
 b.addEventListener('click',function(){show(f.style.display==='none',true);});
 window.addEventListener('message',function(e){if(e.origin===o&&e.source===f.contentWindow&&e.data&&e.data.tello==='close')show(false,true);});
 window.addEventListener('resize',function(){if(f.style.display!=='none')show(true);});
+window.telloOpen=function(){show(true,true);};
 document.body.appendChild(f);document.body.appendChild(b);})();`;
     return new Response(js, { headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+  }
+
+  // The business's own website on tello.live (src/tello-sites.ts). Unpublished sites show only to the owner, as a preview.
+  const sitePage = p.match(/^\/s\/([a-z0-9-]{3,40})\/?$/);
+  if (sitePage && (request.method === "GET" || request.method === "HEAD")) {
+    const row = await siteBySlug(env, sitePage[1]), bot = row ? await loadById(env, row.bot_id) : null;
+    const notFound = () => new Response("<!DOCTYPE html><meta charset=utf-8><meta name=viewport content='width=device-width'><title>Not found</title><p style='font:18px system-ui;padding:40px'>This page does not exist. <a href='https://tello.live/'>tello.live</a></p>", { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    if (!row || !bot) return notFound();
+    const preview = !row.published;
+    if (preview && url.searchParams.get("t") !== bot.manage_token) return notFound();
+    const html = renderSite(bot, row.slug, contentOf(row, bot.business), { chat: botActive(bot), preview });
+    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": preview ? "no-store" : "public, max-age=60", ...(preview ? { "X-Robots-Tag": "noindex" } : {}) } });
+  }
+  // The website's contact form. Works whatever the plan, so a business never loses messages from its own website.
+  const siteContact = p.match(/^\/api\/public\/sites\/([a-z0-9-]{3,40})\/contact$/);
+  if (siteContact && request.method === "POST") {
+    const cors = { "Access-Control-Allow-Origin": "*" };
+    const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...cors } });
+    if (!(await allow())) return reply({ error: "Too many messages. Please wait a minute." }, 429);
+    const row = await siteBySlug(env, siteContact[1]), bot = row ? await loadById(env, row.bot_id) : null;
+    if (!row || !bot) return reply({ error: "This website was not found." }, 404);
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+    if (clean(body.website, 100)) return reply({ success: true }); // spam trap
+    const name = clean(body.name, 80), contact = clean(body.contact, 120), message = noEmoji(keepLines(body.message, 800));
+    if (!EMAIL_RE.test(contact) && !PHONE_RE.test(contact)) return reply({ error: "Please give a phone number or email so they can reply." }, 400);
+    if (!message) return reply({ error: "Please write a message." }, 400);
+    const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM biz_leads WHERE bot_id = ? AND created_at > ?").bind(bot.id, new Date(Date.now() - 3600e3).toISOString()).first<{ n: number }>();
+    if ((recent?.n ?? 0) >= 20) return reply({ error: "This business has received a lot of messages. Please try again later." }, 429);
+    await env.DB.prepare("INSERT INTO biz_leads (bot_id, name, contact, message, created_at) VALUES (?, ?, ?, ?, ?)").bind(bot.id, name, contact, ("From your website: " + message).slice(0, 1500), new Date().toISOString()).run();
+    if (notify) {
+      try {
+        await notify(bot.owner_email, `New message from your website`,
+          `<p>Someone sent you a message from your website.</p><p><b>Name:</b> ${esc(name || "not given")}<br><b>Contact:</b> ${esc(contact)}</p><p>${esc(message).replace(/\n/g, "<br>")}</p><p>See every message: <a href="${ORIGIN}/business/manage?t=${bot.manage_token}">${ORIGIN}/business/manage</a></p>`,
+          `Someone sent you a message from your website.\n\nName: ${name || "not given"}\nContact: ${contact}\n\n${message}\n\nSee every message: ${ORIGIN}/business/manage?t=${bot.manage_token}`);
+      } catch (err) { console.error("[sites contact email]", err); }
+    }
+    return reply({ success: true });
   }
 
   if (!p.startsWith("/api/public/bots") && !p.startsWith("/api/biz/")) return null;
@@ -268,15 +307,24 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     await env.DB.prepare("INSERT INTO biz_bots (id, manage_token, owner_email, owner_name, business, site_url, facts, greeting, extra, status, trial_ends, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'trial', ?, ?, ?)")
       .bind(id, token, email.toLowerCase(), name, business, r.page ? r.page.url : site, facts, greeting, about, new Date(Date.now() + BOT_PRICE.trialDays * 86400e3).toISOString(), now, now).run();
     const manage = `${ORIGIN}/business/manage?t=${token}`;
+    // No website yet: tello.live builds one from what the owner wrote and publishes it, with their Tello chat on it.
+    let website = "";
+    if (!site) {
+      try {
+        const sb = { id, business, facts, extra: about, site_url: "", owner_email: email.toLowerCase() };
+        const saved = await saveSite(env, sb, await draftFromNotes(env, sb), await freeSlug(env, slugFor(business), id), true);
+        website = `${ORIGIN}/s/${saved.slug}`;
+      } catch (err) { console.error("[biz-bots create site]", err); }
+    }
     if (notify) {
       try {
         await notify(email, `Your Tello assistant for ${business} is ready`,
-          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.</p>`,
-          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.`);
+          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p>${website ? `<p>Your new website: <a href="${website}">${website}</a> (check it, and change any word on your private page below)</p>` : ""}<p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.</p>`,
+          `Your Tello assistant for ${business} is ready.\n\n${website ? `Your new website: ${website} (check it, and change any word on your private page)\n\n` : ""}Chat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour free trial lasts ${BOT_PRICE.trialDays} days. After that it is $${BOT_PRICE.cents / 100} a month, and you can cancel any time from the manage page.`);
       } catch (err) { console.error("[biz-bots create email]", err); }
       try { await notify("info@ecrentalpm.com", `tello.live: new business assistant, ${business}`, `<p>${esc(business)} (${esc(email)}) set up a Tello assistant. Site: ${esc(site)}</p>`, `${business} (${email}) set up a Tello assistant. Site: ${site}`); } catch { /* best effort */ }
     }
-    return json({ success: true, id, chat_url: `${ORIGIN}/b/${id}`, manage_url: manage, embed: `<script src="${ORIGIN}/embed/${id}.js" async></script>`, read_note: readNote });
+    return json({ success: true, id, website_url: website, chat_url: `${ORIGIN}/b/${id}`, manage_url: manage, embed: `<script src="${ORIGIN}/embed/${id}.js" async></script>`, read_note: readNote });
   }
 
   // Public info and chat.
@@ -436,6 +484,33 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       const obj = f && env.PHOTOS ? await env.PHOTOS.get(f.r2_key) : null;
       if (!f || !obj) return json({ error: "Photo not found." }, 404);
       return new Response(obj.body, { headers: { "Content-Type": f.content_type, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'", "Cache-Control": "private, no-store" } });
+    }
+    if (sub === "/site" && request.method === "GET") {
+      const row = await loadSite(env, bot.id);
+      return json({ site: row ? { slug: row.slug, published: !!row.published, content: contentOf(row, bot.business), url: `${ORIGIN}/s/${row.slug}` } : null, colors: Object.keys(COLORS) });
+    }
+    if (sub === "/site/build" && request.method === "POST") {
+      if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
+      const row = await loadSite(env, bot.id), content = await draftFromNotes(env, bot);
+      if (row) content.color = contentOf(row, bot.business).color;
+      const saved = await saveSite(env, bot, content, row ? row.slug : await freeSlug(env, slugFor(bot.business), bot.id), row ? !!row.published : false);
+      return json({ site: { slug: saved.slug, published: !!saved.published, content, url: `${ORIGIN}/s/${saved.slug}` } });
+    }
+    if (sub === "/site" && request.method === "PUT") {
+      const row = await loadSite(env, bot.id);
+      if (!row) return json({ error: "Build your website first." }, 400);
+      const want = clean(body.slug, 40).toLowerCase();
+      if (want && !validSlug(want)) return json({ error: "Your web address can use lowercase letters, numbers and dashes (3 to 40 characters)." }, 400);
+      let slug = row.slug;
+      if (want && want !== row.slug) { slug = await freeSlug(env, want, bot.id); if (slug !== want) return json({ error: `tello.live/s/${want} is taken. Try another, for example ${slug}.` }, 409); }
+      const content = tidy(body.content, bot.business);
+      const saved = await saveSite(env, bot, content, slug, body.published === undefined ? !!row.published : !!body.published);
+      return json({ site: { slug: saved.slug, published: !!saved.published, content, url: `${ORIGIN}/s/${saved.slug}` } });
+    }
+    if (sub === "/site/download" && request.method === "GET") {
+      const row = await loadSite(env, bot.id);
+      if (!row) return json({ error: "Build your website first." }, 400);
+      return new Response(renderSite(bot, row.slug, contentOf(row, bot.business), { chat: true, download: true }), { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${row.slug}.html"` } });
     }
     if (sub === "/refresh" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);

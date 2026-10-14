@@ -103,13 +103,63 @@
       if (d.subscribed) { var c = el('button', 'btn ghost small', d.cancel_at_period_end ? 'Keep my plan' : 'Cancel plan'); c.type = 'button'; c.addEventListener('click', function () { c.disabled = true; api(d.cancel_at_period_end ? '/resume' : '/cancel', 'POST').then(load).catch(function (e) { c.disabled = false; msg.textContent = e.message; }); }); row.appendChild(c); }
       plan.appendChild(row); plan.appendChild(msg); app.appendChild(plan);
 
-      if (!d.site_url) {
-        var ow = el('section', 'card'); ow.appendChild(el('h2', '', 'No website yet?'));
-        ow.appendChild(el('p', 'small-note', 'Build one on OwnSite, our website builder. A small site fits in its free monthly allowance; bigger sites can need a token pack, and it shows the cost before building. It starts from your notes, and your Tello chat is on every page. You download your site and put it online, so it stays yours. Then add its link below and press Read my website.'));
-        var ob = el('a', 'btn small', 'Build my website on OwnSite'); ob.target = '_blank'; ob.rel = 'noopener';
-        ob.href = 'https://ownsite.app/?' + new URLSearchParams({ from: 'tello', tello: d.id, business: String(d.business || '').slice(0, 80), about: String(d.extra || d.facts || '').slice(0, 1200) }).toString();
-        ow.appendChild(ob); app.appendChild(ow);
+      // Their website on tello.live: built from Tello's notes, edited here, published at tello.live/s/<name>, downloadable.
+      var ws = el('section', 'card'); ws.appendChild(el('h2', '', 'Your website'));
+      var wsBody = el('div'); wsBody.appendChild(el('p', 'small-note', 'Loading...')); ws.appendChild(wsBody); app.appendChild(ws);
+      function siteIntro() {
+        wsBody.textContent = '';
+        wsBody.appendChild(el('p', 'small-note', d.site_url
+          ? 'Want a simple page on tello.live too? Tello can build one from what it knows about your business, with your Tello chat on it. Your own website stays as it is.'
+          : 'Tello builds your website from what it knows about your business, with your Tello chat on it. It lives at your own tello.live address, you can change every word here, and you can download it any time. Nothing to install.'));
+        var bb = el('button', 'btn small', 'Build my website'), bm = el('p', 'small-note', ''); bb.type = 'button';
+        bb.addEventListener('click', function () { bb.disabled = true; bm.textContent = 'Writing your website from your notes...'; api('/site/build', 'POST', {}).then(function (j) { siteEditor(j.site, null); }).catch(function (e) { bb.disabled = false; bm.textContent = e.message; bm.className = 'err'; }); });
+        wsBody.appendChild(bb); wsBody.appendChild(bm);
       }
+      function siteEditor(s, colors) {
+        wsBody.textContent = '';
+        colors = colors || ['gold', 'green', 'blue', 'red', 'ink'];
+        var c = s.content, st = el('p', 'small-note', '');
+        function paintStatus() { st.textContent = ''; st.appendChild(document.createTextNode(s.published ? 'Published at ' : 'Not published yet. Preview: ')); var a = el('a', '', s.published ? s.url.replace('https://', '') : 'open preview'); a.href = s.published ? s.url : s.url + '?t=' + encodeURIComponent(tok); a.target = '_blank'; a.rel = 'noopener'; st.appendChild(a); }
+        paintStatus(); wsBody.appendChild(st);
+        var slug = el('input'); slug.value = s.slug; slug.maxLength = 40; slug.autocapitalize = 'off'; slug.spellcheck = false;
+        var hl = el('input'); hl.value = c.headline; hl.maxLength = 90;
+        var tg = el('input'); tg.value = c.tagline; tg.maxLength = 160;
+        var ab = el('textarea'); ab.value = c.about; ab.maxLength = 1200;
+        var sv = el('textarea'); sv.value = (c.services || []).map(function (x) { return x.detail ? x.name + ': ' + x.detail : x.name; }).join('\n'); sv.placeholder = 'One per line. Example: Deep cleaning: kitchens, bathrooms and floors'; sv.style.minHeight = '120px';
+        var hr = el('textarea'); hr.value = c.hours; hr.maxLength = 300; hr.style.minHeight = '70px'; hr.placeholder = 'Example: Monday to Saturday, 8am to 6pm';
+        var ar = el('input'); ar.value = c.area; ar.maxLength = 160; ar.placeholder = 'Example: Fresno and Clovis';
+        var ph = el('input'); ph.value = c.phone; ph.maxLength = 30; ph.inputMode = 'tel';
+        var em = el('input'); em.value = c.email; em.maxLength = 120; em.inputMode = 'email';
+        var ad = el('input'); ad.value = c.address; ad.maxLength = 200; ad.placeholder = 'Leave empty if customers should not visit';
+        var co = el('select'); co.style.cssText = 'font:inherit;font-size:1rem;padding:.65rem .75rem;border-radius:10px;border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.35);color:var(--text);width:100%';
+        colors.forEach(function (k) { var o = el('option', '', k.charAt(0).toUpperCase() + k.slice(1)); o.value = k; if (k === c.color) o.selected = true; co.appendChild(o); });
+        wsBody.appendChild(field('Web address: tello.live/s/', slug));
+        [['Headline', hl], ['One-line description', tg], ['About your business', ab], ['What you offer', sv], ['Hours', hr], ['Area you serve', ar], ['Phone', ph], ['Email', em], ['Address', ad], ['Colour', co]].forEach(function (f) { wsBody.appendChild(field(f[0], f[1])); });
+        wsBody.appendChild(el('p', 'small-note', 'Everything here came from your notes. Check it: your website only says what you put here.'));
+        var row = el('div', 'row'), save = el('button', 'btn small', s.published ? 'Save changes' : 'Save and publish'), unpub = el('button', 'btn small ghost', 'Unpublish'), dl = el('a', 'btn small ghost', 'Download my website'), rb = el('button', 'btn small ghost', 'Rewrite from my notes');
+        save.type = unpub.type = rb.type = 'button'; unpub.hidden = !s.published;
+        dl.href = '/api/biz/manage/site/download?t=' + encodeURIComponent(tok);
+        var msg = el('p', 'small-note', '');
+        function collect(pub) {
+          return { slug: slug.value.trim().toLowerCase(), published: pub, content: { headline: hl.value, tagline: tg.value, about: ab.value, hours: hr.value, area: ar.value, phone: ph.value, email: em.value, address: ad.value, color: co.value,
+            services: sv.value.split('\n').map(function (l) { var i = l.indexOf(':'); return i > 0 ? { name: l.slice(0, i).trim(), detail: l.slice(i + 1).trim() } : { name: l.trim(), detail: '' }; }).filter(function (x) { return x.name; }) } };
+        }
+        function put(pub, btn) {
+          btn.disabled = true; msg.textContent = 'Saving...'; msg.className = 'small-note';
+          api('/site', 'PUT', collect(pub)).then(function (j) { s = j.site; siteEditor(s, colors); }).catch(function (e) { btn.disabled = false; msg.textContent = e.message; msg.className = 'err'; });
+        }
+        save.addEventListener('click', function () { put(true, save); });
+        unpub.addEventListener('click', function () { if (confirm('Take your website offline? You can publish it again any time.')) put(false, unpub); });
+        rb.addEventListener('click', function () {
+          if (!confirm('Rewrite the website text from your notes? Changes you made here will be replaced.')) return;
+          rb.disabled = true; msg.textContent = 'Rewriting from your notes...'; msg.className = 'small-note';
+          api('/site/build', 'POST', {}).then(function (j) { siteEditor(j.site, colors); }).catch(function (e) { rb.disabled = false; msg.textContent = e.message; msg.className = 'err'; });
+        });
+        row.appendChild(save); row.appendChild(unpub); row.appendChild(dl); row.appendChild(rb); wsBody.appendChild(row); wsBody.appendChild(msg);
+        wsBody.appendChild(el('p', 'small-note', 'Your website stays online even if your plan ends; only the Tello chat on it pauses. Download it any time: it is one file you can put on any web host.'));
+      }
+      api('/site', 'GET').then(function (j) { if (j.site) siteEditor(j.site, j.colors); else siteIntro(); }).catch(function () { wsBody.textContent = ''; wsBody.appendChild(el('p', 'small-note', 'I could not load your website just now.')); });
+
       var share = el('section', 'card'); share.appendChild(el('h2', '', 'Put Tello on your website'));
       share.appendChild(el('p', 'small-note', 'Paste this line before the closing </body> tag of your website. A chat button appears in the corner.'));
       share.appendChild(copyBox(d.embed));
