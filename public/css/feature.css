@@ -123,3 +123,5 @@ h2.title { font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.03em; lin
 .ffoot nav a { text-decoration: none; }
 .ffoot nav a:hover { color: var(--text); }
 .ffoot strong { color: var(--text); }
+
+.flogo::before { content: ""; display: inline-block; width: 1.6em; height: 1.6em; margin-right: 0.45em; vertical-align: -0.45em; background: url(/brand/ec-rental-icon.svg) center / contain no-repeat; }

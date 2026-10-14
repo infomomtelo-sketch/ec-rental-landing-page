@@ -327,7 +327,11 @@ def head(title, desc, url):
   <title>{esc(title)}</title>
   <meta name="description" content="{esc(desc)}" />
   <link rel="canonical" href="{url}" />
-  <link rel="icon" href="/tello-icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/brand/ec-rental-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a5632" />
   <meta name="theme-color" content="#07170f" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{esc(title)}" />
