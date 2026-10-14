@@ -156,9 +156,12 @@ export default {
     if (url.protocol === "http:" && /(^|\.)(ecrentalpm\.com|tello\.live)$/.test(url.hostname) && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
     // tello.live is the Tello video page: www goes to the bare address, and its front door is the /videos page.
     if (url.hostname === "www.tello.live" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "tello.live"; return Response.redirect(url.toString(), 301); }
-    // The business page is the tello.live home, so its old address sends people (and search engines) there.
-    if (url.hostname === "tello.live" && (url.pathname === "/business" || url.pathname === "/business.html") && (request.method === "GET" || request.method === "HEAD")) { url.pathname = "/"; return Response.redirect(url.toString(), 301); }
-    if (url.hostname === "tello.live" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/business", url).toString(), request)); }
+    // tello.live: the chat (public/hub.html) is the front page; the business page is at /business. /ask and the old
+    // .html and hub addresses all point at the front page.
+    if (url.hostname === "tello.live" && (url.pathname === "/ask" || url.pathname === "/hub" || url.pathname === "/hub.html" || url.pathname === "/business.html") && (request.method === "GET" || request.method === "HEAD")) {
+      url.pathname = url.pathname === "/business.html" ? "/business" : "/"; return Response.redirect(url.toString(), 301);
+    }
+    if (url.hostname === "tello.live" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/hub", url).toString(), request)); }
     // The website builder inside tello.live: OwnSite's own page (same engine, sign-in and token allowance), served here so
     // owners never leave tello.live. Not indexed: ownsite.app is the original. If OwnSite cannot be reached, go there.
     if (url.hostname === "tello.live" && url.pathname === "/build" && (request.method === "GET" || request.method === "HEAD")) {
@@ -168,8 +171,6 @@ export default {
       } catch (err) { console.error("[build]", err instanceof Error ? err.message : err); }
       return Response.redirect("https://ownsite.app/" + url.search, 302);
     }
-    // The full-screen "Ask Tello" chat (public/hub.html) lives at tello.live/ask.
-    if (url.pathname === "/ask" && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/hub", url).toString(), request)); }
     if (/^\/b\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/b", url).toString(), request)); }
     if (/^\/m\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/m", url).toString(), request)); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
