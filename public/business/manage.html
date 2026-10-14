@@ -120,7 +120,7 @@
 
       var teach = el('section', 'card'); teach.appendChild(el('h2', '', 'What Tello knows'));
       teach.appendChild(el('p', 'small-note', 'Tello answers only from these notes. Fix anything that is wrong and add what customers ask about: prices, hours, service area, how to book.'));
-      var tf = el('textarea'); tf.value = d.facts; tf.maxLength = 1800; tf.style.minHeight = '170px';
+      var tf = el('textarea'); tf.value = d.facts; tf.maxLength = 4000; tf.style.minHeight = '240px';
       var te = el('textarea'); te.value = d.extra; te.maxLength = 1200; te.placeholder = 'Anything else Tello should tell customers';
       var tg = el('input'); tg.value = d.greeting; tg.maxLength = 160;
       var tn = el('input'); tn.value = d.business; tn.maxLength = 80;
