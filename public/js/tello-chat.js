@@ -399,6 +399,18 @@
       dots.innerHTML = '<span></span><span></span><span></span>'; dots.setAttribute('aria-label', 'Tello is typing');
       live.appendChild(status); live.appendChild(textEl); textEl.appendChild(dots); log.appendChild(live); toEnd(true);
       var text = '', stLines = {}, done = false, frame = 0, me = ctrl = new AbortController();
+      var sp = null;
+      // On the tello.live page the Voice on/off button is the only switch; elsewhere a spoken question gets a spoken answer.
+      function wantsVoice() { return page ? !!(opts.speakTyped && opts.speakTyped()) : voiceTurn; }
+      function openSpeech() {
+        if (!useVoice || !window.ECTelloTalk || !ECTelloTalk.stream || (vm && vm.active)) return;
+        if (!wantsVoice()) return;
+        sp = ECTelloTalk.stream('', {
+          onStart: function (audio) { state('speaking', 'Speaking…'); if (window.TelloOrb) TelloOrb.follow(audio); },
+          onEnd: function () { if (!busy && !(vm && vm.active)) state('idle'); }
+        });
+      }
+      openSpeech();
       function paint() { frame = 0; var stick = near(); markdown(textEl, text); textEl.appendChild(h('span', 'tc-caret')); if (stick) toEnd(true); }
       function schedule() { if (!frame) frame = (window.requestAnimationFrame || setTimeout)(paint); }
       function setStatus(d) {
@@ -414,14 +426,16 @@
         if (d.capabilities) applyCaps(d.capabilities);
         msgs.push(m); store(msgs, skey); ctrl = null; setBusy(false); render(); toEnd(false);
         sr.textContent = 'Tello: ' + m.content.slice(0, 400);
-        var speakIt = voiceTurn || (page && opts.speakTyped && opts.speakTyped());
-        if (vm && vm.active) vm.answered(m.content);
+        var speakIt = wantsVoice();
+        if (sp) sp.end(m.content);
+        else if (vm && vm.active) vm.answered(m.content);
         else if (speakIt && useVoice && window.ECTelloTalk) speakReply(m.content, null);
         else state('idle');
       }
       function fail(msg, keepText) {
         if (done) return; done = true; ctrl = null;
         if (keepText && text.trim()) { finish({}); return; }
+        if (sp && window.ECTelloTalk) ECTelloTalk.stop();
         live.remove(); setBusy(false);
         var e = h('div', 'tc-err'); e.setAttribute('role', 'alert'); e.appendChild(h('span', null, msg));
         var r = h('button', null, 'Retry'); r.type = 'button'; r.addEventListener('click', function () { e.remove(); ask(); });
@@ -429,10 +443,10 @@
         if (vm && vm.active) vm.failed(msg);
       }
       function handle(ev, d) {
-        if (ev === 'delta') { if (dots.parentNode) dots.remove(); text += d.text; if (window.TelloOrb && TelloOrb.state !== 'thinking') TelloOrb.set('thinking'); if (opts.onStatus) opts.onStatus('Writing…'); schedule(); }
+        if (ev === 'delta') { if (dots.parentNode) dots.remove(); text += d.text; if (sp) sp.push(text); if (window.TelloOrb && TelloOrb.state !== 'thinking') TelloOrb.set('thinking'); if (opts.onStatus) opts.onStatus('Writing…'); schedule(); }
         else if (ev === 'status') setStatus(d);
         else if (ev === 'notice') status.appendChild(h('div', 'tc-notice', d.text));
-        else if (ev === 'reset') { text = ''; status.textContent = ''; stLines = {}; textEl.textContent = ''; textEl.appendChild(dots); }
+        else if (ev === 'reset') { text = ''; if (sp) openSpeech(); status.textContent = ''; stLines = {}; textEl.textContent = ''; textEl.appendChild(dots); }
         else if (ev === 'done') finish(d);
         else if (ev === 'error') fail(d.error || 'Sorry, something went wrong.');
       }
