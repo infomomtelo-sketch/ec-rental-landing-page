@@ -5,6 +5,7 @@
 //   POST /api/public/video-voice  records one line of narration with Workers AI text to speech
 // Ported from the standalone Pages Functions, so it is plain JavaScript on purpose (type checking is off
 // for this file). Nothing is stored.
+import { textRun } from "./ai-text";
 
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -143,7 +144,7 @@ function parseAi(out) {
 async function askAi(env, messages, page, current, pageNote, prefs) {
   const chat = [{ role: 'system', content: SYSTEM + context(page, current, pageNote, prefs) }, ...messages];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const out = await env.AI.run(MODEL, { messages: attempt ? [...chat, { role: 'user', content: 'Return only the JSON object, nothing else.' }] : chat, max_tokens: 900, temperature: 0.4 });
+    const out = await textRun(env, { messages: attempt ? [...chat, { role: 'user', content: 'Return only the JSON object, nothing else.' }] : chat, max_tokens: 900, temperature: 0.4 });
     const parsed = parseAi(out);
     if (parsed && parsed.video) return parsed;
   }
