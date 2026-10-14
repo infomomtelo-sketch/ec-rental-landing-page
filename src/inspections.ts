@@ -6,6 +6,7 @@
  * Repairs can be turned into maintenance requests. Inspection photos are never served publicly.
  */
 import { aiText, clean, MODEL } from "./ai-assist";
+import { textRun } from "./ai-text";
 
 interface InspectionEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface InspectionRow { id: number; property_id: number; inspector_name: string; inspection_date: string; overall_condition: string; summary: string; status: string; created_at: string; property_address: string; }
@@ -198,7 +199,7 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     const repairs = all.filter((i) => i.repair_needed).length;
     let summary = `Inspected ${new Set(all.map((i) => i.room_area)).size} areas with ${all.length} photos. ${repairs} item${repairs === 1 ? "" : "s"} need repair. Overall: ${overall}.`;
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [
+      const out = await textRun(env, { messages: [
         { role: "system", content: "You write short, factual rental inspection summaries for a property manager in California. Don't describe people." },
         { role: "user", content: `Summarize this ${typeLabel(type)} inspection of ${insp.property_address} in 2 to 4 plain sentences: overall condition, the main problems by room, and what to fix first. Use only these notes:\n${roomLines(all)}` },
       ], max_tokens: 300 } as never);
@@ -212,7 +213,7 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
       const legacyBefore = before.length ? [] : (await env.DB.prepare("SELECT room_area, ai_condition, ai_recommendation FROM inspection_photos WHERE inspection_id = ?").bind(details.compare_to).all<{ room_area: string; ai_condition: string; ai_recommendation: string }>()).results;
       const beforeText = before.length ? roomLines(before) : legacyBefore.map((p) => `${p.room_area}:\n  - ${p.ai_condition} ${p.ai_recommendation}`).join("\n");
       try {
-        const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [
+        const out = await textRun(env, { messages: [
           { role: "system", content: "You help a California landlord compare move-in and move-out inspection notes. Be careful and neutral; this is a draft the landlord will review, not a legal decision." },
           { role: "user", content: [
             "MOVE-IN notes:", beforeText || "(none)", "", "MOVE-OUT notes:", roomLines(all), "",

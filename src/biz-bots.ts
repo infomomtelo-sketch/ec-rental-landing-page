@@ -21,6 +21,8 @@ type Plan = "starter" | "pro";
 interface Pro { plan: Plan; audience: string[]; suggestions: string[]; example_q: string; example_a: string; cta: string; }
 const ORIGIN = "https://tello.live";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+/** The free website chat uses the lighter Claude model; everything that reads or writes for the owner uses Sonnet 5.5. */
+const FREE_CHAT_MODEL = "claude-haiku-5-5";
 const DAILY_CAP = 300; // customer messages per bot per day, so a busy or abused bot cannot run up the AI bill
 const MAX_PHOTO = 5 * 1024 * 1024; // one photo per message, 5 MB
 const GOOD = ["active", "trialing", "past_due"];
@@ -401,7 +403,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
             const filter = new MetaFilter();
             let shown = "", suggestions: string[] = [];
             const say = (t: string) => { t = noEmoji(t); if (t) { shown += t; emit("delta", { text: t }); } };
-            const raw = await claudeStream(env as unknown as HubEnv, system, msgs, 800, (t) => say(filter.push(t)));
+            const raw = await claudeStream(env as unknown as HubEnv, system, msgs, 800, (t) => say(filter.push(t)), { model: FREE_CHAT_MODEL });
             if (raw) { say(filter.flush()); suggestions = parseMeta(filter.meta).suggestions; }
             else { const r = split(await free()); if (r.text) { say(r.text); suggestions = r.suggestions; } }
             if (!shown.trim()) { await emit("error", { error: "Sorry, I could not answer just now. Please try again." }); return; }
@@ -414,7 +416,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
         })();
         return new Response(readable, { headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" } });
       }
-      let r = split(await claudeReply(env as unknown as HubEnv, system, msgs, 800));
+      let r = split(await claudeReply(env as unknown as HubEnv, system, msgs, 800, { model: FREE_CHAT_MODEL }));
       if (!r.text) r = split(await free());
       if (!r.text) return json({ error: "Sorry, I could not answer just now. Please try again." }, 503);
       await saveLead(env, bot, msgs, notify).catch((err) => console.error("[biz-bots lead]", err));

@@ -15,7 +15,7 @@ type Notify = (to: string, subject: string, html: string, text: string) => Promi
 export interface HubEnv {
   AI?: Ai; DB: D1Database; ASSETS?: Fetcher;
   ANTHROPIC_API_KEY?: string; ANTHROPIC_BASE_URL?: string; // the base URL is only for pointing local tests at a mock server
-  HUB_MODEL?: string; HUB_DAILY_CENTS?: string; BIZ_DAILY_CENTS?: string; HUB_IN_PER_M?: string; HUB_OUT_PER_M?: string; HUB_SEARCH_PER_K?: string; HUB_SALT?: string;
+  HUB_MODEL?: string; HUB_DAILY_CENTS?: string; BIZ_DAILY_CENTS?: string; APP_DAILY_CENTS?: string; HUB_IN_PER_M?: string; HUB_OUT_PER_M?: string; HUB_SEARCH_PER_K?: string; HUB_SALT?: string;
 }
 interface Msg { role: "user" | "assistant"; content: string; }
 interface File { name: string; kind: "image" | "pdf"; media: string; data: string; }
@@ -346,12 +346,21 @@ async function runFree(run: Run): Promise<Result> {
  *  "biz-<day>" in hub_spend with its own cap (BIZ_DAILY_CENTS, default 1000 = $10 a day across all businesses), so
  *  tello.live visitors and paying businesses never use up each other's budget. Returns "" when there is no key,
  *  the cap is reached or every model fails; the caller then falls back to Workers AI. */
-export async function claudeReply(env: HubEnv, system: string, msgs: Msg[], maxTokens: number): Promise<string> {
+export interface ClaudeOpts { scope?: "biz" | "app"; model?: string }
+/** Which spend bucket a call counts under, its daily cap, and the models to try. "biz" is the business assistants, "app" is
+ *  everything else inside EC Rental and the tello.live tools (APP_DAILY_CENTS, default 1500 = $15 a day). */
+function pick(env: HubEnv, o?: ClaudeOpts) {
+  const scope = o?.scope || "biz";
+  const cap = scope === "app" ? (num(env.APP_DAILY_CENTS) ?? 1500) : (num(env.BIZ_DAILY_CENTS) ?? 1000);
+  const first = o?.model || env.HUB_MODEL || DEFAULT_MODEL;
+  return { day: scope + "-" + today(), cap, models: [first, BACKUP_MODEL].filter((m, i, a) => a.indexOf(m) === i), refusal: scope === "app" ? "Sorry, I can't help with that." : "Sorry, I can't help with that here. Please contact the business directly." };
+}
+export async function claudeReply(env: HubEnv, system: string, msgs: Msg[], maxTokens: number, o?: ClaudeOpts): Promise<string> {
   if (!env.ANTHROPIC_API_KEY) return "";
-  const day = "biz-" + today();
-  if ((await spentToday(env, day)) >= (num(env.BIZ_DAILY_CENTS) ?? 1000)) return "";
+  const { day, cap, models, refusal } = pick(env, o);
+  if ((await spentToday(env, day)) >= cap) return "";
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 0, timeout: 30_000 });
-  for (const model of [env.HUB_MODEL || DEFAULT_MODEL, BACKUP_MODEL].filter((m, i, a) => a.indexOf(m) === i)) {
+  for (const model of models) {
     try {
       const msg: any = await client.beta.messages.create({
         model, max_tokens: maxTokens, messages: msgs.map((m) => ({ role: m.role, content: m.content })),
@@ -360,7 +369,7 @@ export async function claudeReply(env: HubEnv, system: string, msgs: Msg[], maxT
         ...(FALLBACK_MODELS.includes(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
       } as any);
       await addSpend(env, day, msg.usage);
-      if (msg.stop_reason === "refusal") return "Sorry, I can't help with that here. Please contact the business directly.";
+      if (msg.stop_reason === "refusal") return refusal;
       const text = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
       if (text) return text;
     } catch (err) { console.error(`[biz-bots ${model}]`, err instanceof Error ? err.message : err); }
@@ -370,12 +379,12 @@ export async function claudeReply(env: HubEnv, system: string, msgs: Msg[], maxT
 
 /** claudeReply, streamed: onText gets each piece of the reply as it is written. Returns the whole reply, or "" when Claude
  *  is off, over the business budget, or failed before writing anything (the caller then uses the free model). */
-export async function claudeStream(env: HubEnv, system: string, msgs: Msg[], maxTokens: number, onText: (t: string) => void): Promise<string> {
+export async function claudeStream(env: HubEnv, system: string, msgs: Msg[], maxTokens: number, onText: (t: string) => void, o?: ClaudeOpts): Promise<string> {
   if (!env.ANTHROPIC_API_KEY) return "";
-  const day = "biz-" + today();
-  if ((await spentToday(env, day)) >= (num(env.BIZ_DAILY_CENTS) ?? 1000)) return "";
+  const { day, cap, models, refusal } = pick(env, o);
+  if ((await spentToday(env, day)) >= cap) return "";
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 0, timeout: 30_000 });
-  for (const model of [env.HUB_MODEL || DEFAULT_MODEL, BACKUP_MODEL].filter((m, i, a) => a.indexOf(m) === i)) {
+  for (const model of models) {
     let text = "";
     try {
       const stream = client.beta.messages.stream({
@@ -389,7 +398,7 @@ export async function claudeStream(env: HubEnv, system: string, msgs: Msg[], max
       }
       const msg: any = await stream.finalMessage();
       await addSpend(env, day, msg.usage);
-      if (msg.stop_reason === "refusal") { const t = "Sorry, I can't help with that here. Please contact the business directly."; onText((text ? "\n\n" : "") + t); return text + t; }
+      if (msg.stop_reason === "refusal") { const t = refusal; onText((text ? "\n\n" : "") + t); return text + t; }
       if (text.trim()) return text;
     } catch (err) {
       console.error(`[biz-bots stream ${model}]`, err instanceof Error ? err.message : err);

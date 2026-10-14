@@ -49,6 +49,8 @@ HUB_SEARCH_PER_K = "10"
 HUB_DAILY_CENTS = "500"
 # Business assistants (tello.live/business) use Claude too, with their own budget across all businesses ($10 a day), then Workers AI.
 BIZ_DAILY_CENTS = "1000"
+# Everything else that writes with AI (EC Rental dashboard chat, listings, inspections summaries, renter chat, video scripts) also uses Claude Sonnet 5.5 first, with a $15 a day budget, then Workers AI.
+APP_DAILY_CENTS = "1500"
 
 # Per-IP/per-email limits for login, signup and password reset.
 [[ratelimits]]

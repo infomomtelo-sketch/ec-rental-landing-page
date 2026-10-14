@@ -62,7 +62,7 @@ In this mode, never include [SHOW_...] tags.`;
 // Tello's text model: the larger model follows the rules and the account facts far better; the small one is the fallback.
 const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast", CHAT_FALLBACK_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 async function runChatModel(env: Env, messages: { role: string; content: string }[]): Promise<unknown> {
-  try { return await env.AI.run(CHAT_MODEL as Parameters<Ai["run"]>[0], { messages, max_tokens: 600 } as never); }
+  try { return await textRun(env, { messages, max_tokens: 600 }); }
   catch (err) { console.error("[chat-model]", err instanceof Error ? err.message : err); return env.AI.run(CHAT_FALLBACK_MODEL as Parameters<Ai["run"]>[0], { messages, max_tokens: 600 } as never); }
 }
 
@@ -107,6 +107,7 @@ import { handleBusinessPageRoutes, handlePublicBusinessPages } from "./business-
 import { handleFinanceRoutes } from "./finance";
 import { handleConnectWebhook, handleLandlordRentPayments, handleTenantRentPayments } from "./rent-payments";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
+import { textRun } from "./ai-text";
 
 
 function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }

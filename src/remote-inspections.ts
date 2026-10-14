@@ -6,6 +6,7 @@
  */
 import { aiText, clean, MODEL } from "./ai-assist";
 import { readPhoto, overallFrom, typeLabel } from "./inspections";
+import { textRun } from "./ai-text";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface RemoteEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
@@ -108,7 +109,7 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     let summary = `We reviewed ${all.length} photo${all.length === 1 ? "" : "s"} across ${rooms} area${rooms === 1 ? "" : "s"}. ${repairs.length} item${repairs.length === 1 ? "" : "s"} may need repair. Overall: ${overall}.`;
     const notes = all.map((i) => `${i.room}: ${i.condition || "not rated"}${i.notes ? ", " + i.notes : ""}${i.repair_needed ? " (repair: " + (i.repair_item || "yes") + ")" : ""}`).join("\n");
     try {
-      const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [
+      const out = await textRun(env, { messages: [
         { role: "system", content: "You write short, plain, factual home condition summaries from photo notes. Only use the notes given. Don't describe people. This is an AI photo review, not a licensed home inspection, so don't claim anything the photos can't show." },
         { role: "user", content: `Summarize this ${typeLabel(insp.type)} photo review for a ${ROLES[insp.role] || "reader"} in 2 to 4 sentences: the overall condition, the main issues by room, and what to look at first.\n\n${notes}` },
       ], max_tokens: 300 } as never);

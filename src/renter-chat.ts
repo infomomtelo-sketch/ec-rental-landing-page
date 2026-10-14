@@ -7,6 +7,7 @@
 import { LISTING_SELECT } from "./listings";
 import { aiText, clean, FAIR_HOUSING, listingFacts, MODEL } from "./ai-assist";
 import { CA_RENTAL_GUIDE } from "./ca-rental-law";
+import { textRun } from "./ai-text";
 
 interface ChatEnv { AI: Ai; DB: D1Database; }
 interface Turn { role: string; content: string; }
@@ -75,7 +76,7 @@ export async function handleRenterChat(request: Request, env: ChatEnv, url: URL,
 
   let reply: string;
   try {
-    const out = await env.AI.run(MODEL as Parameters<Ai["run"]>[0], { messages: [{ role: "system", content: system }, ...history, { role: "user", content: message }], max_tokens: 300 } as never);
+    const out = await textRun(env, { messages: [{ role: "system", content: system }, ...history, { role: "user", content: message }], max_tokens: 300 } as never);
     reply = clean(aiText(out));
   } catch (err) {
     console.error("[renter-chat]", err);

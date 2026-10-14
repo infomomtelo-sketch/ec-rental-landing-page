@@ -1,3 +1,4 @@
+import { textRun } from "./ai-text";
 /**
  * Tello does things, with your OK. In the dashboard chat a landlord can say "record Unit 2's rent" or "mark the sink repair done".
  * /api/tello/propose only turns that into a proposed action (nothing is changed); /api/tello/confirm runs it after the landlord
@@ -93,7 +94,7 @@ ${maints.map((m) => `${m.id} | ${m.address} | ${m.description.slice(0, 80)} | ${
 async function askModel(env: ActionEnv, system: string, message: string): Promise<string> {
   const messages = [{ role: "system", content: system }, { role: "user", content: message }];
   for (const model of [MODEL, FALLBACK]) {
-    try { return String(((await env.AI.run(model as Parameters<Ai["run"]>[0], { messages, max_tokens: 200 } as never)) as { response?: string }).response || ""); }
+    try { return String((model === MODEL ? await textRun(env, { messages, max_tokens: 200 }) : (await env.AI.run(model as Parameters<Ai["run"]>[0], { messages, max_tokens: 200 } as never)) as { response?: string }).response || ""); }
     catch (err) { console.error("[tello-action-model]", err instanceof Error ? err.message : err); }
   }
   return "";
