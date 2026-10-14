@@ -260,11 +260,11 @@ export function renderPage(page: PageRow, listings: CardListing[], photos: Recor
     </div></section>
     <section class="bp-sec" id="contact"><h2>Contact ${esc(name)}</h2><div class="bp-contact">
       <div class="bp-lines">${lines || '<span class="muted">Send us a message and we\'ll get back to you.</span>'}</div>
-      <div class="contact"><form id="bpForm"><label class="hp">Website <input name="website" tabindex="-1" autocomplete="off" /></label>
-        <input name="name" required maxlength="100" placeholder="Your name" aria-label="Your name" />
-        <input name="email" type="email" required maxlength="200" placeholder="Email" aria-label="Email" />
-        <input name="phone" type="tel" maxlength="30" placeholder="Phone (optional)" aria-label="Phone" />
-        <textarea name="message" rows="4" required maxlength="2000" placeholder="How can we help?" aria-label="Message"></textarea>
+      <div class="contact"><form id="bpForm" toolname="contact_business" tooldescription="Send a message to ${esc(name)}, a rental property business. The owner gets the name, email, phone and message and replies directly. The user reviews the form and submits it."><label class="hp">Website <input name="website" tabindex="-1" autocomplete="off" toolparamdescription="Always leave empty." /></label>
+        <input name="name" required maxlength="100" placeholder="Your name" aria-label="Your name" toolparamdescription="The sender's name." />
+        <input name="email" type="email" required maxlength="200" placeholder="Email" aria-label="Email" toolparamdescription="Email for the reply." />
+        <input name="phone" type="tel" maxlength="30" placeholder="Phone (optional)" aria-label="Phone" toolparamdescription="Optional phone number." />
+        <textarea name="message" rows="4" required maxlength="2000" placeholder="How can we help?" aria-label="Message" toolparamdescription="The message, for example a question about a rental or a showing request."></textarea>
         <button type="submit">Send message</button><p id="bpNote" class="small" role="status"></p></form></div>
     </div></section>
   </main>

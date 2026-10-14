@@ -99,18 +99,18 @@
         <p class="price">Free<small>No card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free. <a href="/models">Compare models</a></small></p>
       </div>
       <div class="card" id="panel"><span id="setup"></span>
-        <form id="f" autocomplete="on" novalidate>
+        <form id="f" autocomplete="on" novalidate toolname="set_up_tello_for_business" tooldescription="Set up Tello, a free AI chat assistant that answers a business's customers and emails the owner every lead. Tello learns from the business website or a short description. The user reviews the form and submits it.">
           <h2>Set up your Tello</h2>
           <p class="small-note" style="margin:0 0 1rem">Free. No card needed.</p>
-          <label>Business name<input name="business" maxlength="80" required autocomplete="organization" /></label>
+          <label>Business name<input name="business" maxlength="80" required autocomplete="organization" toolparamdescription="The business name." /></label>
           <div class="haves" role="radiogroup" aria-label="Do you have a website?">
-            <label class="have"><input type="radio" name="has_site" value="yes" checked /> I have a website</label>
-            <label class="have"><input type="radio" name="has_site" value="no" /> No website yet</label>
+            <label class="have"><input type="radio" name="has_site" value="yes" checked toolparamdescription="yes if the business has a website, no if not." /> I have a website</label>
+            <label class="have"><input type="radio" name="has_site" value="no" toolparamdescription="yes if the business has a website, no if not." /> No website yet</label>
           </div>
-          <label id="siteRow">Website link<input name="site_url" maxlength="300" placeholder="https://yourbusiness.com" inputmode="url" autocomplete="url" /></label>
-          <label><span id="aboutLabel">Anything else Tello should know? (optional)</span><textarea name="about" maxlength="1200" rows="3" placeholder="Prices you're happy to share, service area, hours, how customers reach you"></textarea></label>
-          <label>Your email<input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
-          <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <label id="siteRow">Website link<input name="site_url" maxlength="300" placeholder="https://yourbusiness.com" inputmode="url" autocomplete="url" toolparamdescription="The business website address, when has_site is yes." /></label>
+          <label><span id="aboutLabel">Anything else Tello should know? (optional)</span><textarea name="about" maxlength="1200" rows="3" placeholder="Prices you're happy to share, service area, hours, how customers reach you" toolparamdescription="Optional facts for Tello: services, prices, service area, hours, how customers reach the business. Required when there is no website."></textarea></label>
+          <label>Your email<input name="email" type="email" maxlength="200" required autocomplete="email" toolparamdescription="The owner's email, where leads and the private setup link are sent." /></label>
+          <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" toolparamdescription="Always leave empty." />
           <p class="err" id="err" role="alert"></p>
           <button class="btn" id="go" type="submit" style="width:100%">Build my Tello</button>
           <p class="small-note">No website yet? Choose No website yet above: Tello works without one, and you can build a website right here on tello.live (<a href="/build">website builder</a>, powered by OwnSite) with your Tello on it.</p>
