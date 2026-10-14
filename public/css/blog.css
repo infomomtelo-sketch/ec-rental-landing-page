@@ -44,3 +44,25 @@
 .post .read { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
 @media (max-width: 900px) { .posts { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .posts { grid-template-columns: 1fr; } }
+
+/* Guide video, tello.live card and slide summary (California law guides). */
+.gvideo { margin: 0 0 1rem; }
+.gvideo video { width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; border: 1px solid var(--line); background: #06130d; display: block; }
+.gvideo figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem; }
+.vcard { display: flex; gap: 16px; align-items: center; border: 1px solid rgba(232,162,61,0.45); border-radius: 18px; padding: 16px 18px; margin: 0 0 1.6rem; background: linear-gradient(120deg, rgba(232,162,61,0.14), rgba(52,196,124,0.08)), #0d281d; }
+.vcard .ic { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--gold2); background: rgba(232,162,61,0.14); }
+.vcard b { color: var(--text); font-size: 1.05rem; }
+.vcard p { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+.vcard .btn { margin-left: auto; flex: none; padding: 0.6rem 1.1rem; font-size: 0.92rem; color: #1a1205; text-decoration: none; }
+@media (max-width: 600px) { .vcard { flex-wrap: wrap; } .vcard .btn { margin-left: 0; } }
+.gslides { margin: 0 0 2rem; }
+.gs-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 0.6rem; }
+.gs-head b { color: var(--gold2); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.gs-head span { color: var(--muted); font-size: 0.85rem; }
+.article .slides { list-style: none; margin: 0; padding: 0 0 10px; display: grid; grid-auto-flow: column; grid-auto-columns: min(78%, 300px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
+.article .slide { scroll-snap-align: start; margin: 0; display: flex; flex-direction: column; min-height: 230px; padding: 20px; border-radius: 18px; border: 1px solid var(--line); background: radial-gradient(circle at 100% 0%, rgba(232,162,61,0.16), transparent 55%), linear-gradient(160deg, #123a29, #0b2219); }
+.article .slide .n { color: var(--muted); font-size: 0.78rem; letter-spacing: 0.06em; }
+.article .slide h3 { margin: 0.4rem 0 0.6rem; font-size: 1.15rem; line-height: 1.25; }
+.article .slide ul { margin: 0 0 0.8rem 1.1rem; font-size: 0.95rem; line-height: 1.5; flex: 1; }
+.article .slide li { margin-bottom: 0.3rem; }
+.article .slide .cite { align-self: flex-start; font-size: 0.76rem; font-weight: 700; color: #1a1205; background: var(--gold2); border-radius: 999px; padding: 3px 10px; }

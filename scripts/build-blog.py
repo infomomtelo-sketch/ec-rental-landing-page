@@ -24,6 +24,9 @@ TOOLS = {
     "rent": ("dollar", "Get a free rent review", "Tell us about the home and we'll send back a suggested rent range based on comparable rentals.", "Get my free rent review", "/rent-review"),
     "inspections": ("clipboard", "Run inspections in EC Rental", "Room-by-room move-in and move-out inspections with dated photos, side-by-side comparison and a printable report.", "See inspections", "/features/inspections"),
     "listings": ("megaphone", "List it with EC Rental", "Tello writes the listing from a few facts, renters apply online, and the listing is ready for the Zillow feed.", "See listings", "/features/listings"),
+    "tello": ("tello", "Ask Tello about California rental rules", "Tello, the AI assistant inside EC Rental, knows California rental law and your account, and points you to the rule behind each answer.", "Meet Tello", "/features/tello"),
+    "docs": ("file", "Fill in California rental forms", "Rental agreements, 3-day notices to pay or quit, notices of entry, receipts and more, filled in from your property details.", "See documents", "/features/documents"),
+    "maintenance": ("wrench", "Track every repair request", "Tenants send requests with photos from their portal, you get an email right away, and every request is tracked to resolved.", "See maintenance", "/features/maintenance"),
 }
 
 ARTICLES = [
@@ -352,6 +355,13 @@ ARTICLES = [
 
 DATE = "2026-10-07"
 
+# California landlord-tenant guides (Oct 2026) live in their own file; they carry slides and a video.
+_law = importlib.util.spec_from_file_location("law_guides", ROOT / "scripts" / "blog-law-guides.py")
+law_guides = importlib.util.module_from_spec(_law)
+_law.loader.exec_module(law_guides)
+ARTICLES += law_guides.LAW_ARTICLES
+MEDIA = ROOT / "public" / "media" / "guides"
+
 
 def esc(s):
     return html.escape(str(s), quote=True)
@@ -374,6 +384,32 @@ def with_ids(body):
 def tool_cta(key):
     i, t, d, b, href = TOOLS[key]
     return f'<div class="tool-cta"><div class="ic">{icon(i)}</div><div><h3>{esc(t)}</h3><p>{esc(d)}</p><a class="btn btn-gold" href="{href}">{esc(b)} →</a></div></div>'
+
+
+def nice_date(d):
+    import datetime
+    x = datetime.date.fromisoformat(d)
+    return x.strftime("%B ") + str(x.day) + x.strftime(", %Y")
+
+
+def has_video(a):
+    return (MEDIA / f"{a['slug']}.mp4").exists()
+
+
+def guide_media(a):
+    """The video (when rendered), the slide summary and the tello.live card that open a guide."""
+    if not a.get("slides"):
+        return ""
+    out = ""
+    if has_video(a):
+        out += f'''<figure class="gvideo"><video controls preload="none" playsinline poster="/media/guides/{a["slug"]}-poster.jpg" src="/media/guides/{a["slug"]}.mp4"></video>
+      <figcaption>Watch: the guide in about a minute</figcaption></figure>
+      <aside class="vcard"><div class="ic">{icon("image")}</div><div><b>Want a video like this?</b><p>Tello makes short narrated explainer videos like this one for your business.</p></div><a class="btn btn-gold" href="https://tello.live" rel="noopener">tello.live →</a></aside>'''
+    cards = "".join(
+        f'<li class="slide"><span class="n">{i + 1} / {len(a["slides"])}</span><h3>{esc(h)}</h3><ul>{"".join(f"<li>{esc(p)}</li>" for p in pts)}</ul><span class="cite">{esc(cite)}</span></li>'
+        for i, (h, pts, cite) in enumerate(a["slides"]))
+    out += f'<section class="gslides" aria-label="The guide in {len(a["slides"])} slides"><div class="gs-head"><b>The guide in {len(a["slides"])} slides</b><span>Swipe or scroll</span></div><ol class="slides">{cards}</ol></section>'
+    return out
 
 
 def card(a, level="h3"):
@@ -404,18 +440,23 @@ def article_page(a):
     else:
         end_tools = tools
     note = ("<p class=\"note\">Last checked " + "October 2026" + ". This guide is general information, not legal advice. Laws change and local rules can be stricter, so check the current law or ask a California landlord-tenant attorney before acting.</p>") if a.get("legal") else ""
-    related = [r for r in ARTICLES if r["slug"] != a["slug"]][:3]
+    related = [r for r in newest() if r["slug"] != a["slug"] and r["tag"] == a["tag"]][:3]
     if a["tag"] != "California law":
         related = sorted([r for r in ARTICLES if r["slug"] != a["slug"]], key=lambda r: r["tag"] != a["tag"])[:3]
     ld = {"@context": "https://schema.org", "@type": "BlogPosting", "headline": a["title"], "description": a["desc"], "url": url,
-          "mainEntityOfPage": url, "datePublished": DATE, "dateModified": DATE, "image": image, "inLanguage": "en-US",
+          "mainEntityOfPage": url, "datePublished": a.get("date", DATE), "dateModified": a.get("date", DATE), "image": image, "inLanguage": "en-US",
           "author": {"@type": "Organization", "name": "EC Rental Property Management", "url": SITE},
           "publisher": {"@type": "Organization", "name": "EC Rental Property Management", "url": SITE, "logo": {"@type": "ImageObject", "url": f"{SITE}/tello-512.png"}}}
     crumbs = {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE + "/"},
         {"@type": "ListItem", "position": 2, "name": "Landlord guides", "item": SITE + "/blog/"},
         {"@type": "ListItem", "position": 3, "name": a["title"], "item": url}]}
-    ld_json = json.dumps([ld, crumbs]).replace("<", "\\u003c")
+    lds = [ld, crumbs]
+    if has_video(a):
+        lds.append({"@context": "https://schema.org", "@type": "VideoObject", "name": a["title"], "description": a["desc"],
+                    "thumbnailUrl": f"{SITE}/media/guides/{a['slug']}-poster.jpg", "contentUrl": f"{SITE}/media/guides/{a['slug']}.mp4",
+                    "uploadDate": a.get("date", DATE), "inLanguage": "en-US"})
+    ld_json = json.dumps(lds).replace("<", "\\u003c")
     return f'''{blog_head(a["title"] + " | EC Rental", a["desc"], url, "article", image)}
 <body>
   {nav()}
@@ -424,9 +465,10 @@ def article_page(a):
       <div class="crumbs"><a href="/blog/">Landlord guides</a> / {esc(a["tag"])}</div>
       <h1>{esc(a["title"])}</h1>
       <p class="lede">{esc(a["lede"])}</p>
-      <div class="bmeta"><span>By the EC Rental team</span><span>{a["minutes"]} min read</span><span>Updated October 7, 2026</span></div>
+      <div class="bmeta"><span>By the EC Rental team</span><span>{a["minutes"]} min read</span><span>Updated {nice_date(a.get("date", DATE))}</span></div>
     </div></section>
     <article class="article">
+      {guide_media(a)}
       {toc_html}
       {body}
       {"".join(tool_cta(t) for t in end_tools)}
@@ -445,13 +487,17 @@ def article_page(a):
 '''
 
 
+def newest():
+    return sorted(ARTICLES, key=lambda a: a.get("date", DATE), reverse=True)
+
+
 def index_page():
     url = f"{SITE}/blog/"
     title = "Landlord guides | EC Rental"
-    desc = "Free, practical guides for landlords and property managers: inspections, security deposits, California rent rules, pricing and listings."
+    desc = "Free, practical guides for landlords and tenants: California rental rights, evictions, leases, late fees, pets, repairs, deposits, rent rules, inspections, pricing and listings."
     ld = {"@context": "https://schema.org", "@type": "Blog", "name": "EC Rental landlord guides", "url": url, "description": desc,
           "publisher": {"@type": "Organization", "name": "EC Rental Property Management", "url": SITE},
-          "blogPost": [{"@type": "BlogPosting", "headline": a["title"], "url": f"{SITE}/blog/{a['slug']}", "datePublished": DATE} for a in ARTICLES]}
+          "blogPost": [{"@type": "BlogPosting", "headline": a["title"], "url": f"{SITE}/blog/{a['slug']}", "datePublished": a.get("date", DATE)} for a in newest()]}
     ld_json = json.dumps(ld).replace("<", "\\u003c")
     return f'''{blog_head(title, desc, url)}
 <body>
@@ -460,10 +506,11 @@ def index_page():
     <section class="bhero"><div class="glow g1"></div><div class="glow g2"></div><div class="wrap" style="max-width:1160px">
       <span class="eyebrow">{icon("file")} Landlord guides</span>
       <h1>Run your rentals with <span class="grad">fewer surprises.</span></h1>
-      <p class="lede">Plain-English guides for landlords and property managers: inspections, deposits, rent rules, pricing and listings. Free, no sign-up.</p>
+      <p class="lede">Plain-English guides for landlords and tenants: California rental rights, evictions, leases, late fees, pets, repairs, deposits, pricing and listings. Free, no sign-up.</p>
     </div></section>
     <section class="band" style="padding-top:8px"><div class="wrap">
-      <div class="posts">{"".join(card(a, "h2") for a in ARTICLES)}</div>
+      <div class="posts">{"".join(card(a, "h2") for a in newest())}</div>
+      <aside class="vcard" style="margin-top:32px"><div class="ic">{icon("image")}</div><div><b>Want a video like this?</b><p>Our California guides each come with a short narrated video. Tello makes videos like these for your business too.</p></div><a class="btn btn-gold" href="https://tello.live" rel="noopener">tello.live →</a></aside>
       <div class="ctaband" style="margin-top:64px"><h2>Free tools for <span class="grad">landlords and owners.</span></h2><p>Get a written condition report from your phone photos, or a suggested rent range for your home.</p>
       <div class="cta-row"><a class="btn btn-gold" href="/tello-inspect">Try Tello Inspect</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
     </div></section>

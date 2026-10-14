@@ -40,5 +40,54 @@
   "title": "How to write a rental listing that rents fast",
   "desc": "What to put in a rental listing so the right tenants apply quickly: the headline, photos, the facts renters filter by, fair housing wording to avoid, and fast replies.",
   "lede": "Renters scroll fast and filter hard. A listing that answers their questions up front, with good photos and fair wording, gets more qualified applicants in less time."
+ },
+ {
+  "slug": "california-landlord-tenant-rights",
+  "tag": "California law",
+  "title": "California landlord and tenant rights: who is responsible for what",
+  "desc": "A plain-English map of California landlord and tenant rights: habitability, privacy and entry, deposits, rent rules, fair housing, evictions and repairs, with links to the law.",
+  "lede": "Both sides of a California rental have rights and duties. Here is who is responsible for what, in one place, with links to the deeper guides and the law itself."
+ },
+ {
+  "slug": "california-eviction-process",
+  "tag": "California law",
+  "title": "The California eviction process, step by step (2026)",
+  "desc": "How an eviction works in California: the right notice, serving it, filing an unlawful detainer, the tenant's 10 court days to respond, trial, the writ of possession and the sheriff.",
+  "lede": "In California, only a court can evict a tenant. Here is every step, from the first notice to the sheriff, and the mistakes that send landlords back to the start."
+ },
+ {
+  "slug": "california-eviction-reasons",
+  "tag": "California law",
+  "title": "Legal reasons for eviction in California (just cause under AB 1482)",
+  "desc": "The at-fault and no-fault reasons California allows for ending a tenancy under AB 1482's just cause rules, who is covered, relocation payments, and the 2024 SB 567 changes.",
+  "lede": "Once a tenant has lived in a covered unit for a year, a California landlord needs a reason the law lists. Here are the at-fault and no-fault reasons, and what each requires."
+ },
+ {
+  "slug": "california-lease-agreement-checklist",
+  "tag": "California law",
+  "title": "What a California lease agreement should include (2026 checklist)",
+  "desc": "A checklist for California residential leases: rent and payment terms, deposits, late fees, pets, repairs, entry, the AB 1482 exemption notice, required disclosures and the 2026 stove and refrigerator rule.",
+  "lede": "A clear lease prevents most landlord-tenant disputes. Here is what a California lease should cover, the disclosures the law requires, and what changed for 2026."
+ },
+ {
+  "slug": "california-rent-late-fees",
+  "tag": "California law",
+  "title": "California late fees and late rent: what landlords can charge",
+  "desc": "California rules on rent late fees, grace periods, bounced payment fees, payment methods and the 3-day notice to pay rent or quit, with links to the law.",
+  "lede": "California has no fixed cap on late fees, but courts throw out fees that work as penalties. Here is how to set a late fee that holds up, and what to do when rent is late."
+ },
+ {
+  "slug": "california-pets-in-rentals",
+  "tag": "California law",
+  "title": "Pets in California rentals: rules for landlords and tenants",
+  "desc": "California rules on pets in rentals: pet policies, pet deposits and the deposit cap, pet rent, assistance animals and emotional support animals, declawing, and pet damage.",
+  "lede": "California landlords can set a pet policy, but assistance animals are not pets, and pet deposits count toward the deposit cap. Here is how it all fits together."
+ },
+ {
+  "slug": "california-rental-repairs-and-damage",
+  "tag": "California law",
+  "title": "Repairs and damage in California rentals: who pays for what",
+  "desc": "Who pays for repairs in a California rental: the landlord's habitability duties, the tenant's duty of care, repair requests, repair and deduct, wear and tear versus damage, and deposit deductions.",
+  "lede": "Landlords keep a California rental livable. Tenants pay for damage they cause. Here is where the line falls, how repair requests should work, and what happens when they don't."
  }
 ]
