@@ -159,7 +159,7 @@
   <script src="/js/tello-chat.js"></script>
   <script>
   (function () {
-    var voiceOn = true; try { voiceOn = localStorage.getItem('tello_hub_voice') !== 'off'; } catch (e) {}
+    var voiceOn = true; try { voiceOn = localStorage.getItem('tello_hub_voice2') !== 'off'; } catch (e) {}
     var cstatus = document.getElementById('cstatus'), IDLE = 'Online · Tello is an AI';
     var intro = null, hear = document.getElementById('hear'), hl = document.getElementById('hearLbl');
     if (window.TelloOrb) { TelloOrb.mount(document.getElementById('orbHero'), { size: 132 }); TelloOrb.mount(document.getElementById('orbSmall'), { size: 36 }); }
@@ -177,7 +177,7 @@
     // Voice on/off for Tello's spoken answers.
     var vb = document.getElementById('voiceBtn'), vl = document.getElementById('voiceLbl');
     function paintVoice() { vb.setAttribute('aria-pressed', String(voiceOn)); vl.textContent = voiceOn ? 'Voice on' : 'Voice off'; vb.setAttribute('aria-label', voiceOn ? "Tello's voice is on. Tap to turn it off" : "Tello's voice is off. Tap to turn it on"); }
-    function setVoice(on) { voiceOn = on; try { localStorage.setItem('tello_hub_voice', voiceOn ? 'on' : 'off'); } catch (e) {} if (!voiceOn) { if (window.ECTelloTalk) ECTelloTalk.stop(); stopIntro(); } paintVoice(); }
+    function setVoice(on) { voiceOn = on; try { localStorage.setItem('tello_hub_voice2', voiceOn ? 'on' : 'off'); } catch (e) {} if (!voiceOn) { if (window.ECTelloTalk) ECTelloTalk.stop(); stopIntro(); } paintVoice(); }
     vb.addEventListener('click', function () { setVoice(!voiceOn); });
     paintVoice();
 

@@ -8,7 +8,7 @@
    placeholder, logLabel } so it talks to that business's assistant, keeps its own conversation and links to its website. */
 (function () {
   if (window.TelloChat) return;
-  var API = '/api/public/tello-hub', KEY = 'tello_hub_chat', VOICE_KEY = 'tello_hub_voice', MAX_KEEP = 30, MAX_TEXT = 4000, MAX_FILES = 3;
+  var API = '/api/public/tello-hub', KEY = 'tello_hub_chat', VOICE_KEY = 'tello_hub_voice2', MAX_KEEP = 30, MAX_TEXT = 4000, MAX_FILES = 3;
   var IMG_MAX_SIDE = 1600, IMG_MAX = 4 * 1024 * 1024, PDF_MAX = 8 * 1024 * 1024, PDF_PAGES = 30;
   var HOSTS = /^(www\.)?(tello\.live|ecrentalpm\.com|ownsite\.app)$/i;
   var EXTRA = ''; // a business chat's own website host (one chat per page), also turned into links

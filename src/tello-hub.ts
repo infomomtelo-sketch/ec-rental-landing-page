@@ -46,6 +46,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
 const today = () => new Date().toISOString().slice(0, 10);
+/** The current date for Tello's answers. Kept out of HUB_SYSTEM so that block stays identical and cacheable. */
+const dateNote = () => `Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "America/Los_Angeles" })} (Pacific time). Use it when someone asks about today's date, the day of the week, or how long until or since a date. You still cannot see the visitor's clock or exact time.`;
 const num = (v: string | undefined) => { const n = Number(v); return v !== undefined && v !== "" && Number.isFinite(n) && n >= 0 ? n : null; };
 
 // Built on first use (not at load) because HEALTH_MSG comes from biz-bots.ts, which imports this file.
@@ -276,7 +278,7 @@ async function runClaude(run: Run, model: string, out: { emitted: boolean }): Pr
   for (let call = 0; call < MAX_TOOL_ROUNDS + 4; call++) {
     const params: any = {
       model, max_tokens: 2000, messages, tools,
-      system: [{ type: "text", text: HUB_SYSTEM(), cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: HUB_SYSTEM(), cache_control: { type: "ephemeral" } }, { type: "text", text: dateNote() }],
       ...(rounds >= MAX_TOOL_ROUNDS ? { tool_choice: { type: "none" } } : {}),
       ...(modern(model) ? { output_config: { effort: "low" } } : { temperature: 0.5 }),
       ...(FALLBACK_MODELS.includes(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
@@ -332,7 +334,7 @@ async function runClaude(run: Run, model: string, out: { emitted: boolean }): Pr
 /** The free Workers AI model: text only, no tools. Used when there is no Anthropic key, after the daily cap, or when Claude fails. */
 async function runFree(run: Run): Promise<Result> {
   if (!run.env.AI) throw new Error("no Workers AI binding");
-  const out: any = await run.env.AI.run(FREE_MODEL as any, { messages: [{ role: "system", content: HUB_SYSTEM() + FREE_NOTE }, ...run.msgs.map((m) => ({ role: m.role, content: m.content }))], max_tokens: 2000, temperature: 0.5 } as any);
+  const out: any = await run.env.AI.run(FREE_MODEL as any, { messages: [{ role: "system", content: HUB_SYSTEM() + FREE_NOTE + "\n\n" + dateNote() }, ...run.msgs.map((m) => ({ role: m.role, content: m.content }))], max_tokens: 2000, temperature: 0.5 } as any);
   const raw = String(out?.response ?? out?.result?.response ?? ""), filter = new MetaFilter();
   const text = noEmoji(filter.push(raw) + filter.flush()).trim();
   if (!text) throw new Error("empty reply");
