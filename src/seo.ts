@@ -32,7 +32,7 @@ const TELLO_LLMS = `# Tello
 
 ## Pages
 - [Tello for your business](${TELLO}/) (home): set up a chat assistant for your website. Starter $19/month, Pro $49/month, 7-day free trial.
-- [Pick your Tello](${TELLO}/models): Gold Tello (website chat, available now) and Green Tello (inside your business, coming soon).
+- [Pick your Tello](${TELLO}/models): Gold Tello (website chat, available now) and Green Tello (inside your business: available now for landlords in EC Rental, coming soon for other businesses).
 - [Ask Tello](${TELLO}/ask): a free AI chat (daily limits, no sign-up). Ask anything; Tello can search the web with sources, read a web page you link, look at a photo or PDF and answer out loud. Also explains what Tello does, what it costs and where to start.
 - [AI chatbot for small business](${TELLO}/ai-chatbot-for-small-business): how the website chat assistant works.
 - [Free AI video maker](${TELLO}/free-ai-video-maker): chat a few words and a web address to get a short narrated video.
