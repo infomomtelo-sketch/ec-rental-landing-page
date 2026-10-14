@@ -4,7 +4,7 @@
 // Owners manage the bot from a private link (no password); the plan is $19/month after a 7-day free trial, billed on
 // EC Rental's own Stripe account (never Title 22's).
 import { stripe, billingEnabled, ensureAnyWebhook, type BillingEnv } from "./billing";
-import { readSiteAsPage } from "./site-reader";
+import { readSiteAsPage, pageHas } from "./site-reader";
 import { handleTelloHub, claudeReply, claudeStream, MetaFilter, parseMeta, type HubEnv } from "./tello-hub";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
@@ -218,6 +218,46 @@ async function applyBotSub(env: BotEnv, sub: Record<string, any>, id: string): P
   if (sub.metadata?.plan === "pro" || sub.metadata?.plan === "starter") { const pro = await loadPro(env, bot.id); if (pro.plan !== sub.metadata.plan) await savePro(env, bot.id, { ...pro, plan: sub.metadata.plan }); }
 }
 
+/* ───────────── "Install Tello for me" (paid plans) ─────────────
+   The owner adds support@tello.live as a helper on their website account (never a password), the team adds the line,
+   and tello.live checks the site itself: on request, when the owner taps Check, and every morning for open requests. */
+export const INSTALL_TEAM = "support@tello.live";
+const INSTALL_ALERTS = ["support@tello.live", "info@ecrentalpm.com"];
+const INSTALL_DAYS = 2; // business days promised
+const BUILDERS = ["WordPress", "Wix", "Squarespace", "Shopify", "Webflow", "GoDaddy", "Other or not sure"];
+interface Install { bot_id: string; builder: string; note: string; status: string; requested_at: string; done_at: string | null; checked_at: string | null; found: number; }
+async function loadInstall(env: BotEnv, id: string): Promise<Install | null> {
+  return env.DB.prepare("SELECT * FROM biz_installs WHERE bot_id = ?").bind(id).first<Install>();
+}
+const embedLine = (id: string) => `<script src="${ORIGIN}/embed/${id}.js" async></script>`;
+/** Looks for this business's Tello line on its website and records the result; marks an open request done and emails the owner once. */
+async function checkSite(env: BotEnv, bot: Bot, notify?: Notify): Promise<{ found: boolean; error?: string }> {
+  if (!bot.site_url) return { found: false, error: "Add your website link first." };
+  const r = await pageHas(bot.site_url, `/embed/${bot.id}.js`);
+  const now = new Date().toISOString(), inst = await loadInstall(env, bot.id);
+  await env.DB.prepare("INSERT INTO biz_installs (bot_id, builder, note, status, requested_at, checked_at, found) VALUES (?, '', '', 'none', ?, ?, ?) ON CONFLICT(bot_id) DO UPDATE SET checked_at = excluded.checked_at, found = excluded.found")
+    .bind(bot.id, now, now, r.found ? 1 : 0).run();
+  if (r.found && inst && inst.status === "requested") {
+    await env.DB.prepare("UPDATE biz_installs SET status = 'done', done_at = ? WHERE bot_id = ?").bind(now, bot.id).run();
+    if (notify) {
+      try {
+        await notify(bot.owner_email, `Tello is on your website`,
+          `<p>Good news: Tello is now on <a href="${esc(bot.site_url)}">${esc(bot.site_url)}</a>. Open your website and you will see the round Tello button in the corner.</p><p>If you gave our team access to your website account to do this, you can remove that access now.</p><p>Your leads and settings: <a href="${ORIGIN}/business/manage?t=${bot.manage_token}">${ORIGIN}/business/manage</a></p>`,
+          `Good news: Tello is now on ${bot.site_url}. Open your website and you will see the round Tello button in the corner.\n\nIf you gave our team access to your website account to do this, you can remove that access now.\n\nYour leads and settings: ${ORIGIN}/business/manage?t=${bot.manage_token}`);
+      } catch (err) { console.error("[biz-bots install done email]", err); }
+    }
+  }
+  return r;
+}
+/** Daily: re-check every open install request (and stop chasing ones older than 30 days). */
+export async function runInstallChecks(env: BotEnv, notify: Notify): Promise<number> {
+  const { results } = await env.DB.prepare("SELECT b.* FROM biz_installs i JOIN biz_bots b ON b.id = i.bot_id WHERE i.status = 'requested' AND i.requested_at > ? LIMIT 50")
+    .bind(new Date(Date.now() - 30 * 86400e3).toISOString()).all<Bot>();
+  let done = 0;
+  for (const bot of results || []) { try { if ((await checkSite(env, bot, notify)).found) done++; } catch (err) { console.error("[install check]", err); } }
+  return done;
+}
+
 export async function handleBizBots(request: Request, env: BotEnv, url: URL, allow: () => Promise<boolean>, notify?: Notify): Promise<Response | null> {
   const p = url.pathname;
 
@@ -410,7 +450,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
 
     if (sub === "" && request.method === "GET") {
       const leads = (await env.DB.prepare("SELECT l.id, l.name, l.contact, l.message, l.created_at, (SELECT f.id FROM biz_files f WHERE f.lead_id = l.id LIMIT 1) AS file_id FROM biz_leads l WHERE l.bot_id = ? ORDER BY l.id DESC LIMIT 50").bind(bot.id).all()).results;
-      return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env) });
+      return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env), install: await loadInstall(env, bot.id), install_team: INSTALL_TEAM, install_days: INSTALL_DAYS, builders: BUILDERS });
     }
     if (sub === "" && request.method === "PUT") {
       await env.DB.prepare("UPDATE biz_bots SET business = ?, greeting = ?, extra = ?, facts = ?, updated_at = ? WHERE id = ?")
@@ -436,6 +476,37 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       const obj = f && env.PHOTOS ? await env.PHOTOS.get(f.r2_key) : null;
       if (!f || !obj) return json({ error: "Photo not found." }, 404);
       return new Response(obj.body, { headers: { "Content-Type": f.content_type, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'", "Cache-Control": "private, no-store" } });
+    }
+    if (sub === "/check" && request.method === "POST") {
+      if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
+      return json(await checkSite(env, bot, notify));
+    }
+    if (sub === "/install" && request.method === "POST") {
+      if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
+      if (!GOOD.includes(bot.status)) return json({ error: "Install for me is included once you start a plan." }, 403);
+      if (!bot.site_url) return json({ error: "Add your website link first, then ask us to install Tello." }, 400);
+      const builder = BUILDERS.includes(clean(body.builder, 40)) ? clean(body.builder, 40) : "Other or not sure", note = noEmoji(keepLines(body.note, 600));
+      const cur = await loadInstall(env, bot.id);
+      if (cur && cur.status === "requested" && Date.parse(cur.requested_at) > Date.now() - 3600e3) return json({ success: true, install: cur });
+      const now = new Date().toISOString();
+      await env.DB.prepare("INSERT INTO biz_installs (bot_id, builder, note, status, requested_at) VALUES (?, ?, ?, 'requested', ?) ON CONFLICT(bot_id) DO UPDATE SET builder = excluded.builder, note = excluded.note, status = 'requested', requested_at = excluded.requested_at, done_at = NULL")
+        .bind(bot.id, builder, note, now).run();
+      if (notify) {
+        const line = embedLine(bot.id);
+        for (const to of INSTALL_ALERTS) {
+          try {
+            await notify(to, `Install Tello for ${bot.business} (${builder})`,
+              `<p><b>${esc(bot.business)}</b> asked us to put Tello on their website. Promised within ${INSTALL_DAYS} business days.</p><p><b>Website:</b> <a href="${esc(bot.site_url)}">${esc(bot.site_url)}</a><br><b>Builder:</b> ${esc(builder)}<br><b>Owner:</b> ${esc(bot.owner_email)}<br><b>Plan:</b> ${esc(bot.status)}</p>${note ? `<p><b>Their note:</b><br>${esc(note).replace(/\n/g, "<br>")}</p>` : ""}<p>They were asked to invite ${INSTALL_TEAM} to their website account. Line to add before &lt;/body&gt; on every page:</p><pre>${esc(line)}</pre><p>Steps per builder: ${ORIGIN}/install?id=${bot.id}. tello.live checks the site every morning and marks this done (and emails the owner) once the line is found.</p>`,
+              `${bot.business} asked us to put Tello on their website. Promised within ${INSTALL_DAYS} business days.\n\nWebsite: ${bot.site_url}\nBuilder: ${builder}\nOwner: ${bot.owner_email}\nPlan: ${bot.status}\n${note ? "\nTheir note:\n" + note + "\n" : ""}\nThey were asked to invite ${INSTALL_TEAM} to their website account. Line to add before </body> on every page:\n${line}\n\nSteps per builder: ${ORIGIN}/install?id=${bot.id}. tello.live checks the site every morning and marks this done once the line is found.`);
+          } catch (err) { console.error("[biz-bots install alert]", err); }
+        }
+        try {
+          await notify(bot.owner_email, `We're putting Tello on your website`,
+            `<p>Thanks. Our team will add Tello to <a href="${esc(bot.site_url)}">${esc(bot.site_url)}</a> within ${INSTALL_DAYS} business days.</p><p><b>One step from you:</b> invite <b>${INSTALL_TEAM}</b> to your ${esc(builder)} account (your private Tello page shows how). Never send us a password.</p><p>We'll email you as soon as Tello is on your site. Questions? Write to ${INSTALL_TEAM}.</p>`,
+            `Thanks. Our team will add Tello to ${bot.site_url} within ${INSTALL_DAYS} business days.\n\nOne step from you: invite ${INSTALL_TEAM} to your ${builder} account (your private Tello page shows how). Never send us a password.\n\nWe'll email you as soon as Tello is on your site. Questions? Write to ${INSTALL_TEAM}.`);
+        } catch (err) { console.error("[biz-bots install owner email]", err); }
+      }
+      return json({ success: true, install: await loadInstall(env, bot.id) });
     }
     if (sub === "/refresh" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);

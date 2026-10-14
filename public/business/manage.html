@@ -116,7 +116,62 @@
       var how = el('a', '', 'Step by step for WordPress, Wix, Squarespace, Shopify and more'); how.href = '/install?id=' + d.id; how.target = '_blank'; how.rel = 'noopener';
       var howP = el('p', 'small-note'); howP.appendChild(how); share.appendChild(howP);
       share.appendChild(el('p', 'small-note', 'Or share the chat page directly:')); share.appendChild(copyBox(d.chat_url));
-      var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; share.appendChild(tr); app.appendChild(share);
+      var tr = el('a', 'btn small ghost', 'Open my chat'); tr.href = d.chat_url; tr.target = '_blank'; tr.rel = 'noopener'; share.appendChild(tr);
+      // Is Tello on the website? tello.live looks for this business's line on its home page.
+      if (d.site_url) {
+        var ck = el('div', 'row'), cb = el('button', 'btn small ghost', 'Check my website'), cm = el('span', 'small-note', ''); cb.type = 'button'; cm.style.margin = '0';
+        var inst = d.install || null;
+        if (inst && inst.checked_at) { cm.textContent = (inst.found ? 'Tello was on your website' : 'Tello was not found on your website') + ' when we last checked (' + fmt(inst.checked_at) + ').'; cm.className = inst.found ? 'small-note ok' : 'small-note'; cm.style.margin = '0'; }
+        cb.addEventListener('click', function () {
+          cb.disabled = true; cm.textContent = 'Looking at your website...'; cm.className = 'small-note'; cm.style.margin = '0';
+          api('/check', 'POST', {}).then(function (j) {
+            cb.disabled = false;
+            if (j.found) { cm.textContent = 'Tello is on your website.'; cm.className = 'small-note ok'; cm.style.margin = '0'; if (inst && inst.status === 'requested') load(); }
+            else cm.textContent = j.error ? 'I could not check: ' + j.error : 'I could not find Tello on your home page yet. Changes can take a few minutes to show.';
+          }).catch(function (e) { cb.disabled = false; cm.textContent = e.message; cm.className = 'err'; cm.style.margin = '0'; });
+        });
+        ck.appendChild(cb); ck.appendChild(cm); share.appendChild(ck);
+
+        // Install for me: paid plans. The owner invites the team to their website account; nobody ever sends a password.
+        var im = el('div'); im.style.cssText = 'margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--line)';
+        im.appendChild(el('h3', '', 'Install Tello for me')); im.firstChild.style.cssText = 'font-size:1.02rem;margin-bottom:.3rem';
+        var team = d.install_team || 'support@tello.live', days = d.install_days || 2;
+        if (inst && inst.status === 'done') {
+          im.appendChild(el('p', 'small-note ok', 'Done: our team put Tello on your website on ' + fmt(inst.done_at) + '. If you gave us access to your website account, you can remove it now.'));
+        } else if (!d.subscribed) {
+          im.appendChild(el('p', 'small-note', 'Not comfortable adding the line yourself? Once you start a plan, our team can put Tello on your website for you, within ' + days + ' business days.'));
+        } else {
+          var STEPS = {
+            'WordPress': 'In your WordPress dashboard, open Users, then Add New User (on WordPress.com: Users, then Invite). Enter ' + team + ' and choose the Administrator role.',
+            'Wix': 'In your Wix dashboard, open Settings, then Roles & Permissions (or Collaborators), then Invite People. Enter ' + team + ' and choose Admin.',
+            'Squarespace': 'In Squarespace, open Settings, then Permissions & Ownership, then Invite Contributor. Enter ' + team + ' and give Administrator permission.',
+            'Shopify': 'In Shopify admin, open Settings, then Users and permissions, then Add staff. Enter ' + team + ' and allow Themes (Online Store).',
+            'Webflow': 'In Webflow, open your Workspace settings, then Members, then Invite. Enter ' + team + ' with access to this site.',
+            'GoDaddy': 'In your GoDaddy account, open Account Settings, then Delegate Access, then Invite to Access. Enter ' + team + ' and choose Products & Domains.',
+            'Other or not sure': 'Tell us below how your website is managed. If someone else runs it, we will tell you what to ask them for, or use "Send these steps to my web person" on the step-by-step page.'
+          };
+          if (inst && inst.status === 'requested') {
+            im.appendChild(el('p', 'small-note', 'Requested on ' + fmt(inst.requested_at) + ' (' + inst.builder + '). Our team will add Tello within ' + days + ' business days. We check your website every morning and email you as soon as Tello is on it.'));
+            im.appendChild(el('p', 'small-note', 'Your step, if you have not done it yet: ' + (STEPS[inst.builder] || STEPS['Other or not sure'])));
+          } else {
+            im.appendChild(el('p', 'small-note', 'Included in your plan. Our team adds Tello to your website within ' + days + ' business days. You give us access the safe way: invite ' + team + ' to your website account. Never send us a password.'));
+            var sel = el('select'); sel.style.cssText = 'font:inherit;font-size:1rem;padding:.65rem .75rem;border-radius:10px;border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.35);color:var(--text);width:100%';
+            (d.builders || Object.keys(STEPS)).forEach(function (b) { var o = el('option', '', b); o.value = b; sel.appendChild(o); });
+            var stepP = el('p', 'small-note', ''), paint = function () { stepP.textContent = 'Your step: ' + (STEPS[sel.value] || STEPS['Other or not sure']) + ' Menu names can vary a little.'; };
+            sel.addEventListener('change', paint); paint();
+            var nt = el('textarea'); nt.maxLength = 600; nt.style.minHeight = '70px'; nt.placeholder = 'Anything we should know (optional). For example: put the button only on the home page.';
+            im.appendChild(field('My website is built with', sel)); im.appendChild(stepP); im.appendChild(field('Note for our team', nt));
+            var ib = el('button', 'btn small', 'Install Tello for me'), imsg = el('p', 'small-note', ''); ib.type = 'button';
+            ib.addEventListener('click', function () {
+              ib.disabled = true; imsg.textContent = 'Sending...'; imsg.className = 'small-note';
+              api('/install', 'POST', { builder: sel.value, note: nt.value }).then(function () { load(); }).catch(function (e) { ib.disabled = false; imsg.textContent = e.message; imsg.className = 'err'; });
+            });
+            im.appendChild(ib); im.appendChild(imsg);
+          }
+        }
+        share.appendChild(im);
+      }
+      app.appendChild(share);
 
       var teach = el('section', 'card'); teach.appendChild(el('h2', '', 'What Tello knows'));
       teach.appendChild(el('p', 'small-note', 'Tello answers only from these notes. Fix anything that is wrong and add what customers ask about: prices, hours, service area, how to book.'));

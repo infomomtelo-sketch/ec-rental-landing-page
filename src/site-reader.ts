@@ -92,3 +92,10 @@ export async function readSiteAsPage(raw: string): Promise<{ page?: SitePage; er
   const [main, ...rest] = r.pages;
   return { page: { ...main, headings: [...main.headings, ...rest.map((p) => p.title).filter(Boolean)].slice(0, 20), text: r.pages.map((p) => (p === main ? "" : `[${p.title || p.url}]\n`) + p.text).join("\n\n") } };
 }
+
+/** Whether a public page's HTML contains `needle` (used to see if a business's Tello line is on its website). */
+export async function pageHas(raw: string, needle: string): Promise<{ found: boolean; error?: string }> {
+  const r = await getHtml(raw);
+  if (!r.html) return { found: false, error: r.error || "I could not read that page." };
+  return { found: r.html.includes(needle) };
+}

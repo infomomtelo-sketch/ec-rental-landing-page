@@ -90,7 +90,7 @@ import { handleRentalCalculator } from "./rental-calculator";
 import { handleVideoRequest } from "./video-request";
 import { handleWebsiteRequest } from "./website-request";
 import { handleVideoMaker } from "./video-maker";
-import { handleBizBots, handleBotStripeEvent } from "./biz-bots";
+import { handleBizBots, handleBotStripeEvent, runInstallChecks } from "./biz-bots";
 import { handleRemoteInspections } from "./remote-inspections";
 import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
@@ -413,7 +413,8 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing.
+  // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing,
+  // and checks of business websites waiting for Tello to be installed.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[rent-reminders] sent", n))
@@ -421,6 +422,9 @@ export default {
     ctx.waitUntil(runTrialReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[trial-reminders] sent", n))
       .catch((err) => console.error("[trial-reminders]", err instanceof Error ? err.message : err)));
+    ctx.waitUntil(runInstallChecks(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text))
+      .then((n) => console.log("[install-checks] found", n))
+      .catch((err) => console.error("[install-checks]", err instanceof Error ? err.message : err)));
     ctx.waitUntil(runTelloBriefings(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[tello-briefings] sent", n))
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
