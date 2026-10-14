@@ -113,7 +113,7 @@
           <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
           <p class="err" id="err" role="alert"></p>
           <button class="btn" id="go" type="submit" style="width:100%">Build my Tello</button>
-          <p class="small-note">No website yet? Choose No website yet above: Tello works without one, and you can build a website on <a href="https://ownsite.app/" target="_blank" rel="noopener">OwnSite</a> with your Tello on it. Rather have it done for you? <a href="/website">Ask us</a>.</p>
+          <p class="small-note">No website yet? Choose No website yet above: Tello works without one, and you can build a website right here on tello.live (<a href="/build">website builder</a>, powered by OwnSite) with your Tello on it.</p>
           <p class="small-note">Please don't use Tello for health, legal or payment information. It is for everyday customer questions.</p>
         </form>
         <details class="relink" id="relink">
@@ -134,8 +134,8 @@
             <p class="small-note" style="margin:0 0 .5rem">Put it in your Google Business profile, Instagram or Facebook bio, emails and text replies. Customers tap it and chat with Tello. When you have a website, add Tello to it from your private page.</p>
             <div class="copy-row"><pre id="chatsnip"></pre><button class="btn small ghost" id="copychat" type="button">Copy</button></div>
             <p style="margin:1rem 0 .2rem"><b>3. Want a website too?</b></p>
-            <p class="small-note" style="margin:0 0 .5rem">Build one on OwnSite, our website builder. It starts from what you told Tello and puts your Tello chat on every page. A small site fits in its free monthly allowance; bigger sites can need a token pack, shown before building. You download your site and put it online, so it stays yours.</p>
-            <a class="btn small" id="ownsite" target="_blank" rel="noopener" href="https://ownsite.app/">Build my website on OwnSite</a>
+            <p class="small-note" style="margin:0 0 .5rem">Build one right here with our website builder (powered by OwnSite). It starts from what you told Tello and puts your Tello chat on every page. A small site fits in its free monthly allowance; bigger sites can need a token pack, shown before building. You download your site and put it online, so it stays yours.</p>
+            <a class="btn small" id="ownsite" href="/build">Build my website</a>
           </div>
           <div id="siteStep">
           <p style="margin:1rem 0 .2rem"><b>2. Put it on your website</b> (paste before the closing &lt;/body&gt; tag)</p>
@@ -211,7 +211,7 @@
           document.getElementById('chatlink').href = x.j.chat_url; document.getElementById('managelink').href = x.j.manage_url;
           var noSite = !hasSite(); document.getElementById('keepnum').textContent = noSite ? '4' : '3'; document.getElementById('siteStep').hidden = noSite; document.getElementById('shareStep').hidden = !noSite;
           document.getElementById('chatsnip').textContent = x.j.chat_url;
-          document.getElementById('ownsite').href = 'https://ownsite.app/?' + new URLSearchParams({ from: 'tello', tello: x.j.id, business: String(d.business || '').slice(0, 80), about: String(d.about || '').slice(0, 1200) }).toString();
+          document.getElementById('ownsite').href = '/build?' + new URLSearchParams({ from: 'tello', tello: x.j.id, business: String(d.business || '').slice(0, 80), about: String(d.about || '').slice(0, 1200) }).toString();
           document.getElementById('copychat').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.chat_url) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
           document.getElementById('snip').textContent = x.j.embed; document.getElementById('howto').href = '/install?id=' + x.j.id;
           if (x.j.read_note) document.getElementById('readnote').textContent = 'I could not read your website (' + x.j.read_note + ') so Tello starts with no notes. Open Manage my Tello and type what customers should know.';
