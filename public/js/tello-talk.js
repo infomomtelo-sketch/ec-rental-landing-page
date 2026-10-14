@@ -62,6 +62,46 @@
     next();
   }
 
+  // Speaks while the answer is still being written: push(textSoFar) as it grows, end(fullText) when it is done.
+  // Each finished sentence is recorded right away and queued, so the voice starts after the first sentence, not the last.
+  function stream(token, opts) {
+    opts = opts || {};
+    stopSpeaking(); var id = run; ending = opts.onEnd || null;
+    try { player = new Audio(); player.src = SILENT; var pr = player.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { player = null; }
+    var off = 0, q = [], playing = false, finished = false, started = false, count = 0, full = '';
+    function enqueue(t) {
+      t = clean(t); if (!t) return;
+      chunks(t).forEach(function (c) { if (count < 6) { count++; q.push(clip(c, token)); } });
+    }
+    function pump() {
+      if (id !== run || playing) return;
+      if (!q.length) {
+        if (!finished) return;
+        if (!started) { robot(clean(full), id); return; }
+        done(); return;
+      }
+      playing = true;
+      q.shift().then(function (src) {
+        if (id !== run) return;
+        var next = function () { if (id !== run) return; playing = false; pump(); };
+        if (!src || !player) { next(); return; }
+        player.onended = next; player.onerror = next; player.src = src;
+        if (!started) { started = true; if (opts.onStart) try { opts.onStart(player); } catch (e) {} }
+        var p = player.play(); if (p && p.catch) p.catch(next);
+      });
+    }
+    function take(text, last) {
+      var m;
+      while ((m = text.slice(off).match(/^[\s\S]*?(?:[.!?](?=\s)|\n)/))) { enqueue(m[0]); off += m[0].length; }
+      if (last) { enqueue(text.slice(off)); off = text.length; }
+    }
+    return {
+      push: function (text) { if (id !== run || finished) return; take(text, false); pump(); },
+      end: function (text) { if (id !== run) return; full = text; finished = true; take(text, true); pump(); },
+      stop: stopSpeaking
+    };
+  }
+
   var ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
   function attach(o) {
     if (!SR || !o || !o.form || !o.input) return { onReply: function () {}, stop: stopSpeaking };
@@ -104,5 +144,5 @@
     try { rec.start(); } catch (e) { ended = true; if (o.onEnd) o.onEnd(''); }
     return { stop: function () { try { rec.stop(); } catch (e) {} }, abort: function () { ended = true; try { rec.abort(); } catch (e) {} } };
   }
-  window.ECTelloTalk = { supported: !!SR, attach: attach, speak: speak, stop: stopSpeaking, listen: listen };
+  window.ECTelloTalk = { supported: !!SR, attach: attach, speak: speak, stream: stream, stop: stopSpeaking, listen: listen };
 })();
