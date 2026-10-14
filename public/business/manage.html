@@ -116,8 +116,27 @@
       ['Who is waiting for a reply?', 'What should I do today?', 'Draft a reply to my newest lead'].forEach(function (q) { var x = el('button', 'btn small ghost', q); x.type = 'button'; x.addEventListener('click', function () { ask(q); }); qp.appendChild(x); });
       card.appendChild(form); card.appendChild(qp); card.appendChild(note); return card;
     }
+    var offerShown = false;
+    function greenOffer(d) {
+      if (offerShown || d.green_on || !d.billing_on) return; offerShown = true;
+      var back = el('div'); back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50';
+      var box = el('div'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Green Tello');
+      box.style.cssText = 'background:var(--paper,#fff);color:inherit;border-radius:16px;max-width:420px;width:100%;padding:1.2rem 1.3rem;box-shadow:0 20px 60px rgba(0,0,0,.35)';
+      box.appendChild(el('h2', '', 'Meet Green Tello'));
+      box.appendChild(el('p', 'small-note', 'Your chat is free. Green Tello is your private assistant: it sees every lead, drafts replies in your voice, emails them for you after you tap Confirm, and sends you a morning email of who is waiting.'));
+      box.appendChild(el('p', 'small-note', '$' + d.price + ' a month after 7 days free. Cancel any time.'));
+      var r = el('div', 'row'), go = el('button', 'btn', 'Start 7 days free'), no = el('button', 'btn ghost', 'Not now'), err = el('p', 'err', '');
+      go.type = 'button'; no.type = 'button';
+      function close() { back.remove(); document.removeEventListener('keydown', esc); }
+      function esc(e) { if (e.key === 'Escape') close(); }
+      document.addEventListener('keydown', esc);
+      go.addEventListener('click', function () { go.disabled = true; api('/checkout', 'POST', { plan: 'starter' }).then(function (j) { if (j.url) location.href = j.url; else { close(); load(); } }).catch(function (e) { go.disabled = false; err.textContent = e.message; }); });
+      no.addEventListener('click', close);
+      r.appendChild(go); r.appendChild(no); box.appendChild(r); box.appendChild(err); back.appendChild(box); document.body.appendChild(back); go.focus();
+    }
     function render() {
       app.textContent = '';
+      setTimeout(function () { greenOffer(data); }, 1200);
       var d = data, msg = el('p', 'err', ''); msg.id = 'msg';
       app.appendChild(greenCard(d));
       var today = el('section', 'card'); today.appendChild(el('h2', '', 'Today with Tello'));
