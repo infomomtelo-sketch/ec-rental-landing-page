@@ -129,6 +129,7 @@
           <p class="small-note" id="readnote" style="margin:0 0 .8rem"></p>
           <p style="margin-bottom:.4rem"><b>1. Try it</b></p>
           <a class="btn small" id="chatlink" target="_blank" rel="noopener">Open your chat</a>
+          <div id="chatqr"></div>
           <div id="shareStep" hidden>
             <p style="margin:1rem 0 .2rem"><b>2. Share your chat link</b></p>
             <p class="small-note" style="margin:0 0 .5rem">Put it in your Google Business profile, Instagram or Facebook bio, emails and text replies. Customers tap it and chat with Tello. When you have a website, add Tello to it from your private page.</p>
@@ -141,6 +142,8 @@
           <p style="margin:1rem 0 .2rem"><b>2. Put it on your website</b> (paste before the closing &lt;/body&gt; tag)</p>
           <div class="copy-row"><pre id="snip"></pre><button class="btn small ghost" id="copy" type="button">Copy</button></div>
           <p class="small-note" style="margin:0 0 .4rem"><a id="howto" href="/install" target="_blank" rel="noopener">Step by step for WordPress, Wix, Squarespace, Shopify and more</a></p>
+          <p class="small-note" style="margin:.6rem 0 .2rem">Someone else builds your website? Email them the line and the steps:</p>
+          <div id="stepsform"></div>
           </div>
           <p style="margin:1rem 0 .2rem"><b><span id="keepnum">3</span>. Keep your private link</b></p>
           <p class="small-note" style="margin:0 0 .5rem">It manages your Tello and shows your leads. We also emailed it to you. Anyone with it can manage your Tello, so keep it private.</p>
@@ -211,6 +214,7 @@
           document.getElementById('chatlink').href = x.j.chat_url; document.getElementById('managelink').href = x.j.manage_url;
           var noSite = !hasSite(); document.getElementById('keepnum').textContent = noSite ? '4' : '3'; document.getElementById('siteStep').hidden = noSite; document.getElementById('shareStep').hidden = !noSite;
           document.getElementById('chatsnip').textContent = x.j.chat_url;
+          if (window.TelloShare) { var qt = new URL(x.j.manage_url, location.href).searchParams.get('t') || ''; var qb = document.getElementById('chatqr'); qb.textContent = ''; qb.appendChild(TelloShare.qr(x.j.chat_url)); var sf = document.getElementById('stepsform'); sf.textContent = ''; sf.appendChild(TelloShare.emailForm(qt)); }
           document.getElementById('ownsite').href = '/build?' + new URLSearchParams({ from: 'tello', tello: x.j.id, business: String(d.business || '').slice(0, 80), about: String(d.about || '').slice(0, 1200) }).toString();
           document.getElementById('copychat').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(x.j.chat_url) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select and copy'; }); });
           document.getElementById('snip').textContent = x.j.embed; document.getElementById('howto').href = '/install?id=' + x.j.id;
@@ -220,6 +224,8 @@
     });
   })();
   </script>
+  <script src="/vendor/qrcode-generator/qrcode.js" defer></script>
+  <script src="/js/tello-share.js" defer></script>
   <script src="/js/help-videos.js"></script>
   <script src="/js/tello-slides.js" defer></script>
   <script src="/js/tello-hub-widget.js" defer></script>
