@@ -40,7 +40,7 @@ const TELLO_LLMS = `# Tello
 - [What to put on a small business FAQ page](${TELLO}/small-business-website-faq-page): which questions to include and how to write answers.
 - [How to follow up with new leads](${TELLO}/how-to-follow-up-with-new-leads): a simple routine for replying and tracking leads.
 - [Social media setup helper](${TELLO}/social-setup): free tool with handle ideas, bios, profile pictures and a sign-up checklist for each network.
-- [Get a website](${TELLO}/website): set up Tello, then build the website on OwnSite (ownsite.app) with the Tello chat on every page; bigger projects get a Claude Code prompt that builds them in the owner's own GitHub and hosting.
+- [Get a website](${TELLO}/website): set up Tello, then build the website at tello.live/build (powered by OwnSite) with the Tello chat on every page; bigger projects get a Claude Code prompt that builds them in the owner's own GitHub and hosting.
 - [The Tello team meeting](${TELLO}/meeting): four Tellos (rentals, business chat, video maker, social setup) introduce themselves, then you ask by voice or text and the right one answers.
 - [How to make a short business video](${TELLO}/how-to-make-a-short-business-video): structure, captions and a free video maker.
 - [Make a video](${TELLO}/make): the free video maker.
