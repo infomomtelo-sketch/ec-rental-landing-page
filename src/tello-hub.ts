@@ -399,6 +399,20 @@ export async function claudeStream(env: HubEnv, system: string, msgs: Msg[], max
   return "";
 }
 
+/** The latest reason Claude failed (the visitor then silently gets the free model), kept so it can be read at /api/public/tello-hub/config. */
+const CLAUDE_ERR_KEY = "hub_claude_error";
+async function noteClaudeError(env: HubEnv, model: string, err: unknown) {
+  const e: any = err, msg = String(e?.error?.error?.message || e?.message || err).replace(/sk-[A-Za-z0-9_-]+/g, "sk-…").slice(0, 220);
+  const text = `${model}: ${e?.status ? e.status + " " : ""}${msg}`;
+  try { await env.DB.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(CLAUDE_ERR_KEY, text, new Date().toISOString()).run(); } catch { /* diagnostics only */ }
+}
+async function clearClaudeError(env: HubEnv) {
+  try { await env.DB.prepare("DELETE FROM app_settings WHERE key = ?").bind(CLAUDE_ERR_KEY).run(); } catch { /* diagnostics only */ }
+}
+async function lastClaudeError(env: HubEnv): Promise<string | null> {
+  try { const r = await env.DB.prepare("SELECT value, updated_at FROM app_settings WHERE key = ?").bind(CLAUDE_ERR_KEY).first<{ value: string; updated_at: string }>(); return r ? `${r.updated_at} ${r.value}` : null; } catch { return null; }
+}
+
 async function capabilities(env: HubEnv, day: string) {
   const claude = !!env.ANTHROPIC_API_KEY && (await spentToday(env, day)) < dailyCents(env);
   return { claude, attach: claude, search: claude, read: claude, max_files: MAX_FILES };
@@ -464,10 +478,11 @@ async function chat(request: Request, env: HubEnv, allow: () => Promise<boolean>
       const models = [env.HUB_MODEL || DEFAULT_MODEL, BACKUP_MODEL].filter((m, i, a) => a.indexOf(m) === i);
       for (const model of models) {
         const out = { emitted: false };
-        try { result = await runClaude(run, model, out); break; }
+        try { result = await runClaude(run, model, out); await clearClaudeError(env); break; }
         catch (err) {
           if (ctrl.signal.aborted) return { ok: false, error: "Stopped." };
           console.error(`[tello-hub ${model}]`, err instanceof Error ? err.message : err);
+          await noteClaudeError(env, model, err);
           if (out.emitted) emit("reset", {});
         }
       }
@@ -475,7 +490,7 @@ async function chat(request: Request, env: HubEnv, allow: () => Promise<boolean>
     if (files.length) emit("status", { id: "f", text: files.length > 1 ? `Looked at ${files.length} files` : files[0].kind === "pdf" ? "Read your PDF" : "Looked at your photo", done: true, failed: !result });
     if (!result) {
       if (files.length) return { ok: false, error: "I couldn't look at your file just now. Please try again in a minute." };
-      if (caps.claude) emit("reset", {});
+      if (caps.claude) { emit("reset", {}); emit("notice", { text: "Tello is on its basic model for this answer, so it may be less thorough." }); }
       try { result = await runFree(run); }
       catch (err) { console.error("[tello-hub free]", err instanceof Error ? err.message : err); return { ok: false, error: "Sorry, I could not answer just now. Please try again." }; }
     }
@@ -515,7 +530,7 @@ async function feedback(request: Request, env: HubEnv, allow: () => Promise<bool
 
 export async function handleTelloHub(request: Request, env: HubEnv, path: string, allow: () => Promise<boolean>, notify?: Notify): Promise<Response | null> {
   if (path === "/api/public/tello-hub/chat" && request.method === "POST") return chat(request, env, allow, notify);
-  if (path === "/api/public/tello-hub/config" && request.method === "GET") return json({ capabilities: await capabilities(env, today()) });
+  if (path === "/api/public/tello-hub/config" && request.method === "GET") return json({ capabilities: await capabilities(env, today()), claude_key: !!env.ANTHROPIC_API_KEY, claude_last_error: await lastClaudeError(env) });
   if (path === "/api/public/tello-hub/feedback" && request.method === "POST") return feedback(request, env, allow);
   return null;
 }
