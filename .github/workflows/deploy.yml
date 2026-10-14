@@ -45,6 +45,7 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           node -e '
             const env = process.env, out = {};
@@ -53,6 +54,7 @@ jobs:
             if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.trim()) out.ELEVENLABS_API_KEY = env.ELEVENLABS_API_KEY.trim();
             if (env.ELEVENLABS_VOICE_ID && env.ELEVENLABS_VOICE_ID.trim()) out.ELEVENLABS_VOICE_ID = env.ELEVENLABS_VOICE_ID.trim();
             if (env.DEEPINFRA_API_KEY && env.DEEPINFRA_API_KEY.trim()) out.DEEPINFRA_API_KEY = env.DEEPINFRA_API_KEY.trim();
+            if (env.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY.trim()) out.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY.trim();
             process.stdout.write(JSON.stringify(out));
           ' > secrets.json
           if [ "$(cat secrets.json)" != "{}" ]; then
