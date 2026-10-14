@@ -217,7 +217,7 @@
     var skey = opts.storageKey || KEY, chatUrl = opts.chatUrl || API + '/chat', useVoice = opts.voice !== false;
     if (opts.allowHost) EXTRA = String(opts.allowHost).toLowerCase().replace(/^www\./, '');
     var page = opts.mode === 'page', msgs = load(skey), busy = false, ctrl = null, pending = [], lastFiles = [], caps = { attach: false };
-    var voiceTurn = false, speakingBtn = null, vm = null;
+    var voiceTurn = false, chipTurn = false, speakingBtn = null, vm = null;
     root.classList.add('tc', 'tc-' + (page ? 'page' : 'bubble'));
     root.textContent = '';
     var log = h('div', 'tc-log'), sr = h('div', 'tc-sr'); sr.setAttribute('aria-live', 'polite');
@@ -291,7 +291,7 @@
     }
     function chip(text, primary) {
       var c = h('button', 'tc-chip' + (primary ? ' primary' : ''), text); c.type = 'button';
-      c.addEventListener('click', function () { submit(text); });
+      c.addEventListener('click', function () { submit(text, false, true); });
       return c;
     }
     function renderStarters() {
@@ -374,13 +374,13 @@
       send.setAttribute('aria-label', b ? 'Stop' : 'Send'); send.title = b ? 'Stop' : 'Send'; send.type = b ? 'button' : 'submit'; fit();
     }
     function state(s, text) { if (window.TelloOrb) TelloOrb.set(s); if (opts.onStatus) opts.onStatus(text || ''); }
-    function submit(text, viaVoice) {
+    function submit(text, viaVoice, viaChip) {
       text = String(text || '').trim().slice(0, MAX_TEXT);
       if (busy || (!text && !pending.length)) return;
       if (window.ECTelloTalk) ECTelloTalk.stop();
       if (window.TelloOrb) TelloOrb.unlock();
       if (!text) text = pending.length > 1 ? 'Please take a look at these.' : 'Please take a look at this.';
-      voiceTurn = !!viaVoice;
+      voiceTurn = !!viaVoice; chipTurn = !!viaChip;
       lastFiles = pending; pending = []; paintFiles(); fileMsg.textContent = '';
       msgs.push({ role: 'user', content: text, files: lastFiles.map(function (f) { return { name: f.name, kind: f.kind }; }) });
       store(msgs, skey); ta.value = ''; fit(); render(); toEnd(true); ask();
@@ -400,8 +400,9 @@
       live.appendChild(status); live.appendChild(textEl); textEl.appendChild(dots); log.appendChild(live); toEnd(true);
       var text = '', stLines = {}, done = false, frame = 0, me = ctrl = new AbortController();
       var sp = null;
-      // On the tello.live page the Voice on/off button is the only switch; elsewhere a spoken question gets a spoken answer.
-      function wantsVoice() { return page ? !!(opts.speakTyped && opts.speakTyped()) : voiceTurn; }
+      // On the tello.live page Tello speaks only for the opening tour and for a tapped sample question, and only with Voice on.
+      // Typed questions stay silent (each reply still has its own play button). Elsewhere a spoken question gets a spoken answer.
+      function wantsVoice() { return page ? chipTurn && !!(opts.speakTyped && opts.speakTyped()) : voiceTurn; }
       function openSpeech() {
         if (!useVoice || !window.ECTelloTalk || !ECTelloTalk.stream || (vm && vm.active)) return;
         if (!wantsVoice()) return;
