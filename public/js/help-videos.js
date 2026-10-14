@@ -11,6 +11,7 @@
     maint: { title: 'Maintenance with Tello', len: '44 sec', file: 'maintenance', wideOnly: true },
     insp: { title: 'Rental inspections', len: '48 sec', file: 'inspections', wideOnly: true },
     biz: { title: 'Tello for your business', len: '49 sec', file: 'tello-business' },
+    meet: { title: 'Meet Tello', len: '60 sec', file: 'tello-meet' },
     green: { title: 'Free chat to Green Tello', len: '59 sec', file: 'tello-free-to-green' },
     mk: { title: 'Make a video with Tello', len: '30 sec', file: 'tello-make' }
   };
