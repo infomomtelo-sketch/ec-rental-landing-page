@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Rental Property Calculator: Cash Flow, Cap Rate, Cash-on-Cash | EC Rental</title>
+  <meta name="description" content="Free rental property calculator for landlords and investors. See monthly cash flow, cap rate, cash-on-cash return and mortgage payment in seconds. No sign-up needed." />
+  <link rel="canonical" href="https://ecrentalpm.com/rental-calculator" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Free Rental Property Calculator | EC Rental" />
+  <meta property="og:description" content="Will this rental make money? See cash flow, cap rate and cash-on-cash return in seconds. Free, no sign-up." />
+  <meta property="og:url" content="https://ecrentalpm.com/rental-calculator" />
+  <meta property="og:image" content="https://ecrentalpm.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/css/rentals.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Rental Property Calculator","url":"https://ecrentalpm.com/rental-calculator","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"Organization","name":"EC Rental Property Management","url":"https://ecrentalpm.com"}}</script>
+  <style>
+    .lead { font-size: 1.1rem; margin: 0.75rem 0 1.25rem; }
+    .calc { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+    .calc .app-form fieldset { gap: 0.6rem; }
+    .calc input { padding: 0.55rem 0.7rem; }
+    .results { position: sticky; top: 5rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; }
+    .results h2 { margin-top: 0; }
+    .big { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+    .big.pos { color: var(--primary); } .big.neg { color: #991b1b; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 1rem 0; }
+    .stats div { background: var(--light); border-radius: 10px; padding: 0.6rem 0.75rem; }
+    .stats small { display: block; color: var(--gray); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .stats b { font-size: 1.15rem; color: var(--dark); }
+    .breakdown { width: 100%; font-size: 0.88rem; border-collapse: collapse; }
+    .breakdown td { padding: 0.3rem 0; border-bottom: 1px solid #eee; }
+    .breakdown td:last-child { text-align: right; font-weight: 600; }
+    .verdict { font-size: 0.92rem; margin-top: 0.75rem; }
+    .emailbox { margin-top: 1.5rem; }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .terms dt { font-weight: 700; margin-top: 0.75rem; }
+    .cta-box { background: var(--primary); color: var(--white); border-radius: var(--radius); padding: 1.25rem; margin: 2rem 0 1rem; }
+    .cta-box h2 { color: var(--white); margin-top: 0; }
+    .cta-box a.primary-btn { background: var(--accent); color: var(--dark); display: inline-block; text-decoration: none; }
+    .mbar { display: none; }
+    @media (max-width: 800px) { .calc { grid-template-columns: 1fr; } .results { position: static; } .app-form .row { flex-direction: column; } .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--primary); color: var(--white); padding: 0.7rem 1rem; justify-content: space-between; align-items: center; font-weight: 700; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); } .mbar a { color: var(--white); } body { padding-bottom: 3.5rem; } }
+  </style>
+</head>
+<body>
+  <header><nav class="nav"><a class="logo" href="/">EC<span> Rental</span> PM</a><div class="nav-right"><a href="/listings">Rentals</a><a href="/dashboard">Sign In</a><a href="/#subscribe" class="nav-cta">For Landlords</a></div></nav></header>
+  <main class="wrap">
+    <h1>Free rental property calculator</h1>
+    <p class="lead">Will this rental make money? Enter the price, rent and costs to see monthly cash flow, cap rate and cash-on-cash return. It's free, there's no sign-up, and the numbers update as you type.</p>
+
+    <div class="calc">
+      <form id="calcForm" class="app-form" novalidate>
+        <fieldset>
+          <legend>Purchase and loan</legend>
+          <label>Property name or address (optional)<input name="label" maxlength="200" placeholder="123 Main St" /></label>
+          <div class="row"><label>Purchase price ($)<input name="price" type="number" min="0" inputmode="decimal" value="350000" /></label><label>Down payment (%)<input name="down_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="25" /></label></div>
+          <div class="row"><label>Interest rate (%)<input name="rate" type="number" min="0" max="30" step="0.125" inputmode="decimal" value="7" /></label><label>Loan length (years)<input name="years" type="number" min="1" max="40" inputmode="numeric" value="30" /></label></div>
+          <label>Closing and repair costs ($)<input name="closing" type="number" min="0" inputmode="decimal" value="7000" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Income</legend>
+          <div class="row"><label>Monthly rent ($)<input name="rent" type="number" min="0" inputmode="decimal" value="2500" /></label><label>Other monthly income ($)<input name="other_income" type="number" min="0" inputmode="decimal" value="0" /></label></div>
+          <label>Vacancy (% of the year empty)<input name="vacancy_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="5" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Costs</legend>
+          <div class="row"><label>Property tax per year ($)<input name="tax_year" type="number" min="0" inputmode="decimal" value="3850" /></label><label>Insurance per year ($)<input name="insurance_year" type="number" min="0" inputmode="decimal" value="1500" /></label></div>
+          <div class="row"><label>HOA per month ($)<input name="hoa" type="number" min="0" inputmode="decimal" value="0" /></label><label>Utilities you pay per month ($)<input name="utilities" type="number" min="0" inputmode="decimal" value="0" /></label></div>
+          <div class="row"><label>Repairs and upkeep (% of rent)<input name="maintenance_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="5" /></label><label>Property management (% of rent)<input name="management_pct" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="0" /></label></div>
+          <p class="muted small">The starting numbers are only an example. Replace them with your own quotes for taxes, insurance and your loan.</p>
+        </fieldset>
+      </form>
+
+      <aside class="results" id="results" aria-live="polite">
+        <h2>Monthly cash flow</h2>
+        <div id="cf" class="big pos">$0</div>
+        <div class="muted small" id="cfYear"></div>
+        <div class="stats">
+          <div><small>Cap rate</small><b id="cap">0%</b></div>
+          <div><small>Cash-on-cash</small><b id="coc">0%</b></div>
+          <div><small>Mortgage</small><b id="mort">$0</b></div>
+          <div><small>Cash to buy</small><b id="inv">$0</b></div>
+        </div>
+        <table class="breakdown">
+          <tr><td>Income after vacancy</td><td id="inc"></td></tr>
+          <tr><td>Operating costs</td><td id="opex"></td></tr>
+          <tr><td>Net operating income</td><td id="noi"></td></tr>
+          <tr><td>Mortgage (principal and interest)</td><td id="mort2"></td></tr>
+          <tr><td>Debt coverage (DSCR)</td><td id="dscr"></td></tr>
+        </table>
+        <p class="verdict" id="verdict"></p>
+
+        <div class="emailbox">
+          <h2>Email me this report</h2>
+          <form id="emailForm" class="app-form" novalidate>
+            <label>Your name<input name="name" required maxlength="100" autocomplete="name" /></label>
+            <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email" /></label>
+            <label>Phone (optional)<input name="phone" type="tel" maxlength="30" autocomplete="tel" /></label>
+            <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+            <p class="muted small">We'll email you this report. EC Rental may follow up about your rental. We don't sell your information. See our <a href="/privacy">privacy policy</a>.</p>
+            <button class="primary-btn" type="submit" id="emailBtn">Email my report</button>
+            <p id="emailMsg" class="err" hidden></p>
+          </form>
+        </div>
+      </aside>
+    </div>
+
+    <section class="cta-box">
+      <h2>Already own rentals? Run them with Tello.</h2>
+      <p>EC Rental is property management software for landlords anywhere: listings, online applications, e-signing, rent reminders, online rent payments, maintenance requests and tax-ready reports, with Tello, your AI assistant. Start for $3 for your first 3 months.</p>
+      <p style="margin-top:0.75rem"><a class="primary-btn" href="/#subscribe">Start for $3</a></p>
+    </section>
+
+    <section>
+      <h2>What the numbers mean</h2>
+      <dl class="terms">
+        <dt>Cash flow</dt><dd>What's left each month after vacancy, operating costs and the mortgage payment. Positive means the rental pays you.</dd>
+        <dt>Net operating income (NOI)</dt><dd>Rent after vacancy, minus operating costs like taxes, insurance, HOA, repairs and management. It doesn't include the mortgage.</dd>
+        <dt>Cap rate</dt><dd>Yearly NOI divided by the purchase price. It lets you compare properties as if you paid cash.</dd>
+        <dt>Cash-on-cash return</dt><dd>Yearly cash flow divided by the cash you put in (down payment plus closing and repair costs).</dd>
+        <dt>Debt coverage (DSCR)</dt><dd>NOI divided by the mortgage payment. Above 1.0 means the rent covers the loan. Many lenders look for about 1.2 or higher.</dd>
+      </dl>
+      <p class="muted small" style="margin-top:1rem">These are estimates from the numbers you enter, not financial, tax or lending advice. Taxes and insurance vary by area, so check them with your lender and tax pro. Want help pricing the rent? <a href="/rent-review">Get a free rent review</a>.</p>
+    </section>
+  </main>
+  <div class="mbar" aria-hidden="true"><span>Cash flow <span id="mcf">$0</span>/mo</span><a href="#results">See results</a></div>
+  <footer class="footer"><p><strong>Equal Housing Opportunity.</strong> EC Rental Property Management LLC does not discriminate on the basis of race, color, religion, sex, gender identity, sexual orientation, national origin, familial status, disability, source of income, or any other class protected by federal, California, or local law.</p><p class="footer-links"><a href="/">Home</a> · <a href="/blog/">Landlord guides</a> · <a href="/rent-review">Free rent review</a> · <a href="/tello-inspect">Tello Inspect</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></footer>
+  <script>
+    (function() {
+      var form = document.getElementById('calcForm'), last = null;
+      function val(name) { var n = Number(form.elements[name].value); return isFinite(n) && n > 0 ? n : 0; }
+      function money(n) { return (n < 0 ? '-$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-US'); }
+      function pct(n) { return isFinite(n) ? n.toFixed(1) + '%' : 'n/a'; }
+      function set(id, t) { document.getElementById(id).textContent = t; }
+      // Same formulas as calculate() in src/rental-calculator.ts.
+      function run() {
+        var i = {}; ['price','down_pct','rate','years','closing','rent','other_income','vacancy_pct','tax_year','insurance_year','hoa','utilities','maintenance_pct','management_pct'].forEach(function(k) { i[k] = val(k); });
+        i.down_pct = Math.min(i.down_pct, 100); i.years = Math.round(i.years) || 30;
+        var loan = i.price * (1 - i.down_pct / 100), r = i.rate / 1200, n = i.years * 12;
+        var mortgage = loan <= 0 ? 0 : r === 0 ? loan / n : loan * r / (1 - Math.pow(1 + r, -n));
+        var income = (i.rent + i.other_income) * (1 - Math.min(i.vacancy_pct, 100) / 100);
+        var opex = i.tax_year / 12 + i.insurance_year / 12 + i.hoa + i.utilities + i.rent * i.maintenance_pct / 100 + income * i.management_pct / 100;
+        var noi = income - opex, cf = noi - mortgage, inv = i.price * i.down_pct / 100 + i.closing;
+        var cap = i.price > 0 ? noi * 12 / i.price * 100 : NaN, coc = inv > 0 ? cf * 12 / inv * 100 : NaN, dscr = mortgage > 0 ? noi / mortgage : NaN;
+        var el = document.getElementById('cf'); el.textContent = money(cf); el.className = 'big ' + (cf < 0 ? 'neg' : 'pos');
+        set('mcf', money(cf)); set('cfYear', money(cf * 12) + ' per year'); set('cap', pct(cap)); set('coc', pct(coc)); set('mort', money(mortgage)); set('inv', money(inv));
+        set('inc', money(income)); set('opex', money(opex)); set('noi', money(noi)); set('mort2', money(mortgage)); set('dscr', isFinite(dscr) ? dscr.toFixed(2) : 'No loan');
+        set('verdict', !i.price || !i.rent ? 'Enter a price and rent to see results.' : cf >= 0 ? 'At these numbers the rent covers every cost and the loan, with ' + money(cf) + ' left over each month.' : 'At these numbers you would pay ' + money(-cf) + ' a month out of pocket. Try a higher rent, a bigger down payment or a lower price.');
+        last = i;
+      }
+      form.addEventListener('input', run); run();
+
+      var ef = document.getElementById('emailForm'), btn = document.getElementById('emailBtn'), msg = document.getElementById('emailMsg');
+      ef.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var data = {}; new FormData(ef).forEach(function(v, k) { data[k] = v; });
+        if (!data.name || !/^\S+@\S+\.\S+$/.test(data.email || '')) { msg.textContent = 'Please enter your name and email.'; msg.hidden = false; return; }
+        if (!last || !last.price || !last.rent) { msg.textContent = 'Please enter the price and monthly rent first.'; msg.hidden = false; return; }
+        Object.keys(last).forEach(function(k) { data[k] = last[k]; }); data.label = form.elements.label.value;
+        btn.disabled = true; btn.textContent = 'Sending...'; msg.hidden = true;
+        fetch('/api/public/calculator-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+          .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); })
+          .then(function(d) {
+            ef.innerHTML = '<p class="ok"><b>' + (d.emailed === false ? 'Got it. We saved your report and will email it to you shortly.' : 'Sent! Check your inbox for your report.') + '</b></p><p class="small">Change any number above and send another anytime.</p>';
+          })
+          .catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Email my report'; });
+      });
+    })();
+  </script>
+<script src="/js/track.js" defer></script>
+</body>
+</html>
