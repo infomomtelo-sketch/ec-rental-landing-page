@@ -96,7 +96,7 @@ PAGES = {
   split=("Built with guardrails", "AI that knows the rules.", "Tello follows fair housing rules in every tool: it describes homes, never the people who should live in them, and it treats every renter the same.",
          ["Never approves or denies an applicant", "Never asks about protected characteristics", "Only answers from the facts you entered", "Says when it doesn't know and points to the landlord"]),
   faq=[("Is Tello a real person?", "No. Tello is AI. It can make mistakes, so EC Rental and the landlord confirm every detail."),
-       ("Does it cost extra?", "No. Tello is included in every plan."),
+       ("Does it cost extra?", "No. Green Tello, your private assistant inside EC Rental, is included in every plan, along with a daily briefing on what needs you. Other businesses can get the free Tello chat at tello.live, or Green Tello for $19 a month after 7 days free."),
        ("Can renters use it?", "Yes. Renters can chat on any listing page or at ecrentalpm.com/tello.")],
  ),
  "listings": dict(
