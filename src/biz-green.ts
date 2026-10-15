@@ -118,10 +118,10 @@ export async function handleGreen(env: GreenEnv, bot: GreenBot, sub: string, bod
   return json({ success: true, message: `Sent to ${lead.contact.trim()} and marked as done.` });
 }
 
-/** Morning email for Green Tello owners: who is still waiting for a reply. Sent once a day, only when someone is waiting. No AI cost. */
+/** Morning briefing email for every Tello owner, free chat and Green Tello alike: who is still waiting for a reply. Sent once a day, only when someone is waiting. No AI cost. */
 export async function runGreenBriefings(env: GreenEnv, notify: Notify, origin: string, now = new Date()): Promise<number> {
   const day = "brief-" + now.toISOString().slice(0, 10);
-  const bots = (await env.DB.prepare("SELECT id, business, owner_email, owner_name, manage_token FROM biz_bots WHERE status IN ('active','trialing','past_due') AND id NOT IN (SELECT bot_id FROM biz_usage WHERE day = ?) LIMIT 500").bind(day).all<{ id: string; business: string; owner_email: string; owner_name: string; manage_token: string }>()).results || [];
+  const bots = (await env.DB.prepare("SELECT id, business, owner_email, owner_name, manage_token, status FROM biz_bots WHERE id NOT IN (SELECT bot_id FROM biz_usage WHERE day = ?) AND EXISTS (SELECT 1 FROM biz_leads l LEFT JOIN biz_lead_done d ON d.lead_id = l.id WHERE l.bot_id = biz_bots.id AND d.lead_id IS NULL) LIMIT 500").bind(day).all<{ id: string; business: string; owner_email: string; owner_name: string; manage_token: string; status: string }>()).results || [];
   let sent = 0;
   for (const b of bots) {
     try {
@@ -129,12 +129,14 @@ export async function runGreenBriefings(env: GreenEnv, notify: Notify, origin: s
       const leads = await openLeads(env, b.id);
       if (!leads.length) continue;
       const first = (b.owner_name || "").split(" ")[0] || "there", link = `${origin}/business/manage?t=${b.manage_token}`;
+      // Free-chat owners get the same briefing; the reply button and the footer name only what they have.
+      const paid = ["active", "trialing", "past_due"].includes(b.status), cta = paid ? "Ask Tello to reply" : "See who is waiting", who = paid ? "Green Tello" : "Tello";
       const subject = `Tello: ${leads.length === 1 ? "1 person is" : leads.length + " people are"} waiting to hear from ${b.business}`;
       const items = leads.slice(0, 8);
       const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;color:#1a1a1a"><p style="font-size:16px">Good morning, ${esc(first)}. Here is who is waiting for a reply.</p>`
         + items.map((l) => `<div style="border-left:3px solid #123a30;padding:6px 12px;margin:10px 0"><strong>${esc(l.name || "No name")}</strong> <span style="color:#6b7280">${esc(l.contact)}</span><br><span style="color:#4b5563">${esc(one(l.message, 160))}</span></div>`).join("")
-        + `<p><a href="${link}" style="display:inline-block;background:#123a30;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-weight:700">Ask Tello to reply</a></p><p style="color:#6b7280;font-size:12px">Green Tello, the assistant for ${esc(b.business)}. Tello can be wrong, so check anything that matters.</p></div>`;
-      const text = `Good morning, ${first}. Here is who is waiting for a reply.\n\n` + items.map((l) => `- ${l.name || "No name"} (${l.contact}): ${one(l.message, 160)}`).join("\n") + `\n\nAsk Tello to reply: ${link}`;
+        + `<p><a href="${link}" style="display:inline-block;background:#123a30;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-weight:700">${cta}</a></p><p style="color:#6b7280;font-size:12px">${who}, the assistant for ${esc(b.business)}. Tello can be wrong, so check anything that matters.</p></div>`;
+      const text = `Good morning, ${first}. Here is who is waiting for a reply.\n\n` + items.map((l) => `- ${l.name || "No name"} (${l.contact}): ${one(l.message, 160)}`).join("\n") + `\n\n${cta}: ${link}`;
       await notify(b.owner_email, subject, html, text);
       sent++;
     } catch (err) { console.error("[green-briefing]", b.id, err instanceof Error ? err.message : err); }

@@ -7,7 +7,7 @@
   <link rel="icon" href="/brand/tello-mark.svg" type="image/svg+xml" />
   <link rel="icon" href="/brand/tello-icon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="/brand/tello-apple-touch-180.png" />
-  <meta name="description" content="Tello learns your website, answers customers' questions around the clock and sends you every lead. One line to add it. Free, no card needed." />
+  <meta name="description" content="Tello learns your website, greets visitors, answers customers' questions around the clock, briefs you each day and sends you every lead. One line to add it. Free, no card needed." />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Tello" />
   <link rel="canonical" href="https://tello.live/business" />
@@ -77,15 +77,16 @@
     .ts-slide h3 { font-size: 1.35rem; letter-spacing: -.01em; line-height: 1.15; }
     .ts-slide p { color: var(--muted); font-size: .98rem; }
     .ts-slide .go { margin-top: auto; font-weight: 700; text-decoration: none; }
+    .ts-slide.free { background: linear-gradient(160deg, #e6eefc, #fff 60%); border-color: #bccdf0; }
     .ts-slide.gold { background: linear-gradient(160deg, #fff6cf, #fff 60%); border-color: #f1d77a; }
     .ts-slide.green { background: linear-gradient(160deg, #dcf7eb, #fff 60%); border-color: #9fe0c3; }
     .ts-slide.dark { background: #16181b; border-color: #16181b; color: #f6f1e6; } .ts-slide.dark p { color: #c9c1b0; } .ts-slide.dark .go { color: #ffd23f; }
     .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; margin-right: .45rem; vertical-align: -1px; }
-    .dot.g { background: #e0b100; } .dot.n { background: #1fa070; }
+    .dot.g { background: #e0b100; } .dot.n { background: #1fa070; } .dot.f { background: #3566c9; }
     .badge { align-self: flex-start; font-size: .78rem; font-weight: 700; border-radius: 999px; padding: .2rem .6rem; background: #fff; border: 1px solid var(--line); }
     .nav a.ask { color: var(--text); font-weight: 700; }
   </style>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://tello.live/#org", "name": "Tello", "url": "https://tello.live/", "logo": "https://tello.live/brand/tello-icon-512.png", "email": "support@tello.live"}, {"@type": "WebSite", "@id": "https://tello.live/#site", "url": "https://tello.live/", "name": "Tello", "publisher": {"@id": "https://tello.live/#org"}}, {"@type": "SoftwareApplication", "name": "Tello for your business", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "url": "https://tello.live/business", "description": "An AI chat assistant for small business websites. It learns the business from its website, answers customers' questions around the clock and sends the owner every lead.", "offers": [{"@type": "Offer", "name": "Gold Tello", "price": "0", "priceCurrency": "USD", "description": "Free, no card needed"}], "publisher": {"@id": "https://tello.live/#org"}}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://tello.live/#org", "name": "Tello", "url": "https://tello.live/", "logo": "https://tello.live/brand/tello-icon-512.png", "email": "support@tello.live"}, {"@type": "WebSite", "@id": "https://tello.live/#site", "url": "https://tello.live/", "name": "Tello", "publisher": {"@id": "https://tello.live/#org"}}, {"@type": "SoftwareApplication", "name": "Tello for your business", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "url": "https://tello.live/business", "description": "An AI chat assistant for small business websites. It learns the business from its website, answers customers' questions around the clock and sends the owner every lead.", "offers": [{"@type": "Offer", "name": "Tello chat", "price": "0", "priceCurrency": "USD", "description": "Free, no card needed. Includes an opening greeting and a daily briefing about your business."}, {"@type": "Offer", "name": "Green Tello", "price": "19", "priceCurrency": "USD", "description": "Per month after 7 days free. A private assistant that knows your leads and notes."}], "publisher": {"@id": "https://tello.live/#org"}}]}</script>
 </head>
 <body>
   <header><div class="wrap"><a class="brand" href="/"><img src="/brand/tello-mark.svg" width="38" height="38" alt="" style="vertical-align:-11px;margin-right:9px" />tello<span>.live</span></a><nav class="nav"><a class="ask" href="/">Ask Tello</a><a href="/models">Models</a><a href="/videos">Videos</a></nav></div></header>
@@ -96,7 +97,7 @@
         <h1>Tello works for your business, day and night.</h1>
         <p class="lede">Paste your website link, or tell Tello about your business. Tello answers your customers and sends you every lead.</p>
         <ul class="chips"><li>Ready in a minute</li><li>One line on your site</li><li>Leads emailed to you</li></ul>
-        <p class="price">Free<small>No card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free. <a href="/models">Compare models</a></small></p>
+        <p class="price">Free<small>No card needed. Includes a greeting and a daily briefing about your business. Want a private assistant too? Green Tello is $19 a month after 7 days free. <a href="/models">Compare models</a></small></p>
       </div>
       <div class="card" id="panel"><span id="setup"></span>
         <form id="f" autocomplete="on" novalidate toolname="set_up_tello_for_business" tooldescription="Set up Tello, a free AI chat assistant that answers a business's customers and emails the owner every lead. Tello learns from the business website or a short description. The user reviews the form and submits it.">
@@ -158,8 +159,9 @@
           <article class="ts-slide"><span class="num">1</span><h3>Paste your link</h3><p>Tello reads your website: services, prices, hours, contact. No website? Just tell Tello about your business.</p></article>
           <article class="ts-slide"><span class="num">2</span><h3>Add one line</h3><p>A chat button appears on your site. Customers get answers in your own words.</p></article>
           <article class="ts-slide"><span class="num">3</span><h3>Get the leads</h3><p>Someone wants a quote or a callback? Tello takes their details and emails you.</p></article>
-          <article class="ts-slide gold"><span class="tag"><span class="dot g"></span>Gold Tello &middot; available now</span><h3>Your website chat</h3><p>Answers from your public information. Never makes deals, sets prices or promises dates.</p><a class="go" href="/models">See Gold Tello</a></article>
-          <article class="ts-slide green"><span class="tag"><span class="dot n"></span>Green Tello &middot; in EC Rental</span><h3>Works inside your business</h3><p>Available now for landlords in EC Rental: knows your rentals, briefs you daily, and does tasks only after you confirm. Any other business: from your private page, $19 a month after 7 days free.</p><a class="go" href="/models#green">About Green Tello</a></article>
+          <article class="ts-slide free"><span class="tag"><span class="dot f"></span>Tello chat &middot; free</span><h3>Your website chat</h3><p>Greets visitors, answers from your public information and briefs you each day on who is waiting. Never makes deals, sets prices or promises dates.</p><a class="go" href="/models#free">See Tello chat</a></article>
+          <article class="ts-slide green"><span class="tag"><span class="dot n"></span>Green Tello &middot; $19 a month</span><h3>Works inside your business</h3><p>Your private assistant: it knows your notes and every open lead, drafts replies in your voice and acts only after you confirm. 7 days free, a card is needed to start. Landlords get it inside EC Rental.</p><a class="go" href="/models#green">About Green Tello</a></article>
+          <article class="ts-slide gold"><span class="tag"><span class="dot g"></span>Gold Tello &middot; $49 a month, coming soon</span><h3>For more than one business</h3><p>Everything in Green Tello, with a briefing across all your businesses, team seats and a voice briefing.</p><a class="go" href="/models#gold">About Gold Tello</a></article>
           <article class="ts-slide dark"><span class="tag" style="color:#c9c1b0">See it at work</span><h3>Tello on ecrentalpm.com</h3><p>Ask about rent, repairs or California rental rules.</p><a class="go" href="https://ecrentalpm.com" target="_blank" rel="noopener">Open ecrentalpm.com</a></article>
         </div>
       </div>
