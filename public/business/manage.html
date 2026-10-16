@@ -73,6 +73,10 @@
     function greenCard(d) {
       var card = el('section', 'card'); card.appendChild(el('h2', '', 'Green Tello'));
       var note = el('p', 'err', '');
+      var used = Math.min(d.used_today || 0, d.cap), left = d.cap - used;
+      var line = el('p', 'small-note', 'Customer messages today: ' + used + ' of ' + d.cap + (d.green_on ? '.' : ' on the free plan. Green Tello raises it to ' + d.cap_green + ' a day.'));
+      if (!d.green_on && (left <= 0 || d.trial_over)) { line.className = 'err'; line.textContent = (left <= 0 ? 'Today\'s free limit of ' + d.cap + ' customer messages is used up, so visitors are asked to contact you directly until tomorrow. ' : 'Your 7 free days are over. Your website chat keeps working on the free plan (' + d.cap + ' customer messages a day). ') + 'Start Green Tello to raise it to ' + d.cap_green + ' a day and get your private assistant.'; }
+      card.appendChild(line);
       if (!d.green_on) {
         card.appendChild(el('p', 'small-note', 'Your private assistant for ' + d.business + '. It knows your business notes and every lead, drafts replies in your voice, emails a lead or marks it done only after you tap Confirm, and adds new facts to your notes.'));
         card.appendChild(el('p', 'small-note', '$' + d.price + ' a month after 7 days free. A card is needed to start, and you can cancel any time on this page.'));
