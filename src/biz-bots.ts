@@ -297,8 +297,8 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
     if (notify) {
       try {
         await notify(email, `Your Tello assistant for ${business} is ready`,
-          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your Tello chat is free, with no card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.</p>`,
-          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour Tello chat is free, with no card needed. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.`);
+          `<p>Your Tello assistant for <b>${esc(business)}</b> is ready.</p><p>Chat page: <a href="${ORIGIN}/b/${id}">${ORIGIN}/b/${id}</a></p><p>Manage it, copy the website snippet and see customer messages here (keep this link private, it works like a password):<br><a href="${manage}">${manage}</a></p><p>How to add Tello to your website, step by step: <a href="${ORIGIN}/install?id=${id}">${ORIGIN}/install?id=${id}</a></p><p>Your Tello chat is free, with no card needed, and it includes an opening greeting and a daily briefing about your business. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.</p>`,
+          `Your Tello assistant for ${business} is ready.\n\nChat page: ${ORIGIN}/b/${id}\n\nManage it, copy the website snippet and see customer messages (keep this link private, it works like a password):\n${manage}\n\nHow to add Tello to your website, step by step: ${ORIGIN}/install?id=${id}\n\nYour Tello chat is free, with no card needed, and it includes an opening greeting and a daily briefing about your business. Want a private assistant too? Green Tello is $19 a month after 7 days free, from your manage page.`);
       } catch (err) { console.error("[biz-bots create email]", err); }
       try { await notify("info@ecrentalpm.com", `tello.live: new business assistant, ${business}`, `<p>${esc(business)} (${esc(email)}) set up a Tello assistant. Site: ${esc(site)}</p>`, `${business} (${email}) set up a Tello assistant. Site: ${site}`); } catch { /* best effort */ }
     }
@@ -449,6 +449,15 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       return json({ success: true });
     }
     if (sub === "/today" && request.method === "GET") return json(await buildToday(env, bot, await loadPro(env, bot.id)));
+    // One-click switch for the morning briefing email (the link in the email's footer). A row in biz_usage marks "off"; no schema change.
+    if (sub === "/briefing" && request.method === "GET") {
+      const off = url.searchParams.get("off") === "1";
+      if (off) await env.DB.prepare("INSERT OR IGNORE INTO biz_usage (bot_id, day, n) VALUES (?, 'brief-off', 1)").bind(bot.id).run();
+      else await env.DB.prepare("DELETE FROM biz_usage WHERE bot_id = ? AND day = 'brief-off'").bind(bot.id).run();
+      const back = `${ORIGIN}/api/biz/manage/briefing?t=${bot.manage_token}&off=${off ? "0" : "1"}`, manageUrl = `${ORIGIN}/business/manage?t=${bot.manage_token}`;
+      const msg = off ? `The morning email for ${esc(bot.business)} is off. Your chat, greeting and the briefing on your manage page still work.` : `The morning email for ${esc(bot.business)} is back on.`;
+      return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Tello morning email</title></head><body style="font-family:system-ui,sans-serif;max-width:520px;margin:12vh auto;padding:0 16px;color:#16181b;line-height:1.5"><h1 style="font-size:1.4rem">${off ? "Morning email off" : "Morning email on"}</h1><p>${msg}</p><p><a href="${manageUrl}">Open my Tello page</a> &middot; <a href="${back}">${off ? "Turn it back on" : "Turn it off"}</a></p></body></html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+    }
     if (sub === "/email-steps" && request.method === "POST") {
       if (!(await allow())) return json({ error: "Please wait a minute and try again." }, 429);
       const to = clean(body.to, 200).toLowerCase();

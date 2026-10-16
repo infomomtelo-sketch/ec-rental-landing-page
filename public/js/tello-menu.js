@@ -9,7 +9,7 @@
     share = I('<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>');
   var items = [
     ['Talk to Tello', [[chat, 'Ask Tello', '/', 'Free AI chat'], [team, 'Team meeting', '/meeting', 'Four Tellos, ask out loud']]],
-    ['For your business', [[chat, 'Tello for your business', '/business', 'Answers customers, takes leads. Free 7 days'], [I('<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>'), 'Pick your Tello', '/models', 'Gold Tello, Green Tello'], [I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>'), 'No website yet?', '/website', 'A website with Tello, or just the website']]],
+    ['For your business', [[chat, 'Tello for your business', '/business', 'Answers customers, takes leads. Free'], [I('<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>'), 'Pick your Tello', '/models', 'Free chat, Green $19, Gold $49'], [I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>'), 'No website yet?', '/website', 'A website with Tello, or just the website']]],
     ['Create', [[vid, 'Make a video', '/make', 'Free'], [play, 'Sample videos', '/videos', ''], [share, 'Social media setup', '/social-setup', '']]],
     ['For landlords', [[home, 'Tello for landlords', 'https://ecrentalpm.com', 'EC Rental on ecrentalpm.com']]]
   ];

@@ -123,7 +123,7 @@
       var box = el('div'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Green Tello');
       box.style.cssText = 'background:var(--paper,#fff);color:inherit;border-radius:16px;max-width:420px;width:100%;padding:1.2rem 1.3rem;box-shadow:0 20px 60px rgba(0,0,0,.35)';
       box.appendChild(el('h2', '', 'Meet Green Tello'));
-      box.appendChild(el('p', 'small-note', 'Your chat is free. Green Tello is your private assistant: it sees every lead, drafts replies in your voice, emails them for you after you tap Confirm, and sends you a morning email of who is waiting.'));
+      box.appendChild(el('p', 'small-note', 'Your chat, opening greeting and daily briefing are free. Green Tello is your private assistant: it knows your private notes and sees every lead, drafts replies in your voice, and emails a lead or marks it done only after you tap Confirm.'));
       box.appendChild(el('p', 'small-note', '$' + d.price + ' a month after 7 days free. Cancel any time.'));
       var r = el('div', 'row'), go = el('button', 'btn', 'Start 7 days free'), no = el('button', 'btn ghost', 'Not now'), err = el('p', 'err', '');
       go.type = 'button'; no.type = 'button';
@@ -163,7 +163,7 @@
       var plan = el('section', 'card'); plan.appendChild(el('h2', '', d.business));
       var isPro = d.plan === 'pro', myPrice = isPro ? d.pro_price : d.price;
       var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : (isPro ? 'Pro' : 'Green Tello')) : 'Free chat'); plan.appendChild(b);
-      var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your ' + (isPro ? 'Tello Pro' : 'Green Tello') + ' is on. $' + myPrice + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : 'Your website chat and chat link are free, with no card needed. Green Tello, your private assistant, is $' + d.price + ' a month after 7 days free.');
+      var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your ' + (isPro ? 'Tello Pro' : 'Green Tello') + ' is on. $' + myPrice + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : 'Your website chat, chat link, opening greeting and daily briefing are free, with no card needed. Green Tello, your private assistant, is $' + d.price + ' a month after 7 days free.');
       plan.appendChild(p);
       var row = el('div', 'row');
       function go(label, path, body, ghost) { var x = el('button', 'btn small' + (ghost ? ' ghost' : ''), label); x.type = 'button'; x.addEventListener('click', function () { x.disabled = true; api(path, 'POST', body).then(function (j) { if (j.url) location.href = j.url; else load(); }).catch(function (e) { x.disabled = false; msg.textContent = e.message; }); }); row.appendChild(x); }
