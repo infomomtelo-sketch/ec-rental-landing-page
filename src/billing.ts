@@ -157,6 +157,28 @@ async function portalConfiguration(env: BillingEnv): Promise<string> {
   return conf.id;
 }
 
+/** Stripe's customer portal for a Tello (tello.live) subscriber: card, invoices, billing email and cancel. It has its own
+ *  configuration so the page is headed "Tello billing", not EC Rental's. Cancelling there reaches the bot through the webhook. */
+export async function telloPortalUrl(env: BillingEnv, customerId: string, returnUrl: string): Promise<string> {
+  const settingKey = `stripe_portal_tello:${keyMode(env)}`;
+  let conf = await getSetting(env, settingKey);
+  if (!conf) {
+    const made = await stripe(env, "POST", "billing_portal/configurations", {
+      business_profile: { headline: "Tello billing" },
+      features: {
+        payment_method_update: { enabled: "true" },
+        invoice_history: { enabled: "true" },
+        customer_update: { enabled: "true", allowed_updates: ["email", "name"] },
+        subscription_cancel: { enabled: "true", mode: "at_period_end" },
+      },
+    });
+    conf = made.id as string;
+    await setSetting(env, settingKey, conf);
+  }
+  const session = await stripe(env, "POST", "billing_portal/sessions", { customer: customerId, configuration: conf, return_url: returnUrl });
+  return session.url as string;
+}
+
 async function billingRow(env: BillingEnv, userId: number): Promise<BillingRow | null> {
   return env.DB.prepare("SELECT * FROM billing WHERE user_id = ?").bind(userId).first<BillingRow>();
 }

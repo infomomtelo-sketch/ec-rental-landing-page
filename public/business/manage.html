@@ -165,9 +165,11 @@
       var b = el('span', 'badge', d.subscribed ? (d.cancel_at_period_end ? 'Ends ' + fmt(d.period_end) : (isPro ? 'Pro' : 'Green Tello')) : 'Free chat'); plan.appendChild(b);
       var p = el('p', 'small-note', d.subscribed ? (d.cancel_at_period_end ? 'Your plan is cancelled and stays on until ' + fmt(d.period_end) + '. You will not be charged again.' : 'Your ' + (isPro ? 'Tello Pro' : 'Green Tello') + ' is on. $' + myPrice + ' a month' + (d.period_end ? ', next charge ' + fmt(d.period_end) : '') + '.') : 'Your website chat, chat link, opening greeting and daily briefing are free, with no card needed. Green Tello, your private assistant, is $' + d.price + ' a month after 7 days free.');
       plan.appendChild(p);
+      if (d.status === 'past_due') plan.appendChild(el('p', 'err', 'Your last payment did not go through. Tap Manage billing to update your card.'));
       var row = el('div', 'row');
       function go(label, path, body, ghost) { var x = el('button', 'btn small' + (ghost ? ' ghost' : ''), label); x.type = 'button'; x.addEventListener('click', function () { x.disabled = true; api(path, 'POST', body).then(function (j) { if (j.url) location.href = j.url; else load(); }).catch(function (e) { x.disabled = false; msg.textContent = e.message; }); }); row.appendChild(x); }
       if (d.subscribed && !d.cancel_at_period_end) { if (isPro) go('Switch to Green Tello ($' + d.price + '/month)', '/upgrade', { plan: 'starter' }, true); }
+      if (d.subscribed) go('Manage billing', '/portal', {}, true);
       if (d.subscribed) { var c = el('button', 'btn ghost small', d.cancel_at_period_end ? 'Keep my plan' : 'Cancel plan'); c.type = 'button'; c.addEventListener('click', function () { c.disabled = true; api(d.cancel_at_period_end ? '/resume' : '/cancel', 'POST').then(load).catch(function (e) { c.disabled = false; msg.textContent = e.message; }); }); row.appendChild(c); }
       plan.appendChild(row); plan.appendChild(msg); app.appendChild(plan);
 
