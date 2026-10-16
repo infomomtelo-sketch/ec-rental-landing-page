@@ -24,7 +24,8 @@ const ORIGIN = "https://tello.live";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 /** The free website chat uses the lighter Claude model; everything that reads or writes for the owner uses Sonnet 5.5. */
 const FREE_CHAT_MODEL = "claude-haiku-5-5";
-const DAILY_CAP = 300; // customer messages per bot per day, so a busy or abused bot cannot run up the AI bill
+const DAILY_CAP = 300; // customer messages per bot per day on Green Tello, so a busy or abused bot cannot run up the AI bill
+const FREE_CAP = 50;   // the same, on the free Tello chat (no card). Green Tello raises it to DAILY_CAP.
 const MAX_PHOTO = 5 * 1024 * 1024; // one photo per message, 5 MB
 const GOOD = ["active", "trialing", "past_due"];
 
@@ -177,11 +178,19 @@ const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const keepLines = (v: unknown, max: number) => String(v ?? "").replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
 const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
 
-async function useToday(env: BotEnv, id: string): Promise<boolean> {
+const capFor = (b: Pick<Bot, "status">) => (GOOD.includes(b.status) ? DAILY_CAP : FREE_CAP);
+
+/** Counts one customer message for today. `n` is the running count, so the first message over the cap is n === cap + 1. */
+async function useToday(env: BotEnv, id: string, cap: number): Promise<{ ok: boolean; n: number }> {
   const day = new Date().toISOString().slice(0, 10);
   await env.DB.prepare("INSERT INTO biz_usage (bot_id, day, n) VALUES (?, ?, 1) ON CONFLICT(bot_id, day) DO UPDATE SET n = n + 1").bind(id, day).run();
   const row = await env.DB.prepare("SELECT n FROM biz_usage WHERE bot_id = ? AND day = ?").bind(id, day).first<{ n: number }>();
-  return (row?.n ?? 0) <= DAILY_CAP;
+  const n = row?.n ?? 0;
+  return { ok: n <= cap, n };
+}
+async function usedToday(env: BotEnv, id: string): Promise<number> {
+  const day = new Date().toISOString().slice(0, 10);
+  return (await env.DB.prepare("SELECT n FROM biz_usage WHERE bot_id = ? AND day = ?").bind(id, day).first<{ n: number }>())?.n ?? 0;
 }
 
 async function saveLead(env: BotEnv, bot: Bot, msgs: Msg[], notify?: Notify): Promise<void> {
@@ -215,6 +224,7 @@ function manageView(b: Bot, leads: unknown[], pro: Pro, uploads: boolean) {
     price: BOT_PRICE.cents / 100, pro_price: PRO_PRICE.cents / 100, plan: pro.plan, pro_on: proOn(b, pro), pro_settings: { uploads, audience: pro.audience, suggestions: pro.suggestions, example_q: pro.example_q, example_a: pro.example_a, cta: pro.cta },
     meet_url: `${ORIGIN}/m/${b.id}`, chat_url: `${ORIGIN}/b/${b.id}`, embed: `<script src="${ORIGIN}/embed/${b.id}.js" async></script>`, leads,
     billing_on: true, green_on: GOOD.includes(b.status),
+    cap: capFor(b), cap_green: DAILY_CAP, cap_free: FREE_CAP, trial_over: !GOOD.includes(b.status) && Date.parse(b.trial_ends) < Date.now(),
   };
 }
 
@@ -383,7 +393,19 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
       const msgs: Msg[] = (Array.isArray(body.messages) ? body.messages : []).filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m: any) => ({ role: m.role, content: keepLines(m.content, 1500) })).filter((m: Msg) => m.content).slice(-20);
       while (msgs.length && msgs[0].role !== "user") msgs.shift(); // Claude needs the conversation to start with the customer
       if (!msgs.length || msgs[msgs.length - 1].role !== "user") return json({ error: "Type a message first." }, 400);
-      if (!(await useToday(env, bot.id))) return json({ reply: "We've had a lot of messages today. Please contact the business directly and they'll help you." });
+      const cap = capFor(bot), use = await useToday(env, bot.id, cap);
+      if (!use.ok) {
+        // Tell the owner once, the moment the free limit is first passed today (n === cap + 1 happens once a day).
+        if (use.n === cap + 1 && !GOOD.includes(bot.status) && notify) {
+          const manage = `${ORIGIN}/business/manage?t=${bot.manage_token}`;
+          try {
+            await notify(bot.owner_email, `Your Tello chat for ${bot.business} reached today's free limit`,
+              `<p>Customers sent <b>${esc(bot.business)}</b> ${cap} messages today, which is the free Tello limit. Visitors are now asked to contact you directly until tomorrow.</p><p>Green Tello raises the limit to ${DAILY_CAP} messages a day and adds your private assistant. It is $${BOT_PRICE.cents / 100} a month after ${BOT_PRICE.trialDays} days free, and you can cancel any time.</p><p><a href="${manage}">Open your Tello page</a> (keep this link private).</p>`,
+              `Customers sent ${bot.business} ${cap} messages today, which is the free Tello limit. Visitors are now asked to contact you directly until tomorrow.\n\nGreen Tello raises the limit to ${DAILY_CAP} messages a day and adds your private assistant. It is $${BOT_PRICE.cents / 100} a month after ${BOT_PRICE.trialDays} days free, and you can cancel any time.\n\nOpen your Tello page (keep this link private): ${manage}`);
+          } catch (err) { console.error("[biz-bots cap mail]", err instanceof Error ? err.message : err); }
+        }
+        return json({ reply: "We've had a lot of messages today. Please contact the business directly and they'll help you." });
+      }
       const system = CHAT_SYSTEM(bot);
       // The free Workers AI model, used when Claude is off or over its daily budget, so the chat never goes down.
       const free = async (): Promise<string> => {
@@ -448,7 +470,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
         } catch (err) { console.error("[biz-bots checkout return]", err instanceof Error ? err.message : err); }
       }
       const leads = (await env.DB.prepare("SELECT l.id, l.name, l.contact, l.message, l.created_at, (SELECT f.id FROM biz_files f WHERE f.lead_id = l.id LIMIT 1) AS file_id FROM biz_leads l WHERE l.bot_id = ? ORDER BY l.id DESC LIMIT 50").bind(bot.id).all()).results;
-      return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env) });
+      return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env), used_today: await usedToday(env, bot.id) });
     }
     if (sub === "" && request.method === "PUT") {
       await env.DB.prepare("UPDATE biz_bots SET business = ?, greeting = ?, extra = ?, facts = ?, updated_at = ? WHERE id = ?")
