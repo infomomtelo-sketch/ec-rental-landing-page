@@ -3,7 +3,7 @@
 // (/embed/<id>.js) for their own site. Customers who leave a phone or email become leads, emailed to the owner.
 // Owners manage the bot from a private link (no password); the plan is $19/month after a 7-day free trial, billed on
 // EC Rental's own Stripe account (never Title 22's).
-import { stripe, billingEnabled, ensureAnyWebhook, type BillingEnv } from "./billing";
+import { stripe, billingEnabled, ensureAnyWebhook, telloPortalUrl, type BillingEnv } from "./billing";
 import { readSiteAsPage } from "./site-reader";
 import { handleGreen } from "./biz-green";
 import { handleTelloHub, claudeReply, claudeStream, MetaFilter, parseMeta, type HubEnv } from "./tello-hub";
@@ -514,6 +514,12 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
         success_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=success`, cancel_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=canceled`,
       });
       return json({ url: session.url });
+    }
+    if (sub === "/portal" && request.method === "POST") {
+      if (!billingEnabled(env)) return json({ error: "Billing is not available yet." }, 503);
+      if (!bot.customer_id) return json({ error: "Start Green Tello first, then you can manage billing here." }, 400);
+      try { return json({ url: await telloPortalUrl(env, bot.customer_id, `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=portal`) }); }
+      catch (err) { console.error("[biz-bots portal]", err instanceof Error ? err.message : err); return json({ error: "Billing could not open just now. Please try again, or email support@tello.live." }, 502); }
     }
     if (sub === "/upgrade" && request.method === "POST") {
       if (!bot.subscription_id || !GOOD.includes(bot.status)) return json({ error: "Start a plan first." }, 400);
