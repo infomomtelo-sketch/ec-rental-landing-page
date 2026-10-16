@@ -251,7 +251,7 @@
       try { history.replaceState(null, '', '?t=' + encodeURIComponent(tok)); } catch (e) { /* the address stays as it is */ }
     }
     function load() {
-      return api('', 'GET').then(function (j) { data = j; render(); afterBilling(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); var lk = el('p', 'small-note'), a1 = el('a', '', 'Email me my private link'); a1.href = '/business#mylink'; lk.appendChild(a1); lk.appendChild(document.createTextNode(' or ')); var a2 = el('a', '', 'set up a new Tello'); a2.href = '/business#setup'; lk.appendChild(a2); app.appendChild(lk); });
+      return api('', 'GET').then(function (j) { data = j; try { localStorage.setItem('tello_owner', JSON.stringify({ t: tok, id: j.id, business: String(j.business || '').slice(0, 80) })); } catch (e) {} render(); afterBilling(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); var lk = el('p', 'small-note'), a1 = el('a', '', 'Email me my private link'); a1.href = '/business#mylink'; lk.appendChild(a1); lk.appendChild(document.createTextNode(' or ')); var a2 = el('a', '', 'set up a new Tello'); a2.href = '/business#setup'; lk.appendChild(a2); app.appendChild(lk); });
     }
     load();
   })();
