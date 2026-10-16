@@ -430,11 +430,23 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
   if (p.startsWith("/api/biz/manage")) {
     const body = request.method === "GET" ? {} : await request.json().catch(() => ({})) as Record<string, unknown>;
     const token = clean(request.method === "GET" ? url.searchParams.get("t") : body.t, 60);
-    const bot = await loadByToken(env, token);
+    let bot = await loadByToken(env, token);
     if (!bot) return json({ error: "That management link is not valid. Use the link from your email." }, 404);
     const sub = p.slice("/api/biz/manage".length);
 
     if (sub === "" && request.method === "GET") {
+      // Coming back from Stripe Checkout: confirm the new subscription with Stripe right now, so the owner never sees a stale
+      // "Start Green Tello" while the webhook is still on its way (and cannot pay twice). Only this owner's own session counts.
+      const cs = clean(url.searchParams.get("cs"), 120);
+      if (/^cs_[A-Za-z0-9_]{8,}$/.test(cs) && !GOOD.includes(bot.status) && billingEnabled(env)) {
+        try {
+          const s = await stripe(env, "GET", "checkout/sessions/" + cs);
+          if (s.client_reference_id === bot.id && s.mode === "subscription" && s.subscription) {
+            await applyBotSub(env, await stripe(env, "GET", "subscriptions/" + s.subscription), bot.id);
+            bot = (await loadById(env, bot.id)) ?? bot;
+          }
+        } catch (err) { console.error("[biz-bots checkout return]", err instanceof Error ? err.message : err); }
+      }
       const leads = (await env.DB.prepare("SELECT l.id, l.name, l.contact, l.message, l.created_at, (SELECT f.id FROM biz_files f WHERE f.lead_id = l.id LIMIT 1) AS file_id FROM biz_leads l WHERE l.bot_id = ? ORDER BY l.id DESC LIMIT 50").bind(bot.id).all()).results;
       return json({ ...manageView(bot, leads, await loadPro(env, bot.id), await uploadsOn(env, bot.id)), billing_on: billingEnabled(env) });
     }
@@ -511,7 +523,7 @@ document.body.appendChild(f);document.body.appendChild(b);})();`;
         line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: cents, recurring: { interval: "month" }, product_data: { name: `Green Tello for ${bot.business}` } } }],
         subscription_data: { metadata: { bot_id: bot.id, plan }, trial_period_days: BOT_PRICE.trialDays },
         metadata: { bot_id: bot.id, plan }, allow_promotion_codes: "true",
-        success_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=success`, cancel_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=canceled`,
+        success_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=success&cs={CHECKOUT_SESSION_ID}`, cancel_url: `${ORIGIN}/business/manage?t=${bot.manage_token}&billing=canceled`,
       });
       return json({ url: session.url });
     }

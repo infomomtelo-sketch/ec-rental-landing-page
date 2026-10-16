@@ -31,6 +31,7 @@
     textarea { min-height: 110px; resize: vertical; }
     input:focus, textarea:focus, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
     .hp { position: absolute; left: -9999px; }
+    .note-ok { background: rgba(31,160,112,.15); border: 1px solid rgba(31,160,112,.4); border-radius: 12px; padding: .7rem 1rem; margin: 0 0 1rem; font-size: .95rem; }
     .err { color: #ff9b8a; font-size: 0.92rem; margin: 0.4rem 0; min-height: 1.2em; }
     .ok { color: #8fe3b0; }
     .small-note { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
@@ -55,10 +56,10 @@
   <script src="/js/tello-share.js"></script>
   <script>
   (function () {
-    var app = document.getElementById('app'), tok = new URLSearchParams(location.search).get('t') || '', data = null;
+    var qs = new URLSearchParams(location.search), app = document.getElementById('app'), tok = qs.get('t') || '', cs = qs.get('cs') || '', billing = qs.get('billing') || '', tries = 0, data = null;
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
     function api(path, method, body) {
-      return fetch('/api/biz/manage' + path + (method === 'GET' ? '?t=' + encodeURIComponent(tok) : ''), { method: method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : JSON.stringify(Object.assign({ t: tok }, body || {})) })
+      return fetch('/api/biz/manage' + path + (method === 'GET' ? '?t=' + encodeURIComponent(tok) + (path === '' && /^cs_/.test(cs) ? '&cs=' + encodeURIComponent(cs) : '') : ''), { method: method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : JSON.stringify(Object.assign({ t: tok }, body || {})) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'Something went wrong.'); return j; }); });
     }
     function field(label, node) { var l = el('label', '', label); l.appendChild(node); return l; }
@@ -236,8 +237,21 @@
       d.leads.forEach(function (l) { var x = el('div', 'lead'); var bb = el('b', '', l.contact); x.appendChild(bb); x.appendChild(el('small', '', (l.name ? l.name + ' - ' : '') + fmt(l.created_at))); x.appendChild(el('pre', '', l.message)); if (l.file_id) { var pl = el('a', 'btn small ghost', 'View photo'); pl.href = '/api/biz/manage/file/' + l.file_id + '?t=' + encodeURIComponent(tok); pl.target = '_blank'; pl.rel = 'noopener'; x.appendChild(pl); } leads.appendChild(x); });
       app.appendChild(leads);
     }
+    // Back from Stripe: say what happened, wait briefly if the plan is still being confirmed, then tidy the address.
+    function say(text) { var n = el('p', 'note-ok', text); app.insertBefore(n, app.firstChild); }
+    function afterBilling() {
+      if (!billing) return;
+      if (billing === 'canceled') say('No problem, you were not charged. You can start Green Tello any time.');
+      else if (billing === 'success') {
+        if (data.subscribed) say('Green Tello is on. Your 7 days free have started, and your card is not charged until they end.');
+        else if (tries++ < 5) { say('Confirming your payment...'); setTimeout(load, 2500); return; }
+        else say('Your payment is still being confirmed. Please refresh in a minute before trying again.');
+      }
+      billing = ''; cs = '';
+      try { history.replaceState(null, '', '?t=' + encodeURIComponent(tok)); } catch (e) { /* the address stays as it is */ }
+    }
     function load() {
-      return api('', 'GET').then(function (j) { data = j; render(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); var lk = el('p', 'small-note'), a1 = el('a', '', 'Email me my private link'); a1.href = '/business#mylink'; lk.appendChild(a1); lk.appendChild(document.createTextNode(' or ')); var a2 = el('a', '', 'set up a new Tello'); a2.href = '/business#setup'; lk.appendChild(a2); app.appendChild(lk); });
+      return api('', 'GET').then(function (j) { data = j; render(); afterBilling(); }).catch(function (e) { app.textContent = ''; app.appendChild(el('p', 'err', e.message)); var lk = el('p', 'small-note'), a1 = el('a', '', 'Email me my private link'); a1.href = '/business#mylink'; lk.appendChild(a1); lk.appendChild(document.createTextNode(' or ')); var a2 = el('a', '', 'set up a new Tello'); a2.href = '/business#setup'; lk.appendChild(a2); app.appendChild(lk); });
     }
     load();
   })();
