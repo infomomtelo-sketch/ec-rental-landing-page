@@ -9,10 +9,8 @@ workers_dev = true
 routes = [
   { pattern = "ecrentalpm.com", custom_domain = true },
   { pattern = "www.ecrentalpm.com", custom_domain = true },
-  # tello.live is the Tello video page (its home is /videos; see src/index.ts).
-  { pattern = "tello.live", custom_domain = true },
-  { pattern = "www.tello.live", custom_domain = true },
 ]
+# tello.live is served by its own Worker now (repo infomomtelo-sketch/tello-live), which shares this database for now.
 
 # Daily jobs (src/index.ts scheduled): rent reminders. 16:00 UTC is 9am in Fresno (8am in winter).
 [triggers]
