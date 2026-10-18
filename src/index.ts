@@ -87,7 +87,6 @@ import { handleAiAssistRoutes, MAINTENANCE_PRIORITIES } from "./ai-assist";
 import { handleRenterChat } from "./renter-chat";
 import { handleRentReview } from "./rent-review";
 import { handleRentalCalculator } from "./rental-calculator";
-import { runGreenBriefings } from "./biz-green";
 import { handleVideoRequest } from "./video-request";
 import { handleWebsiteRequest } from "./website-request";
 import { handleVideoMaker } from "./video-maker";
@@ -429,7 +428,7 @@ export default {
 
   // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    const notifyTello = (to: string, subject: string, html: string, text: string) => sendEmail(env, to, subject, html, text, "Tello <info@ecrentalpm.com>", "support@tello.live");
+    // The Green Tello morning briefing for tello.live businesses is sent by the tello-live Worker's own cron.
     ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[rent-reminders] sent", n))
       .catch((err) => console.error("[rent-reminders]", err instanceof Error ? err.message : err)));
@@ -439,9 +438,6 @@ export default {
     ctx.waitUntil(runTelloBriefings(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
       .then((n) => console.log("[tello-briefings] sent", n))
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
-    ctx.waitUntil(runGreenBriefings(env, notifyTello, "https://tello.live")
-      .then((n) => console.log("[green-briefings] sent", n))
-      .catch((err) => console.error("[green-briefings]", err instanceof Error ? err.message : err)));
   },
 };
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
