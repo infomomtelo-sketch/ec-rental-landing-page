@@ -231,6 +231,9 @@ function manageView(b: Bot, leads: unknown[], pro: Pro, uploads: boolean) {
 /** Returns true when the event belonged to a business bot (so the landlord billing code skips it). */
 export async function handleBotStripeEvent(env: BotEnv, event: Record<string, any>): Promise<boolean> {
   const obj = event.data?.object || {};
+  // Yellow Tello (tello.live's Reviews add-on) is a separate subscription handled by the tello.live Worker. Stripe sends every
+  // account event here too, so skip it rather than let it overwrite a business's Green Tello status.
+  if (obj.metadata?.bot_id && obj.metadata?.plan === "yellow") return true;
   if (event.type === "checkout.session.completed" && obj.metadata?.bot_id) {
     if (obj.mode === "subscription" && obj.subscription) await applyBotSub(env, await stripe(env, "GET", "subscriptions/" + obj.subscription), obj.metadata.bot_id);
     return true;
