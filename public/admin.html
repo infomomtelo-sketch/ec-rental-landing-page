@@ -73,6 +73,7 @@
       <button data-tab="visitors">Visitors</button>
       <button data-tab="accounts">Accounts</button>
       <button data-tab="listings">Listings</button>
+      <button data-tab="zillow">Zillow</button>
       <button data-tab="leads">Leads</button>
     </div>
     <main>
@@ -102,6 +103,13 @@
         <h1>All listings</h1><p class="sub">Listings from every account, newest first.</p>
         <div class="data-card"><div class="data-card-header"><h2 id="listingsTitle">Listings</h2><input type="search" id="listingSearch" placeholder="Search address or owner" /></div>
           <div class="table-scroll"><table><thead><tr><th>Home</th><th>Owner</th><th>Rent</th><th>Status</th><th>Applications</th><th>Added</th></tr></thead><tbody id="listingsBody"></tbody></table></div></div>
+      </section>
+      <section class="page" id="page-zillow">
+        <h1>Zillow feed</h1><p class="sub">Whether our feed is ready to submit, whether Zillow is fetching it, and which listings it carries. Zillow's approval is confirmed only by Zillow's Rentals Integrations team, never by this page.</p>
+        <div class="stat-cards" id="zillowCards"></div>
+        <div class="data-card"><div class="data-card-header"><h2>Connection details</h2></div><div class="table-scroll"><table><tbody id="zillowInfo"></tbody></table></div></div>
+        <div class="data-card"><div class="data-card-header"><h2>Recent feed fetches</h2></div><div class="table-scroll"><table><thead><tr><th>When</th><th>Fetched by</th><th>IP</th><th>Listings sent</th><th>Size</th></tr></thead><tbody id="zillowFetches"></tbody></table></div></div>
+        <div class="data-card"><div class="data-card-header"><h2 id="zillowListingsTitle">Listings switched on for Zillow</h2></div><div class="table-scroll"><table><thead><tr><th>Home</th><th>Feed id</th><th>Owner</th><th>Photos</th><th>In feed file</th><th>What's missing</th></tr></thead><tbody id="zillowListings"></tbody></table></div></div>
       </section>
       <section class="page" id="page-leads">
         <h1>Leads</h1><p class="sub">Renter inquiries, maintenance requests from the website chat, and rent review requests.</p>

@@ -96,6 +96,9 @@ export function zillowIssues(l: ListingRow, photoCount: number): string[] {
   if (photoCount < 1) issues.push("Add at least 1 photo");
   if (l.description.trim().length < 50) issues.push("Write a description (50+ characters)");
   if (!l.date_available) issues.push("Set the date available");
+  if (!/^\d{5}(-\d{4})?$/.test(l.zip.trim())) issues.push("ZIP code must be 5 digits");
+  if (l.contact_phone.replace(/\D/g, "").length < 10) issues.push("Add a contact phone with area code");
+  if (!/^\S+@\S+\.\S+$/.test(l.contact_email)) issues.push("Add a contact email");
   return issues;
 }
 function withZillow(origin: string, l: ListingRow, photos: PhotoRow[] = []) { return { ...withPhotos(origin, l, photos), zillow_issues: zillowIssues(l, photos.length) }; }
@@ -233,24 +236,78 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
   if (path === "/feeds/zillow.xml" && request.method === "GET") {
     const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE status = 'active' AND syndicate_zillow = 1 ORDER BY id`).all<ListingRow>();
     const photos = await photosFor(env, rows.results.map((r) => r.id));
-    const ready = rows.results.filter((l) => zillowIssues(l, (photos[l.id] || []).length).length === 0);
-    return new Response(buildZillowFeed(origin, ready, photos), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });
+    const ready = withoutDuplicateAddresses(rows.results.filter((l) => zillowIssues(l, (photos[l.id] || []).length).length === 0));
+    const xml = buildZillowFeed(origin, ready, photos);
+    await logFeedFetch(env, request, ready.length, xml.length);
+    return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });
   }
 
   return null;
+}
+
+/**
+ * Every pull of /feeds/zillow.xml is recorded, so "did Zillow ever fetch our feed, and when?" has an answer.
+ * Zillow's fetcher is the only thing that should be requesting this URL. Best effort: a missing table never breaks the feed.
+ */
+async function logFeedFetch(env: ListingsEnv, request: Request, listingCount: number, bytes: number): Promise<void> {
+  try {
+    await env.DB.prepare("INSERT INTO zillow_feed_fetches (fetched_at, user_agent, ip, listing_count, bytes) VALUES (?, ?, ?, ?, ?)")
+      .bind(new Date().toISOString(), (request.headers.get("User-Agent") || "").slice(0, 200), (request.headers.get("CF-Connecting-IP") || "").slice(0, 45), listingCount, bytes).run();
+    await env.DB.prepare("DELETE FROM zillow_feed_fetches WHERE id <= (SELECT MAX(id) FROM zillow_feed_fetches) - 500").run();
+  } catch (err) { console.error("[zillow-feed-log]", err instanceof Error ? err.message : err); }
+}
+
+/** One home per street, unit and ZIP: Zillow rejects the same address sent twice. */
+function addressKey(l: Pick<ListingRow, "street" | "unit" | "city" | "zip">): string {
+  return [streetOnly(l.street, l.city), l.unit, l.zip.slice(0, 5)].join("|").toLowerCase().replace(/[^a-z0-9|]/g, "");
+}
+
+/** Keeps the oldest listing per address and drops the rest, so the feed never sends Zillow the same home twice. */
+function withoutDuplicateAddresses<T extends ListingRow>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  return rows.filter((l) => { const k = addressKey(l); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+/** Admin view: is the feed ready to submit, is Zillow fetching it, and which listings are in it. */
+export async function zillowReadiness(env: ListingsEnv & { ZILLOW_LEAD_KEY?: string }, origin: string) {
+  const rows = await env.DB.prepare(`SELECT ${LISTING_SELECT} WHERE syndicate_zillow = 1 ORDER BY listings.id`).all<ListingRow>();
+  const photos = await photosFor(env, rows.results.map((r) => r.id));
+  const owners: Record<number, string> = {};
+  const userIds = [...new Set(rows.results.map((r) => r.user_id))];
+  if (userIds.length) for (const u of (await env.DB.prepare(`SELECT id, email FROM users WHERE id IN (${userIds.map(() => "?").join(",")})`).bind(...userIds).all<{ id: number; email: string }>()).results) owners[u.id] = u.email;
+  const seen = new Map<string, number>();
+  const listings = rows.results.map((l) => {
+    const issues = zillowIssues(l, (photos[l.id] || []).length);
+    // in_feed mirrors /feeds/zillow.xml exactly, including dropping a later listing at an address already in the feed.
+    const warnings: string[] = [];
+    if (!issues.length) { const key = addressKey(l), first = seen.get(key); if (first === undefined) seen.set(key, l.id); else issues.push(`Same address as listing #${first}; Zillow rejects duplicate addresses, so only the first is sent`); }
+    return { id: l.id, feed_id: `ECR${l.id}`, address: `${l.street}${l.unit ? " #" + l.unit : ""}, ${l.city} ${l.zip}`, owner_email: owners[l.user_id] || "", status: l.status, photos: (photos[l.id] || []).length, in_feed: issues.length === 0, issues, warnings };
+  });
+  let fetches: { fetched_at: string; user_agent: string; ip: string; listing_count: number; bytes: number }[] = [], logReady = true;
+  try { fetches = (await env.DB.prepare("SELECT fetched_at, user_agent, ip, listing_count, bytes FROM zillow_feed_fetches ORDER BY id DESC LIMIT 25").all<typeof fetches[number]>()).results; } catch { logReady = false; }
+  const https = origin.replace(/^http:\/\/(?!localhost|127\.0\.0\.1)/, "https://");
+  return {
+    feed_url: `${https}/feeds/zillow.xml`, lead_url: `${https}/api/zillow/leads?key=<ZILLOW_LEAD_KEY>`, lead_key_set: !!env.ZILLOW_LEAD_KEY,
+    company: { ...ZILLOW_COMPANY, id: ZILLOW_COMPANY_ID }, fetch_log_ready: logReady, fetches,
+    // Zillow never says "accepted" to us: only its Rentals Integrations team can confirm that, in writing.
+    zillow_approval: "Unconfirmed. Recorded only when Zillow's Rentals Integrations team confirms in writing.",
+    listings,
+  };
 }
 
 function x(s: unknown): string { return String(s ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
 function el(name: string, value: unknown): string { return value === "" || value === null || value === undefined ? "" : `<${name}>${x(value)}</${name}>`; }
 
 export const ZILLOW_COMPANY_ID = "ecrentalpm";
+/** The feed's <Company> block. Zillow's intake form asks for the same details. */
+export const ZILLOW_COMPANY = { name: "EC Rental Property Management LLC", email: "info@ecrentalpm.com", phone: "5598253038", address: "5287 N Tisha Ave", city: "Fresno", state: "CA", zip: "93723" };
 
 /** Zillow Rentals "hotPadsItems" v2.1 feed, single-unit structure (HOUSE | CONDO | TOWNHOUSE). */
 export function buildZillowFeed(origin: string, listings: ListingRow[], photos: Record<number, PhotoRow[]>): string {
   // Zillow fetches every URL in the feed; always hand it https links, even when the feed was opened over http.
   origin = origin.replace(/^http:\/\/(?!localhost|127\.0\.0\.1)/, "https://");
   const out: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<hotPadsItems version="2.1">'];
-  out.push(`<Company id="${ZILLOW_COMPANY_ID}">${el("name", "EC Rental Property Management LLC")}${el("website", origin)}${el("city", "Fresno")}${el("state", "CA")}</Company>`);
+  out.push(`<Company id="${ZILLOW_COMPANY_ID}">${el("name", ZILLOW_COMPANY.name)}${el("email", ZILLOW_COMPANY.email)}${el("phone", ZILLOW_COMPANY.phone)}${el("address", ZILLOW_COMPANY.address)}${el("website", origin)}${el("city", ZILLOW_COMPANY.city)}${el("state", ZILLOW_COMPANY.state)}${el("zip", ZILLOW_COMPANY.zip)}</Company>`);
   for (const l of listings) {
     const p: string[] = [];
     p.push(`<listing id="ECR${l.id}" type="RENTAL" companyId="${ZILLOW_COMPANY_ID}" propertyType="${x(l.property_type)}">`);

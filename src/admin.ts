@@ -4,8 +4,9 @@
  */
 
 import { visitsReport } from "./visits";
+import { zillowReadiness } from "./listings";
 
-export interface AdminEnv { DB: D1Database; ADMIN_EMAILS?: string; }
+export interface AdminEnv { DB: D1Database; ADMIN_EMAILS?: string; ZILLOW_LEAD_KEY?: string; }
 interface AdminUser { id: number; email: string; role: string; }
 
 const PLAN_LIMITS: Record<string, number> = { solo: 5, manager: 25, portfolio: 999999 };
@@ -91,6 +92,8 @@ export async function handleAdminRoutes(request: Request, env: AdminEnv, url: UR
       " FROM listings l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.created_at DESC LIMIT 1000").all();
     return json(rows.results);
   }
+
+  if (url.pathname === "/api/admin/zillow" && request.method === "GET") return json(await zillowReadiness(env, url.origin));
 
   return json({ error: "Not found" }, 404);
 }

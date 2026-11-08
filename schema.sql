@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_
 -- Extra listing fields kept beside listings so existing tables never need ALTER (bathroom: "", "private" or "shared", for room rentals).
 CREATE TABLE IF NOT EXISTS listing_details (listing_id INTEGER PRIMARY KEY, bathroom TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS listing_photos (id INTEGER PRIMARY KEY AUTOINCREMENT, listing_id INTEGER NOT NULL, r2_key TEXT NOT NULL, caption TEXT DEFAULT '', sort_order INTEGER DEFAULT 0, created_at TEXT NOT NULL, FOREIGN KEY (listing_id) REFERENCES listings(id));
+-- Every pull of /feeds/zillow.xml (src/listings.ts logFeedFetch), kept to the latest 500, so we can show when Zillow fetched the feed.
+CREATE TABLE IF NOT EXISTS zillow_feed_fetches (id INTEGER PRIMARY KEY AUTOINCREMENT, fetched_at TEXT NOT NULL, user_agent TEXT DEFAULT '', ip TEXT DEFAULT '', listing_count INTEGER DEFAULT 0, bytes INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status, syndicate_zillow);
 CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
 -- "Continue with Google" sign ups waiting for the homepage form (src/google.ts). Tickets last 30 minutes.

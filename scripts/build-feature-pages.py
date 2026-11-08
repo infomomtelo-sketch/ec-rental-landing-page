@@ -107,7 +107,7 @@ PAGES = {
   cta=("List a rental", "/dashboard"),
   stats=[("1 tap", "to share on Facebook"), ("24/7", "renter chat"), ("Zillow", "-ready feed")],
   mock="""<div class="row"><div><b>123 Maple Ave · Studio 1</b><small>Sample listing · Studio / 1 ba</small></div><span class="pill p-green">Active</span></div>
-<div class="row"><div><small>Rent</small><b>$1,200/mo</b></div><span class="pill p-green">On Zillow feed</span></div>
+<div class="row"><div><small>Rent</small><b>$1,200/mo</b></div><span class="pill p-green">Feed ready</span></div>
 <div class="row"><div><b>Write with AI</b><small>Reads your photos and drafts the description</small></div></div>
 <div class="mbtn gold">Share: Facebook · Marketplace · Text</div>""",
   chips=("Description written by Tello", "New inquiry · Draft reply ready"),
@@ -124,7 +124,7 @@ PAGES = {
   split=("Found on Google, too", "Built for search and sharing.", "Each listing page carries the details Google and social apps read, so your home shows up with its photo, price and address.",
          ["Listed in the site map for search engines", "Rich rental details for Google", "Photo previews on Facebook and iMessage", "Renter chat answers questions while you sleep"]),
   faq=[("Who can list?", "Owners and authorized managers only. Every listing must be for a home you have the right to rent out."),
-       ("Is it on Zillow today?", "The feed is built in Zillow's rental format. Listings appear on Zillow once EC Rental's feed partnership is approved."),
+       ("Is it on Zillow today?", "Not yet. The feed is built in Zillow's rental format, but listings appear on Zillow only after Zillow approves EC Rental's feed connection, and that has not happened yet."),
        ("Can I take a listing down?", "Yes. Mark it rented or move it back to draft and it leaves the site and the feed.")],
  ),
  "applications": dict(

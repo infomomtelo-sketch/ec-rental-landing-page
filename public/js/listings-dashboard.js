@@ -32,7 +32,7 @@
       body.innerHTML = list.map(function(l) {
         var badge = l.status === 'active' ? 'badge-green' : l.status === 'rented' ? 'badge-gray' : 'badge-yellow';
         var issues = l.zillow_issues || [];
-        var zillow = !l.syndicate_zillow ? '<span class="badge badge-gray">Zillow off</span>' : !issues.length ? '<span class="badge badge-green">On Zillow feed</span>' : '<span class="badge badge-yellow" title="' + esc(issues.join('; ')) + '">Not on Zillow yet</span><br><small style="color:var(--gray)">' + esc(issues[0]) + (issues.length > 1 ? ' +' + (issues.length - 1) + ' more' : '') + '</small>';
+        var zillow = !l.syndicate_zillow ? '<span class="badge badge-gray">Zillow off</span>' : !issues.length ? '<span class="badge badge-green" title="Included in EC Rental\'s Zillow feed file. It shows on Zillow only after Zillow approves our feed connection.">Feed ready</span><br><small style="color:var(--gray)">Not confirmed on Zillow</small>' : '<span class="badge badge-yellow" title="' + esc(issues.join('; ')) + '">Not feed-ready</span><br><small style="color:var(--gray)">' + esc(issues[0]) + (issues.length > 1 ? ' +' + (issues.length - 1) + ' more' : '') + '</small>';
         var addr = esc(l.street) + (l.unit ? ' #' + esc(l.unit) : '') + '<br><small style="color:var(--gray)">' + esc(l.city) + ', ' + esc(l.state) + '</small>';
         shown[l.id] = l;
         var view = l.status === 'active' ? ' <a class="btn btn-sm btn-secondary" href="/listing?id=' + l.id + '" target="_blank" rel="noopener">View</a> <button class="btn btn-sm btn-secondary" data-share-listing="' + l.id + '">Share</button>' : '';
@@ -111,7 +111,7 @@
     zillowCheck.style.display = 'block';
     zillowCheck.style.background = issues.length ? '#fef9c3' : '#dcfce7';
     zillowCheck.style.color = issues.length ? '#854d0e' : '#166534';
-    zillowCheck.innerHTML = issues.length ? '<strong>Not on Zillow yet.</strong> To get it there:<ul style="margin:0.3rem 0 0 1.2rem">' + issues.map(function(i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>' : '<strong>Ready.</strong> This listing is in the Zillow feed.';
+    zillowCheck.innerHTML = issues.length ? '<strong>Not feed-ready yet.</strong> To include it in the Zillow feed:<ul style="margin:0.3rem 0 0 1.2rem">' + issues.map(function(i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>' : '<strong>Feed ready.</strong> This listing is in EC Rental\'s Zillow feed file. It appears on Zillow only after Zillow approves our feed connection, so it may not be live there yet.';
   }
 
   function renderPhotos() {
