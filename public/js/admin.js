@@ -87,11 +87,36 @@
       var home = esc(l.street) + (l.unit ? ' #' + esc(l.unit) : '') + '<br><span class="muted">' + esc(l.city) + ' · ' + esc(l.bedrooms) + ' bd</span>';
       return '<tr><td>' + (l.status === 'active' ? '<a href="/listing?id=' + Number(l.id) + '" target="_blank" rel="noopener">' + home + '</a>' : home) + '</td>' +
         '<td>' + esc(l.owner_name || 'Unknown') + '<br><span class="muted">' + esc(l.owner_email || '') + '</span></td><td>' + money(l.rent) + '</td>' +
-        '<td><span class="badge ' + badge + '">' + esc(l.status) + '</span>' + (l.syndicate_zillow ? '<br><span class="muted">On Zillow feed</span>' : '') + '</td><td>' + esc(l.applications) + '</td><td>' + date(l.created_at) + '</td></tr>';
+        '<td><span class="badge ' + badge + '">' + esc(l.status) + '</span>' + (l.syndicate_zillow ? '<br><span class="muted">Zillow feed on</span>' : '') + '</td><td>' + esc(l.applications) + '</td><td>' + date(l.created_at) + '</td></tr>';
     }).join('');
   }
   function loadListings() { return api('/admin/listings').then(function(r) { listings = Array.isArray(r.data) ? r.data : []; renderListings(); }); }
   document.getElementById('listingSearch').addEventListener('input', renderListings);
+
+
+  function loadZillow() {
+    return api('/admin/zillow').then(function(r) {
+      var z = r.data || {}; if (r.status !== 200 || !z.feed_url) { document.getElementById('zillowInfo').innerHTML = '<tr><td class="empty">' + esc(z.error || 'Could not load the Zillow report.') + '</td></tr>'; return; }
+      var ready = (z.listings || []).filter(function(l) { return l.in_feed; }).length, on = (z.listings || []).length;
+      var last = (z.fetches || [])[0];
+      var cards = [
+        ['In the feed file now', ready, on + ' switched on, ' + (on - ready) + ' held back'],
+        ['Last feed fetch', last ? new Date(last.fetched_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : (z.fetch_log_ready ? 'Never' : 'Log not set up'), last ? (last.user_agent || 'unknown fetcher') : (z.fetch_log_ready ? 'Nothing has requested the feed yet' : 'Run npm run db:init once')],
+        ['Zillow approval', 'Unconfirmed', 'Only Zillow can confirm this'],
+        ['Lead delivery key', z.lead_key_set ? 'Set' : 'Missing', z.lead_key_set ? 'Zillow leads can be received' : 'wrangler secret put ZILLOW_LEAD_KEY']
+      ];
+      document.getElementById('zillowCards').innerHTML = cards.map(function(c) { return '<div class="stat-card"><div class="label">' + esc(c[0]) + '</div><div class="value">' + esc(c[1]) + '</div><div class="note">' + esc(c[2]) + '</div></div>'; }).join('');
+      var rows = [['Feed URL (give this to Zillow)', '<a href="' + esc(z.feed_url) + '" target="_blank" rel="noopener">' + esc(z.feed_url) + '</a>'], ['Lead delivery URL', '<code>' + esc(z.lead_url) + '</code>'], ['Company id in the feed', esc(z.company.id)], ['Company', esc(z.company.name) + '<br><span class="muted">' + esc(z.company.email) + ' · ' + esc(z.company.phone) + '</span>'], ['Street address in feed', '<span class="muted">Not set. Add the business address to ZILLOW_COMPANY in src/listings.ts before applying.</span>']];
+      document.getElementById('zillowInfo').innerHTML = rows.map(function(x) { return '<tr><td><strong>' + x[0] + '</strong></td><td>' + x[1] + '</td></tr>'; }).join('');
+      var fb = document.getElementById('zillowFetches');
+      if (!z.fetches || !z.fetches.length) empty(fb, 5, z.fetch_log_ready ? 'No one has fetched the feed yet.' : 'The fetch log table does not exist yet. Run npm run db:init.');
+      else fb.innerHTML = z.fetches.map(function(f) { return '<tr><td>' + esc(new Date(f.fetched_at).toLocaleString()) + '</td><td>' + esc(f.user_agent || '—') + '</td><td>' + esc(f.ip || '—') + '</td><td>' + esc(f.listing_count) + '</td><td>' + esc(Math.round(f.bytes / 1024 * 10) / 10) + ' KB</td></tr>'; }).join('');
+      var lb = document.getElementById('zillowListings');
+      document.getElementById('zillowListingsTitle').textContent = 'Listings switched on for Zillow (' + on + ')';
+      if (!on) empty(lb, 6, 'No listing has "Include in Zillow feed" switched on.');
+      else lb.innerHTML = z.listings.map(function(l) { return '<tr><td>' + esc(l.address) + '<br><span class="muted">' + esc(l.status) + '</span></td><td>' + esc(l.feed_id) + '</td><td>' + esc(l.owner_email) + '</td><td>' + esc(l.photos) + '</td><td><span class="badge ' + (l.in_feed ? 'badge-green' : 'badge-yellow') + '">' + (l.in_feed ? 'In feed' : 'Held back') + '</span></td><td>' + (l.issues.length ? l.issues.map(esc).join('<br>') : '<span class="muted">Nothing</span>') + '</td></tr>'; }).join('');
+    });
+  }
 
   function leadDetails(l) {
     var d = l.details || {}; var parts = [];
@@ -166,6 +191,6 @@
     document.getElementById('app').style.display = 'block';
     var start = (location.hash || '').slice(1); if (['overview', 'visitors', 'accounts', 'listings', 'leads'].indexOf(start) !== -1) showTab(start);
     try { localStorage.setItem('ec_notrack', '1'); } catch (e) { /* storage blocked */ }
-    loadOverview(); loadVisits(); loadAccounts(); loadListings(); loadLeads();
+    loadOverview(); loadVisits(); loadAccounts(); loadListings(); loadLeads(); loadZillow();
   }).catch(function() { gate('Something went wrong', 'The admin page could not load. Please refresh and try again.'); });
 })();
