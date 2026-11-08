@@ -299,15 +299,15 @@ function x(s: unknown): string { return String(s ?? "").replace(/[\u0000-\u0008\
 function el(name: string, value: unknown): string { return value === "" || value === null || value === undefined ? "" : `<${name}>${x(value)}</${name}>`; }
 
 export const ZILLOW_COMPANY_ID = "ecrentalpm";
-/** The feed's <Company> block. Zillow's intake form asks for the same details; add the street address and ZIP once the business address is confirmed. */
-export const ZILLOW_COMPANY = { name: "EC Rental Property Management LLC", email: "info@ecrentalpm.com", phone: "5598253038", city: "Fresno", state: "CA" };
+/** The feed's <Company> block. Zillow's intake form asks for the same details. */
+export const ZILLOW_COMPANY = { name: "EC Rental Property Management LLC", email: "info@ecrentalpm.com", phone: "5598253038", address: "5287 N Tisha Ave", city: "Fresno", state: "CA", zip: "93723" };
 
 /** Zillow Rentals "hotPadsItems" v2.1 feed, single-unit structure (HOUSE | CONDO | TOWNHOUSE). */
 export function buildZillowFeed(origin: string, listings: ListingRow[], photos: Record<number, PhotoRow[]>): string {
   // Zillow fetches every URL in the feed; always hand it https links, even when the feed was opened over http.
   origin = origin.replace(/^http:\/\/(?!localhost|127\.0\.0\.1)/, "https://");
   const out: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<hotPadsItems version="2.1">'];
-  out.push(`<Company id="${ZILLOW_COMPANY_ID}">${el("name", ZILLOW_COMPANY.name)}${el("email", ZILLOW_COMPANY.email)}${el("phone", ZILLOW_COMPANY.phone)}${el("website", origin)}${el("city", ZILLOW_COMPANY.city)}${el("state", ZILLOW_COMPANY.state)}</Company>`);
+  out.push(`<Company id="${ZILLOW_COMPANY_ID}">${el("name", ZILLOW_COMPANY.name)}${el("email", ZILLOW_COMPANY.email)}${el("phone", ZILLOW_COMPANY.phone)}${el("address", ZILLOW_COMPANY.address)}${el("website", origin)}${el("city", ZILLOW_COMPANY.city)}${el("state", ZILLOW_COMPANY.state)}${el("zip", ZILLOW_COMPANY.zip)}</Company>`);
   for (const l of listings) {
     const p: string[] = [];
     p.push(`<listing id="ECR${l.id}" type="RENTAL" companyId="${ZILLOW_COMPANY_ID}" propertyType="${x(l.property_type)}">`);

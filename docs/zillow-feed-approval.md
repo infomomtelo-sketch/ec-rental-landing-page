@@ -24,7 +24,7 @@ From Zillow's published pages, as found by search. I could not open Zillow's own
 | Feed in hotPadsItems v2.1, single-unit listings, `ECR<id>` listing ids, https photo links | `src/listings.ts` `buildZillowFeed` |
 | Only complete listings go out: active, switched on, 1+ photo, 50+ char description, date available, 5-digit ZIP, valid phone and email | `zillowIssues` |
 | Duplicate addresses are held back (Zillow rejects them) | `withoutDuplicateAddresses` |
-| Company block with name, email, phone, website | `ZILLOW_COMPANY` |
+| Company block with name, address (5287 N Tisha Ave, Fresno, CA 93723), email, phone, website | `ZILLOW_COMPANY` |
 | Every fetch of the feed is logged (time, fetcher, IP, listings sent, size) | table `zillow_feed_fetches` |
 | Admin **Zillow** tab: feed URL, fetch history, per-listing status and what is missing | `/admin` |
 | Renter lead delivery endpoint (Zillow POSTs leads to us) | `POST /api/zillow/leads?key=...` |
@@ -45,7 +45,7 @@ The checker is ours. It is **not** Zillow's schema validation, so a pass does no
 ## Open items that need a person
 
 1. **Deploy, then create the log table once:** `npm run db:init` (safe to repeat). Until then the feed works but nothing is logged.
-2. **Business street address and ZIP.** Add them to `ZILLOW_COMPANY` in `src/listings.ts`. The intake form asks for the address and I did not guess it.
+2. ~~Business address~~ Done: 5287 N Tisha Ave, Fresno, CA 93723, in `ZILLOW_COMPANY`. Confirm Zillow's guide accepts it as `<address>`/`<zip>` in `<Company>`.
 3. **Set the lead key:** `npx wrangler secret put ZILLOW_LEAD_KEY`, then give Zillow
    `https://ecrentalpm.com/api/zillow/leads?key=<that key>`. Without it the endpoint returns 503 and Zillow leads are lost.
 4. **Submit the intake form** and attach: feed URL, sample feed, lead URL, company details, a support contact (`info@ecrentalpm.com`, (559) 825-3038),
