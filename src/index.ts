@@ -93,7 +93,7 @@ import { handleVideoRequest } from "./video-request";
 import { handleWebsiteRequest } from "./website-request";
 import { handleVideoMaker } from "./video-maker";
 import { handleBizBots, handleBotStripeEvent } from "./biz-bots";
-import { handleRemoteInspections } from "./remote-inspections";
+import { handleRemoteInspections, handleLandlordRemote } from "./remote-inspections";
 import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
@@ -445,6 +445,7 @@ export default {
     if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
+    if (user && url.pathname === "/api/inspections/remote") { try { const res = await handleLandlordRemote(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("remote-inspection", err); } }
     if (url.pathname.startsWith("/api/inspections")) { try { const res = await handleInspectionRoutes(request, env, url, user!); if (res) return res; } catch (err) { return dbErrorResponse("inspections", err); } }
 
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
