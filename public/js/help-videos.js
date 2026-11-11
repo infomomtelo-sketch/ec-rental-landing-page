@@ -5,7 +5,7 @@
     start: { title: 'Getting started in 5 steps', len: '54 sec', file: 'guide-getting-started' },
     tello: { title: 'A day with Tello', len: '57 sec', file: 'tello-day' },
     tax: { title: 'How Tax Reports work', len: '48 sec', file: 'guide-tax-reports' },
-    inspect: { title: 'How AI inspections work', len: '39 sec', file: 'guide-ai-inspections' },
+    inspect: { title: 'How AI inspections work', len: '41 sec', file: 'guide-ai-inspections' },
     intro: { title: 'Meet Tello', len: '56 sec', file: 'intro' },
     story: { title: 'The 1-minute story', len: '63 sec', file: 'story', wideOnly: true },
     maint: { title: 'Maintenance with Tello', len: '44 sec', file: 'maintenance', wideOnly: true },
