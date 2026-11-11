@@ -264,6 +264,7 @@
     shareFacebook.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl);
     shareNative.hidden = !navigator.share;
     shareMsg.style.display = 'none';
+    renderPostChannels(l);
     shareModal.classList.add('open');
   }
   document.getElementById('shareModalClose').addEventListener('click', function() { shareModal.classList.remove('open'); });
@@ -273,6 +274,80 @@
     else { shareText.select(); document.execCommand('copy'); done(); }
   });
   shareNative.addEventListener('click', function() { navigator.share({ text: shareText.value }).catch(function() {}); });
+
+  // "Post this listing": ready-to-paste posts for Marketplace and Craigslist, plus the Zillow feed status.
+  // Neither site lets an app post for you — the owner publishes from their own account, in about 2 minutes.
+  var postSection = document.getElementById('postListing');
+  var postMarketplaceText = document.getElementById('postMarketplaceText');
+  var postCraigslistText = document.getElementById('postCraigslistText');
+  var postRoomHint = document.getElementById('postRoomHint');
+  var postCraigslistCat = document.getElementById('postCraigslistCat');
+  var postPhotosBtn = document.getElementById('postPhotosBtn');
+  var postZillowStatus = document.getElementById('postZillowStatus');
+  var postMarketplaceMsg = document.getElementById('postMarketplaceMsg');
+  var postCraigslistMsg = document.getElementById('postCraigslistMsg');
+  var postListing = null;
+  function isRoomRental(l) { return l.bathroom === 'private' || l.bathroom === 'shared'; }
+  function postTitle(l) {
+    if (isRoomRental(l)) return 'Room for rent in ' + l.city + (l.bathroom ? ' — ' + l.bathroom + ' bathroom' : '');
+    return (l.bedrooms ? l.bedrooms + ' bd' : 'Studio') + ' / ' + (l.full_baths + (l.half_baths ? 0.5 : 0)) + ' ba ' + (TYPE_WORDS[l.property_type] || 'home') + ' for rent in ' + l.city;
+  }
+  function postFacts(l) {
+    var facts = [money(l.rent) + '/mo', availableText(l.date_available)];
+    if (l.square_feet) facts.push(Number(l.square_feet).toLocaleString('en-US') + ' sq ft');
+    if (l.bathroom === 'private' || l.bathroom === 'shared') facts.push(l.bathroom + ' bathroom');
+    if (l.laundry === 'in_unit') facts.push('in-unit laundry');
+    if (l.parking_type === 'garageAttached' || l.parking_type === 'garageLot') facts.push('garage');
+    if (l.furnished) facts.push('furnished');
+    if (l.cats_allowed || l.small_dogs_allowed || l.large_dogs_allowed) facts.push('pets considered');
+    return facts.join(' · ');
+  }
+  function postText(l, includeLink) {
+    var lines = [postTitle(l), postFacts(l), l.street + (l.unit ? ' #' + l.unit : '') + ', ' + l.city + ', ' + l.state + ' ' + l.zip];
+    if (l.description) lines.push(l.description);
+    else if (l.title) lines.push(l.title);
+    if (l.amenities) lines.push('Amenities: ' + l.amenities);
+    var contact = [];
+    if (l.contact_name) contact.push(l.contact_name);
+    if (l.contact_phone) contact.push(l.contact_phone);
+    if (l.contact_email) contact.push(l.contact_email);
+    if (contact.length) lines.push('Contact: ' + contact.join(' · '));
+    if (includeLink) lines.push('See photos, ask questions and apply online: ' + shareUrl);
+    return lines.join('\n\n');
+  }
+  function renderPostChannels(l) {
+    postListing = l;
+    var room = isRoomRental(l);
+    postRoomHint.style.display = room ? '' : 'none';
+    postCraigslistCat.textContent = room ? 'rooms & shares' : 'apts / housing for rent';
+    postMarketplaceText.value = postText(l, false);
+    postCraigslistText.value = postText(l, true);
+    var photos = l.photos || [];
+    postPhotosBtn.disabled = !photos.length;
+    postPhotosBtn.textContent = photos.length ? 'Download photos (' + photos.length + ')' : 'No photos yet';
+    var issues = l.zillow_issues || [];
+    if (!issues.length) postZillowStatus.textContent = 'In EC Rental\u2019s Zillow feed. It appears on Zillow automatically once Zillow approves our feed connection — Zillow has paused onboarding for new feeds, so it can\u2019t go live there just yet. Nothing to do here.';
+    else postZillowStatus.textContent = 'Not in the Zillow feed yet: ' + issues[0] + (issues.length > 1 ? ' (+' + (issues.length - 1) + ' more)' : '') + '. Fix it in the listing form and it joins the feed automatically.';
+    postMarketplaceMsg.style.display = 'none';
+    postCraigslistMsg.style.display = 'none';
+    postSection.style.display = 'block';
+  }
+  function copyPostText(box, msgEl, doneText) {
+    function done() { msgEl.textContent = doneText; msgEl.style.display = 'block'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(box.value).then(done, function() { box.select(); document.execCommand('copy'); done(); });
+    else { box.select(); document.execCommand('copy'); done(); }
+  }
+  document.getElementById('postMarketplaceCopy').addEventListener('click', function() { copyPostText(postMarketplaceText, postMarketplaceMsg, 'Copied. Paste it into your Marketplace listing.'); });
+  document.getElementById('postCraigslistCopy').addEventListener('click', function() { copyPostText(postCraigslistText, postCraigslistMsg, 'Copied. Paste it into your Craigslist post.'); });
+  postPhotosBtn.addEventListener('click', function() {
+    if (!postListing) return;
+    (postListing.photos || []).forEach(function(p, i) {
+      var a = document.createElement('a');
+      a.href = p.url;
+      a.download = 'listing-' + postListing.id + '-photo-' + (i + 1) + '.jpg';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  });
 
   document.getElementById('addListingBtn').addEventListener('click', function() { open(null); });
   document.getElementById('listingModalClose').addEventListener('click', function() { modal.classList.remove('open'); });
