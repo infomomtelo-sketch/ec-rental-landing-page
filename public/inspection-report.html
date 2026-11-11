@@ -61,6 +61,7 @@
         var html = '<header><div><h1>' + esc(type) + ' Inspection Report</h1><p class="muted">EC Rental Property Management LLC · Fresno, California</p></div><div class="muted" style="text-align:right">Report #' + i.id + '<br>' + esc(i.inspection_date) + '</div></header>';
         html += '<div class="meta"><div><b>Property</b>' + esc(i.property_address) + '</div><div><b>Inspection date</b>' + esc(i.inspection_date) + '</div><div><b>Inspector</b>' + esc(i.inspector_name || '—') + '</div><div><b>Overall condition</b>' + (i.status === 'completed' ? '<span class="badge ' + esc(String(i.overall_condition).split(' ')[0]) + '">' + esc(i.overall_condition) + '</span>' : 'In progress') + '</div>' + (d.compare_inspection ? '<div><b>Compared with</b>Move-in on ' + esc(d.compare_inspection.inspection_date) + '</div>' : '') + '</div>';
         if (i.summary) html += '<h2>Summary</h2><p style="font-size:0.92rem">' + esc(i.summary) + '</p>';
+        if (d.report && d.report.text) html += '<h2>Inspection report</h2><div style="font-size:0.92rem;white-space:pre-wrap">' + esc(d.report.text) + '</div>';
         var repairs = d.items.filter(function(it) { return it.repair_needed; });
         if (repairs.length) html += '<h2>Repairs needed (' + repairs.length + ')</h2><table><thead><tr><th>Room</th><th>Repair</th><th>Condition</th></tr></thead><tbody>' + repairs.map(function(it) { return '<tr><td>' + esc(it.room_area) + '</td><td>' + esc(it.repair_item || it.notes) + '</td><td><span class="badge ' + esc(it.condition || 'none') + '">' + esc(it.condition || 'not rated') + '</span></td></tr>'; }).join('') + '</tbody></table>';
         order.forEach(function(room) {
@@ -73,8 +74,9 @@
           var cls = { 'wear and tear': 'wear', 'possible damage': 'damage', 'unclear': 'unclear' };
           html += '<h2>Changes since move-in</h2><table><thead><tr><th>Room</th><th>Change</th><th>Looks like</th><th>Why</th></tr></thead><tbody>' + d.comparison.map(function(c) { return '<tr><td>' + esc(c.room) + '</td><td>' + esc(c.change) + '</td><td><span class="badge ' + (cls[c.assessment] || 'none') + '">' + esc(c.assessment) + '</span></td><td>' + esc(c.note) + '</td></tr>'; }).join('') + '</tbody></table><p class="note">Draft prepared with AI for the landlord\'s review. Ordinary wear and tear is not deducted from the security deposit; any deductions are itemized separately as required by California Civil Code 1950.5.</p>';
         }
-        html += '<p class="note">Condition notes were drafted with AI from the photos and reviewed by the inspector.</p>';
-        html += '<div class="sigs"><div><div class="sig">Landlord / agent signature and date</div></div><div><div class="sig">Tenant signature and date</div></div></div>';
+        html += '<p class="note">Condition notes and the written report were drafted with AI from the photos and voice notes, then reviewed by the inspector.</p>';
+        var signed = d.report && d.report.status === 'signed';
+        html += '<div class="sigs"><div><div class="sig">' + (signed ? 'Signed by ' + esc(d.report.signed_by) + ' on ' + esc((d.report.signed_at || '').slice(0, 10)) : 'Landlord / agent signature and date') + '</div></div><div><div class="sig">Tenant signature and date</div></div></div>';
         root.innerHTML = html;
         root.querySelectorAll('[data-img]').forEach(function(img) {
           fetch('/api/inspections/' + id + '/items/' + img.getAttribute('data-img') + '/image', auth).then(function(r) { if (!r.ok) throw new Error(); return r.blob(); }).then(function(b) { img.src = URL.createObjectURL(b); }).catch(function() {});

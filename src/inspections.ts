@@ -12,8 +12,16 @@ interface InspectionEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface InspectionRow { id: number; property_id: number; inspector_name: string; inspection_date: string; overall_condition: string; summary: string; status: string; created_at: string; property_address: string; }
 interface ItemRow { id: number; inspection_id: number; room_area: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; maintenance_id: number | null; created_at: string; }
 interface DetailsRow { inspection_id: number; type: string; compare_to: number | null; comparison: string; }
+interface ReportRow { inspection_id: number; report_text: string; status: string; signed_at: string; signed_by: string; }
+
+/** Loads the inspection's written report draft, if one was generated. */
+async function loadReport(env: InspectionEnv, inspectionId: number): Promise<ReportRow | null> {
+  return env.DB.prepare("SELECT * FROM inspection_reports WHERE inspection_id = ?").bind(inspectionId).first<ReportRow>();
+}
 
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+const WHISPER_MODEL = "@cf/openai/whisper";
+const MAX_VOICE_BYTES = 2 * 1024 * 1024;
 export const INSPECTION_TYPES = ["move_in", "move_out", "routine", "annual"];
 export const CONDITIONS = ["good", "fair", "poor", "damaged"];
 const PHOTO_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -116,7 +124,8 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     let comparison: unknown = [];
     try { comparison = details?.comparison ? JSON.parse(details.comparison) : []; } catch { comparison = []; }
     const compareInfo = details?.compare_to ? await env.DB.prepare("SELECT id, inspection_date FROM inspections WHERE id = ?").bind(details.compare_to).first() : null;
-    return json({ inspection: { ...insp, type, compare_to: details?.compare_to ?? null }, compare_inspection: compareInfo, items: await items(), comparison, photos: legacy.results });
+    const report = await loadReport(env, insp.id);
+    return json({ inspection: { ...insp, type, compare_to: details?.compare_to ?? null }, compare_inspection: compareInfo, items: await items(), comparison, photos: legacy.results, report: report ? { text: report.report_text, status: report.status, signed_at: report.signed_at, signed_by: report.signed_by } : null });
   }
 
   if (rest === "" && request.method === "DELETE") {
@@ -150,6 +159,28 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     const r = await env.DB.prepare("INSERT INTO inspection_items (inspection_id, room_area, r2_key, condition, notes, repair_needed, repair_item, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(insp.id, room, key, ai.condition, ai.notes, ai.repair_needed, ai.repair_item, now).run();
     if (insp.status === "completed") await env.DB.prepare("UPDATE inspections SET status = 'in_progress' WHERE id = ?").bind(insp.id).run();
     return json({ success: true, item: { id: r.meta.last_row_id, inspection_id: insp.id, room_area: room, condition: ai.condition, notes: ai.notes, repair_needed: ai.repair_needed, repair_item: ai.repair_item, maintenance_id: null }, ai_read: !!(ai.condition || ai.notes) });
+  }
+
+  // Voice note on one photo: transcribe it and append it to the item's notes, so the inspector can
+  // talk through what they see instead of typing it. A failed transcription returns an error and
+  // the inspector types instead; nothing is saved half-done.
+  const voice = rest.match(/^\/items\/(\d+)\/voice$/);
+  if (voice && request.method === "POST") {
+    const row = await env.DB.prepare("SELECT * FROM inspection_items WHERE id = ? AND inspection_id = ?").bind(parseInt(voice[1]), insp.id).first<ItemRow>();
+    if (!row) return json({ error: "Not found" }, 404);
+    const contentType = (request.headers.get("Content-Type") || "").split(";")[0].trim();
+    if (!contentType.startsWith("audio/")) return json({ error: "Send an audio recording." }, 400);
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength === 0 || bytes.byteLength > MAX_VOICE_BYTES) return json({ error: "A voice note must be under 2 MB (about two minutes)." }, 400);
+    let transcript = "";
+    try {
+      const out: any = await env.AI.run(WHISPER_MODEL as Parameters<Ai["run"]>[0], { audio: Array.from(new Uint8Array(bytes)) } as never);
+      transcript = String(out?.text || "").trim();
+    } catch (err) { console.error("[inspection-voice]", err); return json({ error: "The voice note couldn't be transcribed. Please type the note instead." }, 502); }
+    if (!transcript) return json({ error: "Nothing was heard in that recording. Please try again." }, 502);
+    const notes = ((row.notes ? row.notes.replace(/\s+$/, "") + "\n" : "") + "Voice note: " + transcript).slice(0, 2000);
+    await env.DB.prepare("UPDATE inspection_items SET notes = ? WHERE id = ?").bind(notes, row.id).run();
+    return json({ success: true, transcript: transcript.slice(0, 1000), notes });
   }
 
   const item = rest.match(/^\/items\/(\d+)(\/image|\/maintenance)?$/);
@@ -234,6 +265,57 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
       env.DB.prepare("UPDATE inspection_details SET comparison = ? WHERE inspection_id = ?").bind(JSON.stringify(comparison), insp.id),
     ]);
     return json({ success: true, overall_condition: overall, summary, comparison });
+  }
+
+  // The written report: the AI drafts the full room-by-room report from the items (photos already
+  // read, voice notes already in the notes), the inspector edits it as one document and signs it.
+  // Generating again replaces the draft and clears any signature, so the signed copy is always
+  // the one the inspector actually reviewed.
+  if (rest === "/report" && request.method === "POST") {
+    if (insp.status !== "completed") return json({ error: "Finish the inspection first, then write the report." }, 400);
+    const all = await items();
+    if (!all.length) return json({ error: "Add at least one photo first." }, 400);
+    let comparison: unknown[] = [];
+    try { comparison = details?.comparison ? JSON.parse(details.comparison) : []; } catch { comparison = []; }
+    let text = "";
+    try {
+      const out = await textRun(env, { messages: [
+        { role: "system", content: "You write rental inspection reports for a California property manager. Be factual and plain, room by room, like a home inspector writing a condition report. Use only what the notes say; never guess at causes or things the notes don't mention, and don't describe people." },
+        { role: "user", content: [
+          `Write the full written report for this ${typeLabel(type)} inspection of ${insp.property_address} on ${insp.inspection_date}, inspected by ${insp.inspector_name || "the inspector"}. Overall condition: ${insp.overall_condition}.`,
+          "",
+          "Start with one short Overview paragraph (overall condition, how many areas were inspected, the main problems). Then one section per room, in this order, with the room name as a heading and 1 to 3 sentences of findings for that room. Then a section headed \"Repairs needed\" listing each repair with its room, or the single line \"No repairs were flagged.\"",
+          ...(type === "move_out" && comparison.length ? ["", "Then a section headed \"Changes since move-in\" with one line per change, saying whether it looks like wear and tear or possible damage, using only these comparisons:", JSON.stringify(comparison)] : []),
+          "",
+          "Use only these inspection notes:",
+          roomLines(all),
+        ].join("\n") },
+      ], max_tokens: 1500 } as never);
+      text = clean(aiText(out));
+    } catch (err) { console.error("[inspection-report]", err); }
+    if (!text) return json({ error: "The AI couldn't write the report. Please try again." }, 502);
+    const reportText = text.slice(0, 12000);
+    await env.DB.prepare("INSERT INTO inspection_reports (inspection_id, report_text, status, signed_at, signed_by) VALUES (?, ?, 'draft', '', '') ON CONFLICT(inspection_id) DO UPDATE SET report_text = excluded.report_text, status = 'draft', signed_at = '', signed_by = ''").bind(insp.id, reportText).run();
+    return json({ success: true, report: { text: reportText, status: "draft", signed_at: "", signed_by: "" } });
+  }
+
+  if (rest === "/report" && request.method === "PUT") {
+    const b = await request.json() as Record<string, unknown>;
+    const text = str(b.text, 12000);
+    if (!text) return json({ error: "The report can't be empty." }, 400);
+    const existing = await loadReport(env, insp.id);
+    if (!existing) return json({ error: "Write the report first." }, 400);
+    // Editing after signing clears the signature: the signed copy must be the reviewed one.
+    await env.DB.prepare("UPDATE inspection_reports SET report_text = ?, status = 'draft', signed_at = '', signed_by = '' WHERE inspection_id = ?").bind(text, insp.id).run();
+    return json({ success: true, report: { text, status: "draft", signed_at: "", signed_by: "" } });
+  }
+
+  if (rest === "/report/sign" && request.method === "POST") {
+    const existing = await loadReport(env, insp.id);
+    if (!existing || !existing.report_text) return json({ error: "Write the report first." }, 400);
+    const signedBy = insp.inspector_name || "Inspector";
+    await env.DB.prepare("UPDATE inspection_reports SET status = 'signed', signed_at = ?, signed_by = ? WHERE inspection_id = ?").bind(now, signedBy, insp.id).run();
+    return json({ success: true, report: { text: existing.report_text, status: "signed", signed_at: now, signed_by: signedBy } });
   }
 
   return json({ error: "Not found" }, 404);
