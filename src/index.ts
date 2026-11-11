@@ -18,13 +18,15 @@ Rules:
 - Be warm, plain-spoken and concise: usually 2-4 short sentences, at most about 90 words, unless you are walking someone through steps.
 - Lead with the direct answer (yes, no, the number, the button), then the one detail that matters most.
 - When it helps move things forward, end with one short follow-up question (for example how many rentals they have, or which property they mean).
+- After giving pricing, offer the next step: ask if they'd like someone to call or email them about a plan. If they say yes, ask once for their name and a phone number or email, and never ask for contact details again in the same conversation. When they give their details, thank them and say EC Rental will be in touch within one business day. Never ask for contact details on unrelated questions, and never ask for bank details, passwords or ID numbers in this chat.
 - Write in a professional tone. Never use emojis or markdown headings; plain text with short paragraphs or "- " lists only.
 - Answer anything about renting, property management, California rental rules, landlord and tenant rights and duties, maintenance and repairs, and EC Rental. Politely decline unrelated topics.
 - For legal questions, answer from the California rules below with the code section, then note city ordinances may be stricter.
 - Don't make up URLs, buttons, or features that don't exist on the site.
 Special actions — include these tags in your response to trigger UI elements:
 - If asked about applying as tenant, renting, available properties, or becoming a renter: include [SHOW_TENANT_FORM] in your response.
-- If asked about pricing, cost, plans, or subscription: include [SHOW_PRICING] in your response.
+- If asked about pricing, cost, plans, or subscription: include [SHOW_PRICING] and [SHOW_QUOTE_FORM] in your response, and offer in words to have someone call or email them about a plan.
+- If someone asks for a quote, a callback, or to talk to a human about a plan: include [SHOW_QUOTE_FORM] in your response.
 - If asked about services or what you offer: include [SHOW_SERVICES] in your response.
 - If asked about tax reporting, statements, or financial reports: include [SHOW_TAX_INFO] in your response.
 - If asked about maintenance or repairs: include [SHOW_MAINTENANCE] in your response.
@@ -221,6 +223,30 @@ export default {
       } catch { return json({ success: false, error: "Something went wrong." }, 500); }
     }
 
+    // Quote / callback request API (from chat): a visitor who asked about pricing and wants someone to call or
+    // email them. Stored as a Chat Lead (plan 'quote_request') so it shows on the admin Chat Leads page, and
+    // emailed to EC Rental right away. A failed email never loses the lead: it is already stored above.
+    if (url.pathname === "/api/quote-request" && request.method === "POST") {
+      try {
+        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
+        const body = await request.json() as Record<string, unknown>;
+        const name = String(body.name || "").trim().slice(0, 100);
+        const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
+        const phone = String(body.phone || "").trim().slice(0, 30);
+        if (!name || (!email && !phone)) return json({ success: false, error: "Name and an email or phone number are required" }, 400);
+        if (email && !/^\S+@\S+\.\S+$/.test(email)) return json({ success: false, error: "That email doesn't look right" }, 400);
+        const plan = String(body.plan || "").trim().slice(0, 40);
+        const properties = String(body.property_count || body.properties || "").trim().slice(0, 20);
+        const message = String(body.message || "").trim().slice(0, 2000);
+        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(name, "", email, phone, properties, "quote_request", JSON.stringify({ plan, properties, message }), "pending", new Date().toISOString()).run();
+        const lines: [string, string][] = [["Name", name], ["Email", email], ["Phone", phone], ["Properties", properties], ["Plan", plan], ["Message", message]].filter(([, v]) => !!v);
+        const html = "<p>New quote request from the website chat:</p><ul>" + lines.map(([k, v]) => "<li><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(v) + "</li>").join("") + "</ul><p><a href=\"https://ecrentalpm.com/dashboard\">Open your dashboard</a> (Chat Leads)</p>";
+        const text = "New quote request from the website chat:\n\n" + lines.map(([k, v]) => k + ": " + v).join("\n") + "\n\nOpen your dashboard: https://ecrentalpm.com/dashboard (Chat Leads)";
+        for (const to of ["info@ecrentalpm.com", "eli@ecrentalpm.com"]) { try { await sendEmail(env, to, "New quote request: " + name, html, text); } catch (err) { console.error("[quote-request] email", err instanceof Error ? err.message : err); } }
+        return json({ success: true });
+      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+    }
+
     // Subscribe API
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
       try {
@@ -412,11 +438,11 @@ export default {
     // Dashboard Overview API
     if (url.pathname === "/api/dashboard/overview" && request.method === "GET") { const props = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC LIMIT 5").bind(user!.id).all(); const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); const occupied = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ? AND status = 'occupied'").bind(user!.id).first<{ count: number }>(); const now = new Date(); const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10); const rentResult = await env.DB.prepare("SELECT COALESCE(SUM(t.amount), 0) as total FROM transactions t JOIN properties p ON t.property_id = p.id WHERE p.user_id = ? AND t.type = 'rent' AND t.date >= ?").bind(user!.id, monthStart).first<{ total: number }>(); const maintResult = await env.DB.prepare("SELECT COUNT(*) as count FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? AND m.status = 'open'").bind(user!.id).first<{ count: number }>(); return json({ totalProperties: count?.count || 0, propertyLimit: user!.property_limit, occupied: occupied?.count || 0, vacant: (count?.count || 0) - (occupied?.count || 0), monthlyRent: rentResult?.total || 0, openMaintenance: maintResult?.count || 0, properties: props.results }); }
 
-    // Chat Leads API (admin only): tenant applications and maintenance requests sent through the website chat.
+    // Chat Leads API (admin only): tenant applications, maintenance requests and quote requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
-    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
+    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
-    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
+    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
     if (url.pathname.startsWith("/api/inspections")) { try { const res = await handleInspectionRoutes(request, env, url, user!); if (res) return res; } catch (err) { return dbErrorResponse("inspections", err); } }
