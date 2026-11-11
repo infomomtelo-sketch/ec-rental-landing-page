@@ -1,13 +1,14 @@
 /**
  * Transactions and tax reports. Every transaction belongs to one of the landlord's properties; expenses carry an
  * IRS Schedule E category (kept beside transactions in transaction_categories, so the old table never needs ALTER).
- * The tax report is for one calendar year: rents received, expenses by Schedule E line, net, and month by month.
- * Not tax advice; depreciation isn't included, the landlord's tax preparer adds it.
+ * A rent transaction can also name the tenant who paid (kept beside transactions in transaction_tenants, the same
+ * way): a property can have several tenants, one per room, and the Add Transaction dropdown records which one paid.
+ * Rent alerts are still computed per property, so this records who paid without changing how alerts clear.
  */
 
 export interface FinanceEnv { DB: D1Database; }
 interface FinanceUser { id: number; }
-interface TxnRow { id: number; property_id: number; type: string; amount: number; description: string; date: string; created_at: string; property_address: string; category: string | null; }
+interface TxnRow { id: number; property_id: number; type: string; amount: number; description: string; date: string; created_at: string; property_address: string; category: string | null; tenant_name: string | null; }
 
 export const TXN_TYPES = ["rent", "expense", "fee", "distribution"];
 /** Schedule E (Form 1040) expense lines. "Management fees" (line 11) is also where the "fee" type lands. */
@@ -32,7 +33,7 @@ function json(data: unknown, status = 200): Response { return new Response(JSON.
 function str(v: unknown, max: number): string { return v === undefined || v === null ? "" : String(v).trim().slice(0, max); }
 const cents = (n: number) => Math.round(n * 100) / 100;
 
-const SELECT_TXNS = "SELECT t.id, t.property_id, t.type, t.amount, t.description, t.date, t.created_at, p.address AS property_address, c.category FROM transactions t JOIN properties p ON t.property_id = p.id LEFT JOIN transaction_categories c ON c.transaction_id = t.id WHERE p.user_id = ?";
+const SELECT_TXNS = "SELECT t.id, t.property_id, t.type, t.amount, t.description, t.date, t.created_at, p.address AS property_address, c.category, tt.tenant_name FROM transactions t JOIN properties p ON t.property_id = p.id LEFT JOIN transaction_categories c ON c.transaction_id = t.id LEFT JOIN transaction_tenants tt ON tt.transaction_id = t.id WHERE p.user_id = ?";
 
 /** Checks a transaction from the dashboard form. */
 function parseTxn(body: Record<string, unknown>): { error: string } | { type: string; amount: number; date: string; description: string; category: string | null } {
@@ -55,6 +56,12 @@ async function saveCategory(env: FinanceEnv, id: number, category: string | null
   else await env.DB.prepare("DELETE FROM transaction_categories WHERE transaction_id = ?").bind(id).run();
 }
 
+/** The tenant a rent transaction was recorded for, if any. Kept beside transactions like the category. */
+async function saveTenant(env: FinanceEnv, id: number, tenantName: string | null): Promise<void> {
+  if (tenantName) await env.DB.prepare("INSERT INTO transaction_tenants (transaction_id, tenant_name) VALUES (?, ?) ON CONFLICT(transaction_id) DO UPDATE SET tenant_name = excluded.tenant_name").bind(id, tenantName).run();
+  else await env.DB.prepare("DELETE FROM transaction_tenants WHERE transaction_id = ?").bind(id).run();
+}
+
 async function ownsProperty(env: FinanceEnv, userId: number, propertyId: unknown): Promise<boolean> {
   const id = Number(propertyId);
   return Number.isInteger(id) && !!(await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first());
@@ -73,9 +80,11 @@ export async function handleFinanceRoutes(request: Request, env: FinanceEnv, url
     if (!(await ownsProperty(env, user.id, body.property_id))) return json({ error: "Choose one of your properties." }, 400);
     const t = parseTxn(body);
     if ("error" in t) return json(t, 400);
+    const tenantName = t.type === "rent" ? (str(body.tenant_name, 100) || null) : null;
     const res = await env.DB.prepare("INSERT INTO transactions (property_id, type, amount, description, date, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(Number(body.property_id), t.type, t.amount, t.description, t.date, new Date().toISOString()).run();
     const id = Number(res.meta.last_row_id);
     await saveCategory(env, id, t.category);
+    await saveTenant(env, id, tenantName);
     return json({ success: true, id });
   }
 
@@ -87,6 +96,7 @@ export async function handleFinanceRoutes(request: Request, env: FinanceEnv, url
     if (request.method === "DELETE") {
       await env.DB.batch([
         env.DB.prepare("DELETE FROM transaction_categories WHERE transaction_id = ?").bind(id),
+        env.DB.prepare("DELETE FROM transaction_tenants WHERE transaction_id = ?").bind(id),
         env.DB.prepare("DELETE FROM transactions WHERE id = ?").bind(id),
       ]);
       return json({ success: true });
@@ -97,8 +107,10 @@ export async function handleFinanceRoutes(request: Request, env: FinanceEnv, url
       if (!(await ownsProperty(env, user.id, propertyId))) return json({ error: "Choose one of your properties." }, 400);
       const t = parseTxn({ ...existing, category: existing.category, ...body });
       if ("error" in t) return json(t, 400);
+      const tenantName = t.type === "rent" ? (body.tenant_name === undefined ? (existing.tenant_name ?? null) : (str(body.tenant_name, 100) || null)) : null;
       await env.DB.prepare("UPDATE transactions SET property_id = ?, type = ?, amount = ?, description = ?, date = ? WHERE id = ?").bind(propertyId, t.type, t.amount, t.description, t.date, id).run();
       await saveCategory(env, id, t.category);
+      await saveTenant(env, id, tenantName);
       return json({ success: true });
     }
     return json({ error: "Not found" }, 404);
@@ -151,6 +163,6 @@ export function buildReport(year: number, years: number[], props: { id: number; 
     properties: props.map((p) => ({ id: p.id, address: p.address, city: p.city, state: p.state, zip: p.zip, ...finish(per.get(p.id)!) })),
     totals: finish(total),
     months: months.map((m, i) => ({ month: i + 1, rent: cents(m.rent), expenses: cents(m.expenses), net: cents(m.rent - m.expenses) })),
-    transactions: txns.map((t) => ({ id: t.id, date: t.date, property_id: t.property_id, property_address: t.property_address, type: t.type, category: t.type === "fee" ? "management_fees" : t.category, amount: t.amount, description: t.description })),
+    transactions: txns.map((t) => ({ id: t.id, date: t.date, property_id: t.property_id, property_address: t.property_address, type: t.type, category: t.type === "fee" ? "management_fees" : t.category, amount: t.amount, description: t.description, tenant_name: t.tenant_name || null })),
   };
 }
