@@ -129,6 +129,44 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
     } catch (err) { console.error("[ai] inquiry-reply", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
   }
 
+  // Draft reply to a message from the landlord's own business page (Settings, "Messages from your page").
+  // Same pattern as /api/ai/inquiry-reply, but the message came through the Contact us form on /rentals/<slug>,
+  // not through a listing, so the facts are the business itself plus its active rentals.
+  if (url.pathname === "/api/ai/page-message-reply") {
+    const body = await request.json() as Record<string, unknown>;
+    const messageId = Math.floor(num(body.messageId));
+    const row = messageId ? await env.DB.prepare("SELECT s.id, s.name, s.email, s.phone, s.message FROM signups s WHERE s.id = ? AND s.plan = 'business_page_message' AND json_valid(s.message) AND json_extract(s.message, '$.owner_user_id') = ?")
+      .bind(messageId, user.id).first<{ id: number; name: string; email: string; phone: string; message: string }>() : null;
+    if (!row) return json({ error: "Message not found." }, 404);
+    let d: Record<string, unknown> = {}; try { d = JSON.parse(row.message); } catch { /* keep empty */ }
+    const text = str(d.text, 2000) || "(no message, just asked to be contacted)";
+    const page = await env.DB.prepare("SELECT slug, business_name, service_area, phone, email FROM business_pages WHERE user_id = ?").bind(user.id).first<{ slug: string; business_name: string; service_area: string; phone: string; email: string }>();
+    const homes = await env.DB.prepare("SELECT * FROM listings WHERE user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 5").bind(user.id).all<Record<string, unknown>>();
+    const homeFacts: string[] = [];
+    for (const h of homes.results) for (const f of listingFacts(h)) homeFacts.push("  - " + f);
+    const signer = str(page?.business_name, 100) || str(user.company, 100) || str(user.name, 100) || "EC Rental Property Management";
+    const phone = str(page?.phone).replace(/^(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
+    const prompt = [
+      `A visitor named ${str(row.name, 100) || "there"} wrote to ${signer} through the Contact us form on the business's own page.`,
+      `Their message: """${text}"""`,
+      "",
+      "Facts about the business (use only these; if they ask something not covered, say we'll confirm and get back to them):",
+      ...(page?.service_area ? [`- Area served: ${str(page.service_area, 120)}`] : []),
+      ...(phone ? [`- Phone: ${phone}`] : []),
+      ...(homes.results.length ? ["- Available rentals:"] : ["- No rentals are listed as available right now; say so plainly and offer to let them know when one opens up."]),
+      ...homeFacts,
+      ...(homes.results.length && page ? [`- See the rentals: ${url.origin}/rentals/${page.slug}`] : []),
+      "",
+      `Write the email reply, signed "${signer}". Warm, brief (under 150 words), plain text, no subject line. Answer their question directly, offer to set up a showing for a home that fits, and include the phone number if there is one. Don't promise approval, don't ask about their personal characteristics, and treat every renter the same.`,
+    ].filter(Boolean).join("\n");
+    try {
+      const out = await textRun(env, { messages: [{ role: "system", content: "You help a property manager answer messages from their business page by email. " + FAIR_HOUSING }, { role: "user", content: prompt }], max_tokens: 450 } as never);
+      const reply = clean(aiText(out)).slice(0, 4000);
+      if (!reply) return json({ error: "The AI didn't return a reply. Please try again." }, 502);
+      return json({ reply, subject: "Re: Your message to " + signer });
+    } catch (err) { console.error("[ai] page-message-reply", err instanceof Error ? err.message : err); return json({ error: "The AI is unavailable right now. Please try again shortly." }, 502); }
+  }
+
   // Rewrites or proofreads text the landlord wrote (a description or a reply).
   if (url.pathname === "/api/ai/polish") {
     const body = await request.json() as Record<string, unknown>;
