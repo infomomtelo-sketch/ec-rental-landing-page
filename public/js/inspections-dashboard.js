@@ -1,6 +1,8 @@
 // Dashboard "Inspections" page: start an inspection, drop in photos room by room (the AI pre-fills each
-// photo's condition and notes), correct them, turn repairs into maintenance requests, then finish to get
-// a summary, a move-out vs move-in comparison and a printable report.
+// photo's condition and notes) or talk through what you see (a voice note is transcribed into the
+// notes), correct them, turn repairs into maintenance requests, then finish. Finishing writes a
+// summary and a move-out vs move-in comparison; the AI then writes the full room-by-room report,
+// which the inspector edits as one document and signs. The signed report is the printable report.
 (function() {
   var body = document.getElementById('inspectionsBody');
   if (!body) return;
@@ -11,6 +13,7 @@
   var COND_BADGE = { good: 'badge-green', fair: 'badge-yellow', poor: 'badge-red', damaged: 'badge-red' };
   var OVERALL_BADGE = { 'Good': 'badge-green', 'Fair': 'badge-yellow', 'Needs Attention': 'badge-red' };
   var list = [], current = null, imageUrls = {};
+  var recorder = null, voiceChunks = [], voiceBtn = null, voiceMsg = null, voiceItemId = null;
 
   function token() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
   function api(path, method, payload, rawType) {
@@ -108,8 +111,23 @@
       '<input data-f="repair_item" placeholder="Repair (e.g. patch hole in wall)" value="' + esc(it.repair_item) + '" style="flex:1;min-width:160px;padding:0.35rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem' + (it.repair_needed ? '' : ';display:none') + '" /></div>' +
       '<textarea data-f="notes" rows="2" placeholder="Notes" style="width:100%;font:inherit;font-size:0.88rem;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px">' + esc(it.notes) + '</textarea>' +
       '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">' +
+      (typeof window.MediaRecorder !== 'undefined' ? '<button type="button" class="btn btn-sm btn-secondary" data-act="voice">🎤 Voice note</button>' : '') +
       (it.repair_needed ? (it.maintenance_id ? '<span class="badge badge-green">Maintenance request created</span>' : '<button type="button" class="btn btn-sm btn-secondary" data-act="maint">Create maintenance request</button>') : '') +
       '<button type="button" class="btn btn-sm btn-danger" data-act="del">Remove photo</button><small data-msg style="color:var(--gray)"></small></div></div></div>';
+  }
+
+  // The written report: the AI drafts it from the photos and voice notes, the inspector edits it
+  // as one document and signs it. Editing or rewriting a signed report clears the signature.
+  function reportHtml(rep) {
+    var out = '<div style="margin-top:1.25rem;padding:1rem;border-radius:10px;background:#fff;border:1px solid #e5e7eb"><h3 style="font-size:1rem;color:var(--primary);margin-bottom:0.25rem">Written report</h3>';
+    if (!rep || !rep.text) {
+      out += '<p style="font-size:0.9rem;color:var(--gray)">The AI writes the full room-by-room report from the photos and voice notes, so you don\'t have to type it. Read it, fix anything, then sign it.</p><div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem"><button type="button" class="btn" id="inspReportGen">Write the report</button><span id="inspReportMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
+    } else {
+      out += '<p style="font-size:0.85rem;color:var(--gray);margin-bottom:0.5rem">' + (rep.status === 'signed' ? 'Signed by ' + esc(rep.signed_by) + ' on ' + esc((rep.signed_at || '').slice(0, 10)) + '. Editing it again clears the signature.' : 'Draft — read it and fix anything before signing.') + '</p>';
+      out += '<textarea id="inspReportText" rows="14" style="width:100%;font:inherit;font-size:0.9rem;padding:0.6rem;border:1px solid #d1d5db;border-radius:8px;white-space:pre-wrap">' + esc(rep.text) + '</textarea>';
+      out += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem"><button type="button" class="btn" id="inspReportSave">Save edits</button>' + (rep.status === 'signed' ? '' : '<button type="button" class="btn btn-secondary" id="inspReportSign">Sign report</button>') + '<button type="button" class="btn btn-secondary" id="inspReportGen">Rewrite report</button><span id="inspReportMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
+    }
+    return out + '</div>';
   }
 
   function render() {
@@ -124,6 +142,7 @@
     if (i.status === 'completed') {
       html += '<div style="margin-top:1.25rem;padding:1rem;border-radius:10px;background:#eef4ee"><strong>Overall: <span class="badge ' + (OVERALL_BADGE[i.overall_condition] || 'badge-gray') + '">' + esc(i.overall_condition) + '</span></strong><p style="font-size:0.9rem;margin-top:0.4rem">' + esc(i.summary) + '</p></div>';
       if (i.type === 'move_out' && i.compare_to) html += comparisonHtml(d.comparison);
+      html += reportHtml(d.report);
     }
     html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1.25rem"><button type="button" class="btn" id="inspFinish">' + (i.status === 'completed' ? 'Update summary' : 'Finish & write summary') + '</button><a class="btn btn-secondary" href="/inspection-report?id=' + i.id + '" target="_blank" rel="noopener">Printable report</a><span id="inspFinishMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
     work.innerHTML = html;
@@ -138,6 +157,25 @@
     ['dragleave', 'drop'].forEach(function(t) { drop.addEventListener(t, function(e) { e.preventDefault(); drop.style.borderColor = '#d1d5db'; drop.style.background = ''; }); });
     drop.addEventListener('drop', function(e) { upload(e.dataTransfer && e.dataTransfer.files); });
     document.getElementById('inspFinish').addEventListener('click', finish);
+    var reportGen = document.getElementById('inspReportGen');
+    if (reportGen) reportGen.addEventListener('click', function() {
+      var msgEl = document.getElementById('inspReportMsg');
+      if (current.report && current.report.status === 'signed' && !confirm('This report is signed. Rewriting it clears the signature. Continue?')) return;
+      reportGen.disabled = true; if (msgEl) msgEl.textContent = 'Writing the report...';
+      api('/inspections/' + current.inspection.id + '/report', 'POST', {}).then(function(r) { current.report = r.report; render(); }).catch(function(err) { reportGen.disabled = false; if (msgEl) { msgEl.textContent = err.message; msgEl.style.color = '#991b1b'; } });
+    });
+    var reportSave = document.getElementById('inspReportSave');
+    if (reportSave) reportSave.addEventListener('click', function() {
+      var ta = document.getElementById('inspReportText'), msgEl = document.getElementById('inspReportMsg');
+      reportSave.disabled = true; if (msgEl) msgEl.textContent = 'Saving...';
+      api('/inspections/' + current.inspection.id + '/report', 'PUT', { text: ta.value }).then(function(r) { current.report = r.report; render(); }).catch(function(err) { reportSave.disabled = false; if (msgEl) { msgEl.textContent = err.message; msgEl.style.color = '#991b1b'; } });
+    });
+    var reportSign = document.getElementById('inspReportSign');
+    if (reportSign) reportSign.addEventListener('click', function() {
+      var msgEl = document.getElementById('inspReportMsg');
+      reportSign.disabled = true; if (msgEl) msgEl.textContent = 'Signing...';
+      api('/inspections/' + current.inspection.id + '/report/sign', 'POST', {}).then(function(r) { current.report = r.report; render(); }).catch(function(err) { reportSign.disabled = false; if (msgEl) { msgEl.textContent = err.message; msgEl.style.color = '#991b1b'; } });
+    });
   }
 
   function comparisonHtml(rows) {
@@ -187,6 +225,33 @@
     var act = e.target.getAttribute('data-act');
     if (!card || !act) return;
     var id = Number(card.getAttribute('data-item')), msg = card.querySelector('[data-msg]');
+    if (act === 'voice') {
+      if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+      if (typeof window.MediaRecorder === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { msg.textContent = 'Voice notes need a browser with microphone access.'; return; }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        voiceChunks = []; voiceBtn = e.target; voiceMsg = msg; voiceItemId = id;
+        recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = function(ev) { if (ev.data && ev.data.size) voiceChunks.push(ev.data); };
+        recorder.onstop = function() {
+          stream.getTracks().forEach(function(t) { t.stop(); });
+          var type = recorder.mimeType || 'audio/webm';
+          var blob = new Blob(voiceChunks, { type: type });
+          if (voiceBtn) voiceBtn.textContent = '🎤 Voice note';
+          if (voiceMsg) voiceMsg.textContent = 'Transcribing...';
+          api('/inspections/' + current.inspection.id + '/items/' + voiceItemId + '/voice', 'POST', blob, type).then(function(r) {
+            var it = current.items.filter(function(x) { return x.id === voiceItemId; })[0];
+            if (it) it.notes = r.notes;
+            var c = document.querySelector('.insp-item[data-item="' + voiceItemId + '"]');
+            if (c) { var ta = c.querySelector('textarea[data-f="notes"]'); if (ta) ta.value = r.notes; }
+            if (voiceMsg) voiceMsg.textContent = 'Voice note added.';
+          }).catch(function(err) { if (voiceMsg) { voiceMsg.textContent = err.message; voiceMsg.style.color = '#991b1b'; } });
+        };
+        recorder.start();
+        e.target.textContent = '⏹ Stop recording';
+        msg.textContent = 'Recording — speak, then tap Stop.';
+      }).catch(function() { msg.textContent = 'Microphone access was blocked. Allow it to record a voice note.'; });
+      return;
+    }
     if (act === 'del') {
       if (!confirm('Remove this photo?')) return;
       api('/inspections/' + current.inspection.id + '/items/' + id, 'DELETE').then(function() { current.items = current.items.filter(function(x) { return x.id !== id; }); render(); }).catch(function(err) { msg.textContent = err.message; });
