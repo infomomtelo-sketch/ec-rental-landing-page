@@ -1,5 +1,6 @@
 // "Your business page" card on the Settings page: edit the landlord's public page at /rentals/<slug>
-// (src/business-pages.ts) and read the latest messages visitors sent from it.
+// (src/business-pages.ts) and read the latest messages visitors sent from it, with a Tello-drafted
+// reply for each one (src/ai-assist.ts /api/ai/page-message-reply).
 (function () {
   var view = document.getElementById('dashboardView');
   var settingsPage = document.getElementById('page-settings');
@@ -11,6 +12,10 @@
     return fetch('/api/business-page', { method: method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }, body: body ? JSON.stringify(body) : undefined })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong. Please try again.'); return d; }); });
   }
+  function aiCall(path, body) {
+    return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong. Please try again.'); return d; }); });
+  }
   function el(tag, attrs, text) { var e = document.createElement(tag); for (var k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
   function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; } }
   function slugify(s) { return String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50).replace(/-+$/, ''); }
@@ -20,6 +25,24 @@
     var l = el('label', null, label); g.appendChild(l); g.appendChild(input);
     if (hint) g.appendChild(el('p', { style: 'color:var(--gray);font-size:0.8rem;margin-top:0.3rem' }, hint));
     return g;
+  }
+
+  // Tello's draft reply under one message: editable text, then the landlord sends it from their own
+  // email (Open in email) — the draft is never sent automatically.
+  function showReply(box, m, r) {
+    var old = box.querySelector('.page-reply-box'); if (old) old.remove();
+    var wrap = el('div', { class: 'page-reply-box', style: 'margin-top:0.75rem;border-top:1px solid #e5e7eb;padding-top:0.75rem' });
+    wrap.appendChild(el('h4', { style: 'font-size:0.95rem;color:var(--primary);margin-bottom:0.5rem' }, 'Reply to ' + m.name));
+    var text = el('textarea', { rows: '8', style: 'width:100%;font:inherit;padding:0.6rem;border:1px solid #d1d5db;border-radius:8px' }); text.value = r.reply;
+    wrap.appendChild(text);
+    wrap.appendChild(el('p', { style: 'color:var(--gray);font-size:0.8rem;margin:0.4rem 0 0.6rem' }, 'Drafted by Tello from their message and your active rentals. Read it and fix anything before sending.'));
+    var send = el('a', { class: 'btn btn-sm', href: '#' }, 'Open in email');
+    var updateMailto = function () { send.href = 'mailto:' + encodeURIComponent(m.email) + '?subject=' + encodeURIComponent(r.subject || 'Re: Your message to us') + '&body=' + encodeURIComponent(text.value); };
+    text.addEventListener('input', updateMailto); updateMailto();
+    var copy = el('button', { class: 'btn btn-sm btn-secondary', type: 'button' }, 'Copy');
+    copy.addEventListener('click', function () { try { navigator.clipboard.writeText(text.value); copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); } catch (e) { text.select(); } });
+    var row = el('div', { style: 'display:flex;gap:0.5rem;flex-wrap:wrap' }); row.appendChild(send); row.appendChild(copy); wrap.appendChild(row);
+    box.appendChild(wrap);
   }
 
   function card(d) {
@@ -95,6 +118,16 @@
       if (m.phone) { contact.appendChild(document.createTextNode(' · ')); contact.appendChild(el('a', { href: 'tel:' + m.phone.replace(/[^\d+]/g, '') }, m.phone)); }
       box.appendChild(contact);
       box.appendChild(el('p', { style: 'white-space:pre-line;font-size:0.9rem' }, m.message));
+      var draftBtn = el('button', { class: 'btn btn-sm btn-secondary', type: 'button' }, 'Draft reply with Tello');
+      var status = el('p', { style: 'color:var(--gray);font-size:0.85rem;margin:0.4rem 0 0;display:none' });
+      draftBtn.addEventListener('click', function () {
+        draftBtn.disabled = true; draftBtn.textContent = 'Writing a reply...'; status.style.display = 'none';
+        aiCall('/api/ai/page-message-reply', { messageId: m.id }).then(function (r) {
+          draftBtn.disabled = false; draftBtn.textContent = 'Draft reply with Tello';
+          showReply(box, m, r);
+        }).catch(function (err) { draftBtn.disabled = false; draftBtn.textContent = 'Draft reply with Tello'; status.style.display = 'block'; status.style.color = '#991b1b'; status.textContent = err.message; });
+      });
+      box.appendChild(draftBtn); box.appendChild(status);
       c.appendChild(box);
     });
   }
