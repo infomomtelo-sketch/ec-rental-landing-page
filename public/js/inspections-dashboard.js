@@ -54,6 +54,7 @@
         return '<tr><td>' + esc(i.property_address) + '</td><td>' + esc(TYPES[i.type] || 'Inspection') + '</td><td>' + esc(i.inspection_date) + '</td><td>' + cond + '</td><td>' + (i.item_count || 0) + '</td><td style="white-space:nowrap"><button class="btn btn-sm" data-open="' + i.id + '">Open</button> <a class="btn btn-sm btn-secondary" href="/inspection-report?id=' + i.id + '" target="_blank" rel="noopener">Report</a> <button class="btn btn-sm btn-danger" data-del="' + i.id + '">Delete</button></td></tr>';
       }).join('');
     }).catch(function(err) { body.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
+    loadRemote();
   }
   window.ECInspections = { load: load };
   var nav = document.querySelector('[data-page="inspections"]');
@@ -90,6 +91,82 @@
     e.preventDefault();
     var data = {}; Array.prototype.forEach.call(newForm.elements, function(el) { if (el.name) data[el.name] = el.value; });
     api('/inspections', 'POST', data).then(function(r) { close('inspNewModal'); load(); openWork(r.id); }).catch(function(err) { document.getElementById('inspNewMsg').textContent = err.message; });
+  });
+
+  // Remote inspections: the landlord sends a tenant a link. The rooms come from the property,
+  // the tenant photographs them with the guided shot list, and the report goes to both.
+  var remoteProps = [], remoteListings = [];
+  function roomsFor(beds, baths) {
+    var out = ['Entry', 'Living room', 'Dining room', 'Kitchen', 'Hallway'], b = Math.max(0, Math.min(10, Number(beds) || 0)), a = Math.max(0, Math.min(10, Number(baths) || 0)), i;
+    for (i = 1; i <= b; i++) out.push(i === 1 ? 'Primary bedroom' : 'Bedroom ' + i);
+    for (i = 1; i <= a; i++) out.push(i === 1 ? 'Primary bathroom' : 'Bathroom ' + i);
+    return out;
+  }
+  function renderRemoteRooms() {
+    var f = document.getElementById('inspRemoteForm');
+    document.getElementById('inspRemoteRooms').innerHTML = roomsFor(f.elements.bedrooms.value, f.elements.bathrooms.value).map(function(r) {
+      return '<label style="display:flex;gap:0.4rem;align-items:center;font-weight:400"><input type="checkbox" name="rooms" value="' + esc(r) + '" checked /> ' + esc(r) + '</label>';
+    }).join('');
+  }
+  function fillRemoteFromProperty() {
+    var f = document.getElementById('inspRemoteForm');
+    var pid = Number(f.elements.property_id.value);
+    var p = remoteProps.filter(function(x) { return x.id === pid; })[0];
+    if (p) { f.elements.tenant_name.value = p.tenant_name || ''; f.elements.tenant_email.value = p.tenant_email || ''; }
+    var l = remoteListings.filter(function(x) { return x.property_id === pid; })[0];
+    if (l) { f.elements.bedrooms.value = l.bedrooms || 0; f.elements.bathrooms.value = l.full_baths || 0; }
+    renderRemoteRooms();
+  }
+  document.getElementById('newRemoteBtn').addEventListener('click', function() {
+    var f = document.getElementById('inspRemoteForm');
+    f.reset(); document.getElementById('inspRemoteMsg').textContent = ''; document.getElementById('inspRemoteLink').style.display = 'none';
+    renderRemoteRooms();
+    Promise.all([api('/properties'), api('/listings').catch(function() { return []; })]).then(function(res) {
+      remoteProps = res[0] || []; remoteListings = res[1] || [];
+      f.elements.property_id.innerHTML = remoteProps.length ? remoteProps.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address) + '</option>'; }).join('') : '<option value="">Add a property first</option>';
+      fillRemoteFromProperty();
+    });
+    document.getElementById('inspRemoteModal').classList.add('open');
+  });
+  (function() {
+    var f = document.getElementById('inspRemoteForm');
+    f.elements.property_id.addEventListener('change', fillRemoteFromProperty);
+    f.elements.bedrooms.addEventListener('change', renderRemoteRooms);
+    f.elements.bathrooms.addEventListener('change', renderRemoteRooms);
+  })();
+  document.getElementById('inspRemoteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var f = e.target, msg = document.getElementById('inspRemoteMsg'), linkBox = document.getElementById('inspRemoteLink');
+    msg.textContent = ''; linkBox.style.display = 'none';
+    var data = {};
+    Array.prototype.forEach.call(f.elements, function(el) { if (el.name && el.type !== 'checkbox') data[el.name] = el.value; });
+    data.rooms = Array.prototype.map.call(f.querySelectorAll('input[name="rooms"]:checked'), function(el) { return el.value; });
+    data.otherRooms = '';
+    api('/inspections/remote', 'POST', data).then(function(r) {
+      linkBox.innerHTML = 'Link sent to ' + esc(data.tenant_email) + '. The tenant opens it on their phone and follows the shot list.<br><a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.link) + '</a><br><button type="button" class="btn btn-sm btn-secondary" id="inspRemoteCopy" style="margin-top:0.5rem">Copy link</button>';
+      linkBox.style.display = 'block';
+      document.getElementById('inspRemoteCopy').addEventListener('click', function() {
+        var btn = this;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.link).then(function() { btn.textContent = 'Copied'; }).catch(function() {});
+      });
+      loadRemote();
+    }).catch(function(err) { msg.textContent = err.message; });
+  });
+  function loadRemote() {
+    var rb = document.getElementById('remoteBody');
+    if (!rb || !token()) return;
+    api('/inspections/remote').then(function(rows) {
+      if (!rows.length) { rb.innerHTML = '<tr><td colspan="6" class="empty-state">No remote inspections sent yet. Click "Send remote inspection" to send one to a tenant.</td></tr>'; return; }
+      rb.innerHTML = rows.map(function(r) {
+        var status = r.status === 'done' ? '<span class="badge badge-green">Done' + (r.overall ? ' — ' + esc(r.overall) : '') + '</span>' : '<span class="badge badge-yellow">Waiting for photos</span>';
+        return '<tr><td>' + esc(r.address) + '</td><td>' + esc(r.name) + '</td><td>' + esc(TYPES[r.type] || 'Inspection') + '</td><td>' + status + '</td><td>' + (r.photos || 0) + ' photos · ' + (r.rooms || 0) + ' rooms</td><td style="white-space:nowrap"><button class="btn btn-sm btn-secondary" data-copy-link="' + esc(r.link) + '">Copy link</button> <a class="btn btn-sm" href="' + esc(r.link) + '" target="_blank" rel="noopener">View report</a></td></tr>';
+      }).join('');
+    }).catch(function(err) { rb.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
+  }
+  document.getElementById('remoteBody').addEventListener('click', function(e) {
+    var b = e.target.closest('[data-copy-link]'); if (!b) return;
+    var link = b.getAttribute('data-copy-link');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function() { b.textContent = 'Copied'; }).catch(function() {});
   });
 
   // Shrink phone photos to 1600px JPEG before upload.
