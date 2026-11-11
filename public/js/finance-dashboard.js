@@ -21,7 +21,35 @@ window.ECFinance = (function () {
     [/home depot|lowe|supplies|paint|filter|bulb|smoke detector/i, 'supplies'], [/mileage|gas for|travel|uber|parking/i, 'auto_travel'],
     [/commission|leasing fee|finder/i, 'commissions'], [/management/i, 'management_fees']
   ];
-  var year = null, txns = [];
+  var year = null, txns = [], tenancies = null, properties = null;
+
+  // Tenants for the dropdown: invited tenancies for the property (name, or email before they accept)
+  // plus the tenant name recorded on the property itself, for tenants who were never invited.
+  function loadTenantLists() {
+    if (tenancies !== null && properties !== null) return Promise.resolve();
+    return Promise.all([
+      api('/tenancies').then(function (list) { tenancies = list || []; }).catch(function () { tenancies = []; }),
+      api('/properties').then(function (list) { properties = list || []; }).catch(function () { properties = []; })
+    ]);
+  }
+  function tenantNamesFor(propertyId) {
+    var names = [], seen = {};
+    (tenancies || []).forEach(function (t) {
+      if (String(t.property_id) !== String(propertyId)) return;
+      var n = t.tenant_name || t.email; if (n && !seen[n]) { seen[n] = 1; names.push(n); }
+    });
+    (properties || []).forEach(function (p) {
+      if (String(p.id) !== String(propertyId)) return;
+      var n = p.tenant_name; if (n && !seen[n]) { seen[n] = 1; names.push(n); }
+    });
+    return names;
+  }
+  function fillTenantDropdown(selected) {
+    return loadTenantLists().then(function () {
+      var names = tenantNamesFor($('txnProperty').value);
+      $('txnTenant').innerHTML = '<option value="">No specific tenant</option>' + names.map(function (n) { return '<option value="' + esc(n) + '"' + (selected && selected === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    });
+  }
 
   function token() { try { return localStorage.getItem('ec_token'); } catch (e) { return null; } }
   function api(path, method, body) {
@@ -40,10 +68,15 @@ window.ECFinance = (function () {
 
   // ---- Transaction modal ----
   function categoryShown() { $('txnCategoryGroup').style.display = $('txnType').value === 'expense' ? 'block' : 'none'; }
+  // The tenant picker only applies to rent: who paid. Other types have no tenant.
+  function tenantShown() { $('txnTenantGroup').style.display = $('txnType').value === 'rent' ? 'block' : 'none'; }
   function setup() {
     if (setup.done || !$('transactionForm')) return; setup.done = true;
     $('txnCategory').innerHTML = CATEGORIES.map(function (c) { return '<option value="' + c[0] + '">' + esc(c[1]) + '</option>'; }).join('');
     $('txnType').addEventListener('change', categoryShown);
+    $('txnType').addEventListener('change', tenantShown);
+    $('txnProperty').addEventListener('change', function () { fillTenantDropdown(); });
+    loadTenantLists();
     $('txnDesc').addEventListener('input', function () {
       if ($('txnCategory').dataset.touched) return;
       var d = $('txnDesc').value; for (var i = 0; i < GUESS.length; i++) if (GUESS[i][0].test(d)) { $('txnCategory').value = GUESS[i][1]; return; }
@@ -59,21 +92,21 @@ window.ECFinance = (function () {
     $('transactionForm').reset(); $('txnId').value = ''; delete $('txnCategory').dataset.touched;
     $('txnModalTitle').textContent = 'Add Transaction'; $('txnDeleteBtn').style.display = 'none';
     $('txnDate').value = new Date().toISOString().split('T')[0];
-    categoryShown();
+    categoryShown(); tenantShown(); fillTenantDropdown();
   }
   function edit(id) {
     var t = txns.filter(function (x) { return x.id === id; })[0]; if (!t) return;
     resetForm();
-    Promise.resolve(window.ECPopulateProps && window.ECPopulateProps('txnProperty')).then(function () { $('txnProperty').value = String(t.property_id); });
+    Promise.resolve(window.ECPopulateProps && window.ECPopulateProps('txnProperty')).then(function () { $('txnProperty').value = String(t.property_id); fillTenantDropdown(t.tenant_name); });
     $('txnId').value = t.id; $('txnModalTitle').textContent = 'Edit Transaction'; $('txnDeleteBtn').style.display = 'inline-block';
     $('txnType').value = t.type; $('txnAmount').value = t.amount; $('txnDate').value = t.date; $('txnDesc').value = t.description || '';
     if (t.category) { $('txnCategory').value = t.category; $('txnCategory').dataset.touched = '1'; }
-    categoryShown();
+    categoryShown(); tenantShown();
     $('transactionModal').classList.add('open');
   }
   function submit() {
     var id = $('txnId').value;
-    var data = { property_id: parseInt($('txnProperty').value), type: $('txnType').value, amount: parseFloat($('txnAmount').value), date: $('txnDate').value, description: $('txnDesc').value, category: $('txnType').value === 'expense' ? $('txnCategory').value : null };
+    var data = { property_id: parseInt($('txnProperty').value), type: $('txnType').value, amount: parseFloat($('txnAmount').value), date: $('txnDate').value, description: $('txnDesc').value, category: $('txnType').value === 'expense' ? $('txnCategory').value : null, tenant_name: $('txnType').value === 'rent' ? ($('txnTenant').value || null) : null };
     return api(id ? '/transactions/' + id : '/transactions', id ? 'PUT' : 'POST', data).catch(function (err) { alert(err.message); throw err; });
   }
 
@@ -86,7 +119,7 @@ window.ECFinance = (function () {
       if (!data.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No transactions yet. Add rent you collect and every expense, and your tax report fills in by itself.</td></tr>'; return; }
       body.innerHTML = data.map(function (t) {
         var kind = '<span class="badge ' + (TYPE_BADGE[t.type] || 'badge-gray') + '">' + esc(TYPE_LABEL[t.type] || t.type) + '</span>' + (t.type === 'expense' ? '<br><small style="color:var(--gray)">' + esc(t.category ? LABEL[t.category] || t.category : 'Needs a category') + '</small>' : '');
-        return '<tr><td>' + esc(t.date) + '</td><td>' + esc(t.property_address) + '</td><td>' + kind + '</td><td>' + esc(t.description) + '</td><td style="text-align:right">' + money(t.amount) + '</td><td><button class="btn btn-sm btn-secondary" type="button" data-edit-txn="' + t.id + '">Edit</button></td></tr>';
+        return '<tr><td>' + esc(t.date) + '</td><td>' + esc(t.property_address) + '</td><td>' + kind + '</td><td>' + esc(t.description) + (t.tenant_name ? '<br><small style="color:var(--gray)">Tenant: ' + esc(t.tenant_name) + '</small>' : '') + '</td><td style="text-align:right">' + money(t.amount) + '</td><td><button class="btn btn-sm btn-secondary" type="button" data-edit-txn="' + t.id + '">Edit</button></td></tr>';
       }).join('');
     }).catch(function () {});
   }
@@ -138,8 +171,8 @@ window.ECFinance = (function () {
     line(20, 'Total expenses', function (p) { return p.expenses_total.toFixed(2); });
     line('', 'Income before depreciation', function (p) { return p.net.toFixed(2); });
     line('', 'Owner draws (not an expense)', function (p) { return p.distributions.toFixed(2); });
-    rows.push([], ['Transactions'], ['Date', 'Property', 'Type', 'Schedule E category', 'Description', 'Amount']);
-    r.transactions.forEach(function (t) { rows.push([t.date, t.property_address, TYPE_LABEL[t.type] || t.type, t.category ? LABEL[t.category] || t.category : (t.type === 'expense' ? 'Other' : ''), t.description, t.amount.toFixed(2)]); });
+    rows.push([], ['Transactions'], ['Date', 'Property', 'Tenant', 'Type', 'Schedule E category', 'Description', 'Amount']);
+    r.transactions.forEach(function (t) { rows.push([t.date, t.property_address, t.tenant_name || '', TYPE_LABEL[t.type] || t.type, t.category ? LABEL[t.category] || t.category : (t.type === 'expense' ? 'Other' : ''), t.description, t.amount.toFixed(2)]); });
     rows.push([], ['Depreciation is not included. Summary for your records, not tax advice.']);
     download('ec-rental-tax-summary-' + r.year + '.csv', rows);
   }
