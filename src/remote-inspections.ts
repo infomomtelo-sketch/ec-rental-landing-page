@@ -11,14 +11,45 @@ import { textRun } from "./ai-text";
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface RemoteEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface RemoteRow { id: number; token: string; name: string; email: string; phone: string; role: string; address: string; type: string; notes: string; status: string; overall: string; summary: string; created_at: string; finished_at: string | null; }
-interface RemoteItem { id: number; inspection_id: number; room: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; created_at: string; }
+interface RemoteItem { id: number; inspection_id: number; room: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; created_at: string; shot: string | null; for_item_id: number | null; }
 
 const NOTIFY_TO = "info@ecrentalpm.com";
 const TYPES = ["move_in", "move_out", "routine"];
-const ROLES: Record<string, string> = { landlord: "Landlord or owner", manager: "Property manager", tenant: "Tenant", buyer: "Home buyer", homeowner: "Homeowner", other: "Other" };
+const ROOMS = ["Exterior front", "Exterior back", "Entry", "Living room", "Dining room", "Kitchen", "Hallway", "Primary bedroom", "Bedroom 2", "Bedroom 3", "Primary bathroom", "Bathroom 2", "Laundry", "Garage", "Yard", "Roof", "HVAC / water heater"];
 const PHOTO_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_PHOTOS = 40;
+
+/** Rooms the photographer must cover, chosen at the start and locked in: named rooms from the allowlist plus up to 3 typed-in extras. */
+function parseRooms(v: unknown, other: unknown): string[] {
+  const out: string[] = [];
+  const list = Array.isArray(v) ? v : [];
+  for (const r of list) { const s = str(r, 60); if (ROOMS.includes(s) && !out.includes(s)) out.push(s); }
+  const extra = String(other ?? "").split(",").map((s) => s.trim().slice(0, 60)).filter(Boolean);
+  for (const s of extra) { if (!out.includes(s) && out.length < 12) out.push(s); }
+  return out.slice(0, 12);
+}
+async function requiredRooms(env: RemoteEnv, inspId: number): Promise<string[]> {
+  const r = await env.DB.prepare("SELECT room FROM remote_inspection_rooms WHERE inspection_id = ? ORDER BY rowid").bind(inspId).all<{ room: string }>();
+  return r.results.map((x) => x.room);
+}
+/** What is still missing before the report can be sent: per room a wide shot and a close-up, plus a close-up of anything the AI flagged (unless the flagged photo is already a close-up). */
+async function missingShots(env: RemoteEnv, inspId: number, rooms: string[]): Promise<string[]> {
+  const all = (await env.DB.prepare("SELECT i.id, i.room, i.repair_needed, i.repair_item, s.shot, s.for_item_id FROM remote_inspection_items i LEFT JOIN remote_inspection_shots s ON s.item_id = i.id WHERE i.inspection_id = ?").bind(inspId).all()).results as Array<{ id: number; room: string; repair_needed: number; repair_item: string; shot: string | null; for_item_id: number | null }>;
+  const missing: string[] = [];
+  for (const room of rooms) {
+    const inRoom = all.filter((i) => i.room === room);
+    if (!inRoom.some((i) => i.shot === "wide")) missing.push(room + ": wide shot");
+    if (!inRoom.some((i) => i.shot === "closeup")) missing.push(room + ": close-up");
+  }
+  for (const f of all.filter((i) => i.repair_needed)) {
+    if (f.shot === "closeup") continue;
+    if (f.shot === null) continue; // photo from before shot tagging; don't block finishing an in-flight inspection
+    if (!all.some((i) => i.shot === "closeup" && i.for_item_id === f.id)) missing.push(f.room + ": close-up of " + (f.repair_item || "the damage"));
+  }
+  return missing;
+}
+const ROLES: Record<string, string> = { landlord: "Landlord or owner", manager: "Property manager", tenant: "Tenant", buyer: "Home buyer", homeowner: "Homeowner", other: "Other" };
 
 function str(v: unknown, max: number): string { return String(v ?? "").trim().slice(0, max); }
 function esc(s: string): string { return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
@@ -30,7 +61,7 @@ function publicView(r: RemoteRow) {
   return { id: r.id, name: r.name, role: r.role, address: r.address, type: r.type, status: r.status, overall: r.overall, summary: r.summary, created_at: r.created_at, finished_at: r.finished_at };
 }
 function itemView(i: RemoteItem) {
-  return { id: i.id, room: i.room, condition: i.condition, notes: i.notes, repair_needed: i.repair_needed, repair_item: i.repair_item };
+  return { id: i.id, room: i.room, condition: i.condition, notes: i.notes, repair_needed: i.repair_needed, repair_item: i.repair_item, shot: i.shot || "", for_item_id: i.for_item_id || null };
 }
 
 /** Handles /api/public/ai-inspections*. `allow` is the per-IP rate limit for starting and finishing. */
@@ -46,19 +77,27 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     if (!name || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Please enter your name and email so we can send your report." }, 400);
     const role = str(b.role, 20) in ROLES ? str(b.role, 20) : "other";
     const type = TYPES.includes(str(b.type, 20)) ? str(b.type, 20) : "routine";
+    const rooms = parseRooms(b.rooms, b.otherRooms);
+    if (!rooms.length) return json({ error: "Pick at least one room to inspect." }, 400);
     const token = newToken();
     const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)")
       .bind(token, name, email, phone, role, str(b.address, 200), type, str(b.notes, 1000), new Date().toISOString()).run();
-    return json({ success: true, id: r.meta.last_row_id, token });
+    const id = r.meta.last_row_id as number;
+    for (const room of rooms) await env.DB.prepare("INSERT OR IGNORE INTO remote_inspection_rooms (inspection_id, room) VALUES (?, ?)").bind(id, room).run();
+    return json({ success: true, id, token, rooms });
   }
 
   const m = path.match(/^\/api\/public\/ai-inspections\/(\d+)(\/finish|\/photos(?:\/(\d+))?)?$/);
   if (!m) return json({ error: "Not found" }, 404);
   const insp = await env.DB.prepare("SELECT * FROM remote_inspections WHERE id = ?").bind(parseInt(m[1])).first<RemoteRow>();
   if (!insp || !sameToken(url.searchParams.get("t") || "", insp.token)) return json({ error: "This report link isn't valid." }, 404);
-  const items = async () => (await env.DB.prepare("SELECT * FROM remote_inspection_items WHERE inspection_id = ? ORDER BY id").bind(insp.id).all<RemoteItem>()).results;
+  const items = async () => (await env.DB.prepare("SELECT i.*, s.shot, s.for_item_id FROM remote_inspection_items i LEFT JOIN remote_inspection_shots s ON s.item_id = i.id WHERE i.inspection_id = ? ORDER BY i.id").bind(insp.id).all<RemoteItem>()).results;
 
-  if (!m[2] && request.method === "GET") return json({ inspection: publicView(insp), items: (await items()).map(itemView) });
+  if (!m[2] && request.method === "GET") {
+    const rooms = await requiredRooms(env, insp.id);
+    const removed = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
+    return json({ inspection: publicView(insp), items: (await items()).map(itemView), rooms, removed: removed ? removed.n : 0 });
+  }
 
   // Add one photo to a room: saved privately to R2, then read by the AI.
   if (m[2] === "/photos" && request.method === "POST") {
@@ -66,6 +105,14 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     if (!env.PHOTOS) return json({ error: "Photo storage isn't set up yet." }, 503);
     const room = str(url.searchParams.get("room"), 60);
     if (!room) return json({ error: "Pick the room first." }, 400);
+    const shot = url.searchParams.get("shot") === "wide" ? "wide" : "closeup";
+    let forItem: number | null = null;
+    const forItemRaw = url.searchParams.get("for_item");
+    if (forItemRaw) {
+      const f = await env.DB.prepare("SELECT id FROM remote_inspection_items WHERE id = ? AND inspection_id = ? AND repair_needed = 1").bind(parseInt(forItemRaw), insp.id).first();
+      if (!f) return json({ error: "That damage photo no longer exists." }, 400);
+      forItem = parseInt(forItemRaw);
+    }
     const contentType = (request.headers.get("Content-Type") || "").split(";")[0].trim();
     const ext = PHOTO_TYPES[contentType];
     if (!ext) return json({ error: "Photos must be JPEG, PNG or WebP." }, 400);
@@ -78,7 +125,9 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     const ai = await readPhoto(env, room, insp.type, bytes);
     const r = await env.DB.prepare("INSERT INTO remote_inspection_items (inspection_id, room, r2_key, condition, notes, repair_needed, repair_item, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
       .bind(insp.id, room, key, ai.condition, ai.notes, ai.repair_needed, ai.repair_item, new Date().toISOString()).run();
-    return json({ success: true, item: { id: r.meta.last_row_id, room, ...ai } });
+    const itemId = r.meta.last_row_id as number;
+    await env.DB.prepare("INSERT INTO remote_inspection_shots (item_id, shot, for_item_id) VALUES (?, ?, ?)").bind(itemId, shot, forItem).run();
+    return json({ success: true, item: { id: itemId, room, shot, for_item_id: forItem, ...ai } });
   }
 
   if (m[3]) {
@@ -91,7 +140,11 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     }
     if (request.method === "DELETE") {
       if (insp.status !== "open") return json({ error: "This report is already finished." }, 400);
+      const shot = await env.DB.prepare("SELECT shot FROM remote_inspection_shots WHERE item_id = ?").bind(item.id).first<{ shot: string }>();
+      await env.DB.prepare("INSERT INTO remote_inspection_deleted (inspection_id, item_id, room, shot, condition, notes, repair_needed, repair_item, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(insp.id, item.id, item.room, shot ? shot.shot : "", item.condition, item.notes, item.repair_needed, item.repair_item, new Date().toISOString()).run();
       if (env.PHOTOS) await env.PHOTOS.delete(item.r2_key);
+      await env.DB.prepare("DELETE FROM remote_inspection_shots WHERE item_id = ?").bind(item.id).run();
       await env.DB.prepare("DELETE FROM remote_inspection_items WHERE id = ?").bind(item.id).run();
       return json({ success: true });
     }
@@ -103,6 +156,8 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
     const all = await items();
     if (!all.length) return json({ error: "Add at least one photo first." }, 400);
+    const missing = await missingShots(env, insp.id, await requiredRooms(env, insp.id));
+    if (missing.length) return json({ error: "Still needed: " + missing.join("; ") + "." }, 400);
     const overall = overallFrom(all);
     const rooms = new Set(all.map((i) => i.room)).size;
     const repairs = all.filter((i) => i.repair_needed);
@@ -116,6 +171,9 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
       const text = clean(aiText(out));
       if (text) summary = text.slice(0, 1500);
     } catch (err) { console.error("[remote-inspection-summary]", err); }
+    const removedRow = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
+    const removedCount = removedRow ? removedRow.n : 0;
+    if (removedCount > 0) summary += `\n\nNote: ${removedCount} photo${removedCount === 1 ? "" : "s"} ${removedCount === 1 ? "was" : "were"} removed before this report was finished.`;
 
     const now = new Date().toISOString();
     await env.DB.prepare("UPDATE remote_inspections SET status = 'done', overall = ?, summary = ?, finished_at = ? WHERE id = ?").bind(overall, summary, now, insp.id).run();
@@ -133,14 +191,14 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
         `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of your photos, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.</p><p>EC Rental Property Management</p>`;
       try { await notify(insp.email, "Your Tello Inspect report", userHtml, userText); } catch (err) { console.error("[remote-inspection] email requester", err); }
       const lines = [`Name: ${insp.name}`, `Email: ${insp.email}`, `Phone: ${insp.phone || "not given"}`, `They are: ${ROLES[insp.role] || "Other"}`,
-        `Address: ${insp.address || "not given"}`, `Type: ${typeLabel(insp.type)}`, `Photos: ${all.length}, repairs flagged: ${repairs.length}, overall: ${overall}`, ...(insp.notes ? [`Notes: ${insp.notes}`] : []), `Report: ${reportUrl}`];
+        `Address: ${insp.address || "not given"}`, `Type: ${typeLabel(insp.type)}`, `Photos: ${all.length}, repairs flagged: ${repairs.length}, overall: ${overall}, photos removed: ${removedCount}`, ...(insp.notes ? [`Notes: ${insp.notes}`] : []), `Report: ${reportUrl}`];
       try {
         await notify(NOTIFY_TO, `Tello Inspect finished: ${insp.address || insp.name}`,
           `<p>Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.</p><p>${lines.map(esc).join("<br>")}</p>`,
           "Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.\n\n" + lines.join("\n"));
       } catch (err) { console.error("[remote-inspection] email EC Rental", err); }
     }
-    return json({ success: true, overall, summary, report_url: reportUrl });
+    return json({ success: true, overall, summary, report_url: reportUrl, removed: removedCount });
   }
 
   return json({ error: "Not found" }, 404);
