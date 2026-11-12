@@ -30,8 +30,10 @@ const clip = (s: string, n: number) => { const t = String(s || "").replace(/\s+/
 
 interface Property { id: number; address: string; city: string; rent_amount: number; tenant_name: string; lease_start: string; lease_end: string; status: string; }
 
-/** Everything Tello knows about one landlord's account today. */
-export async function buildBriefing(env: TelloEnv, userId: number, now = new Date()): Promise<Briefing> {
+/** Everything Tello knows about one landlord's account today. When salesLeads is true (the site owner only),
+ *  recent pending sales leads from the public website chat are added too, with the time each came in, so a
+ *  lead never sits unseen: the immediate email already went out when it was taken, this is the briefing copy. */
+export async function buildBriefing(env: TelloEnv, userId: number, now = new Date(), salesLeads = false): Promise<Briefing> {
   const today = todayUtc(now), d = new Date(today), y = d.getUTCFullYear(), m = d.getUTCMonth();
   const items: BriefingItem[] = [];
   const add = (kind: string, urgency: Urgency, title: string, detail: string, page: string) => items.push({ kind, urgency, title, detail, page });
@@ -106,6 +108,19 @@ export async function buildBriefing(env: TelloEnv, userId: number, now = new Dat
 
   // Plan and payouts.
   if (billing?.status === "past_due" || billing?.status === "unpaid") add("billing", "now", "Your EC Rental payment didn't go through", "Update your card in Settings, Plan & Billing to keep reminders and online rent working.", "settings");
+
+  // Sales leads from the public website chat (quote / callback / vacancy). Owner only, pending, last 3 days.
+  if (salesLeads) {
+    const leadRows = await env.DB.prepare("SELECT name, email, phone, property_count, message, created_at FROM signups WHERE plan = 'quote_request' AND status = 'pending' AND created_at >= ? ORDER BY created_at DESC LIMIT 5").bind(new Date(today - 3 * DAY).toISOString()).all<{ name: string; email: string; phone: string; property_count: string; message: string; created_at: string }>();
+    for (const l of leadRows.results) {
+      let d: Record<string, unknown> = {}; try { d = JSON.parse(l.message || "{}"); } catch { /* plain message */ }
+      const when = new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" });
+      const contact = [l.email, l.phone].filter(Boolean).join(" / ") || "no contact left";
+      const asked = d.kind === "vacancy" ? "vacancy — wants a listing draft to approve" : d.kind === "human" ? "asked to talk to a human" : "quote / callback";
+      const bits = [asked, l.property_count ? `${l.property_count} properties` : "", typeof d.plan === "string" && d.plan ? d.plan : "", typeof d.best_time === "string" && d.best_time ? `best time: ${d.best_time}` : "", typeof d.message === "string" && d.message ? d.message : ""].filter(Boolean).join(" · ");
+      add("lead", "now", `New sales lead: ${l.name || "unknown"} (${when})`, `${contact}. ${bits}. See Chat Leads.`, "leads");
+    }
+  }
   if (env.STRIPE_SECRET_KEY) {
     const payout = await env.DB.prepare("SELECT details_submitted, charges_enabled FROM payout_accounts WHERE user_id = ? AND mode = ?").bind(userId, keyMode(env)).first<{ details_submitted: number; charges_enabled: number }>();
     if (payout && !payout.charges_enabled) add("payments", "info", "Online rent payments aren't finished", "Stripe still needs a few details. Tap Finish Stripe setup in Settings.", "settings");
@@ -148,7 +163,7 @@ export async function handleTelloRoutes(request: Request, env: TelloEnv, url: UR
   if (!url.pathname.startsWith("/api/tello/")) return null;
   if (user.role === "tenant") return json({ error: "This is for landlord accounts." }, 403);
   if (url.pathname === "/api/tello/briefing" && request.method === "GET") {
-    const b = await buildBriefing(env, user.id);
+    const b = await buildBriefing(env, user.id, new Date(), user.role === "admin");
     const s = await env.DB.prepare("SELECT morning_email FROM tello_settings WHERE user_id = ?").bind(user.id).first<{ morning_email: number }>();
     return json({ date: b.date, name: (user.name || "").split(" ")[0], items: b.items, morning_email: !!s?.morning_email });
   }
@@ -207,11 +222,13 @@ async function tellVoice(request: Request, env: TelloEnv, userId: number): Promi
 /** Daily cron: emails the briefing to landlords who switched it on, only on days something needs them. Returns how many went out. */
 export async function runTelloBriefings(env: TelloEnv, sendEmail: SendEmail, origin: string, now = new Date()): Promise<number> {
   const today = iso(todayUtc(now));
-  const rows = await env.DB.prepare("SELECT s.user_id, u.email, u.name FROM tello_settings s JOIN users u ON u.id = s.user_id WHERE s.morning_email = 1 AND (s.last_sent IS NULL OR s.last_sent < ?) AND u.role != 'tenant'").bind(today).all<{ user_id: number; email: string; name: string }>();
+  const rows = await env.DB.prepare("SELECT s.user_id, u.email, u.name, u.role FROM tello_settings s JOIN users u ON u.id = s.user_id WHERE s.morning_email = 1 AND (s.last_sent IS NULL OR s.last_sent < ?) AND u.role != 'tenant'").bind(today).all<{ user_id: number; email: string; name: string; role: string }>();
+  const adminEmails = new Set((env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
   let sent = 0;
   for (const r of rows.results) {
     try {
-      const b = await buildBriefing(env, r.user_id, now);
+      // The site owner (role 'admin', or an email in ADMIN_EMAILS) also gets the public sales leads in the briefing.
+      const b = await buildBriefing(env, r.user_id, now, r.role === "admin" || adminEmails.has(String(r.email).toLowerCase()));
       const items = b.items.filter((i) => i.urgency !== "info");
       await env.DB.prepare("UPDATE tello_settings SET last_sent = ? WHERE user_id = ?").bind(today, r.user_id).run();
       if (!items.length) continue;
