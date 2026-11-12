@@ -48,6 +48,29 @@ Special actions — include these tags in your response to trigger UI elements:
 Always give a real answer first, then include the tag. Never just say "contact us" — always provide the actual information or a form.
 ` + CA_RENTAL_GUIDE;
 
+// Cross-promotion (2026-11-12, Eli's rule, flow doc Part 9): Tello never
+// pushes, but where there is a natural opening she suggests ONE thing from
+// the fleet that fits. Public visitors only — appended to the system prompt
+// only when the chat is NOT from the dashboard (see the `system` line
+// below). The catalog was checked live from each product's own site on
+// 2026-11-12: a dated snapshot, not a permanent fact. If a build's live
+// status is unknown or unverified, do not promote it — unknown means do not
+// promote. SecondRail is Free-only per Eli (2026-11-12); Tello Live never
+// states a number of free days.
+const CROSS_PROMOTE = `
+CROSS-PROMOTION - one suggestion, only where it fits
+Tello never pushes. The visitor's question comes first and gets a full answer. After that, and only if there is a natural opening - something they said, or something they are - add ONE short line suggesting ONE product from the fleet that fits. One product, one line, in plain words. This one line is the only exception to answering and stopping. If there is no natural opening, say nothing extra. Never a list of products in one reply. Never a price in the suggestion unless they ask. Never suggest the business you are already talking about (EC Rental, here). Check the conversation above: never repeat a suggestion you already made in this conversation. If they say no or not interested, stop suggesting for the rest of the conversation.
+Only these products, only these verified facts (checked live 2026-11-12; the prices are for when they ask, never in the suggestion itself):
+- Title22 (care-home readiness; $29 a month for one home, $79 for up to five, 30 days free, no card): "If you run a care home too, Title22 keeps the staff files, training hours, and clearances ready for DSS."
+- The Digital Ledger (AI money guide; Free $0, Pro $9.99 a month): "If money is the part you want a handle on, The Digital Ledger is a plain-English AI money guide."
+- Renty (California lease agreements; Pro $9 a month, 7-day free trial): "If you need a lease for a California rental, Renty writes one in minutes."
+- Fluentra (general AI assistant; free tier, Pro $19 a month): "If you want an AI assistant for the writing and building side of things, Fluentra does that."
+- Thelo (AI assistant with voiceover and video demos; Free $0, Pro $9 a month, Business $29): "If you ever need a voiceover or a short video for your business, Thelo makes one in minutes."
+- OwnSite (build a website with AI and own the code; paid plans, no price stated): "If you want a website of your own, OwnSite builds it with AI and the code is yours."
+- SecondRail (AI failover gateway for apps; bring your own provider keys; Free tier only): only when the person is clearly building software, or their app's AI keeps dying, or they cannot afford downtime. "If your own app's AI ever goes dark because a provider froze the account, SecondRail is a free failover gateway — you bring your own keys, and if the first rail fails it moves to the second." Never mention paid plans, and never present it as paid production or open to paid subscribers: Stripe checkout, real email/SMS alerts, real Anthropic balance warnings, production customer auth and rate limiting are still placeholders.
+- Tello Live (a Tello for their own website; free to try, no card): only when they ask about getting a Tello for their own website. "If you want a Tello like this on your own website, Tello Live is free to try — ask and we'll walk you through it." Never state a number of free days, never promise the sales flow on their site as finished.
+Never suggest: PostPilots, SkillAppUp, ClassyGem, The Judgy, Dropvault, Fixly, RunP8. If a build's live status is unknown or unverified, do not promote it — unknown means do not promote. If the visitor asks about a product not listed above, do not promote it; say you do not know its current status and offer to pass the question on.`;
+
 // Added to the system prompt when Tello is opened inside the signed-in landlord dashboard.
 const DASHBOARD_GUIDE = `
 The person is a landlord signed in to their EC Rental dashboard and wants help using it. Explain where things are and which button to tap. On a phone, the menu is behind the menu button (three lines) at the top left. You can't change their data.
@@ -207,7 +230,7 @@ export default {
         // Signed-in landlords asking from the dashboard get answers from their own account (read-only).
         let account = "";
         if (body.context === "dashboard") { const me = await getUserFromRequest(request, env).catch(() => null); if (me && me.role !== "tenant") { try { account = accountGuide(me.name, (await buildBriefing(env, me.id)).snapshot); } catch (err) { console.error("[tello-account]", err instanceof Error ? err.message : err); } } }
-        const system = SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE + (account || "\nYou can't see this person's account data right now; if they ask about their own rentals, tell them where in the dashboard to look.") : "") + (image ? CHAT_IMAGE_GUIDE : "");
+        const system = SYSTEM_PROMPT + (body.context === "dashboard" ? DASHBOARD_GUIDE + (account || "\nYou can't see this person's account data right now; if they ask about their own rentals, tell them where in the dashboard to look.") : CROSS_PROMOTE) + (image ? CHAT_IMAGE_GUIDE : "");
         const messages = [{ role: "system", content: system }, ...(Array.isArray(body.history) ? body.history : []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })), { role: "user", content: userMessage }];
         const aiResponse = image
           ? await env.AI.run(CHAT_VISION_MODEL as Parameters<Ai["run"]>[0], { messages, image, max_tokens: 700 } as never)
