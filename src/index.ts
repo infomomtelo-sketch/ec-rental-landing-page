@@ -134,6 +134,7 @@ import { handleBizBots, handleBotStripeEvent } from "./biz-bots";
 import { handleRemoteInspections, handleLandlordRemote } from "./remote-inspections";
 import { handleVisits } from "./visits";
 import { handleInspectionRoutes } from "./inspections";
+import { handleOrgBranding } from "./inspection-audit-routes";
 import { handleApplicationRoutes, handlePublicApplicationRoutes } from "./applications";
 import { handleDocumentRoutes, handleTenantDocumentRoutes } from "./documents";
 import { handleLandlordSigningRoutes, handleTenantSigningRoutes } from "./esign";
@@ -214,6 +215,9 @@ export default {
     }
     if (/^\/b\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/b", url).toString(), request)); }
     if (/^\/m\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/m", url).toString(), request)); }
+    // White-label partner runner page: /inspect/<org-slug> serves the Tello Inspect page, which reads the slug
+    // from the path, pulls the partner's branding from /api/inspections/org/<slug> and runs under that brand.
+    if (/^\/inspect\/[a-z0-9][a-z0-9-]*$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/tello-inspect", url).toString(), request)); }
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     const visit = await handleVisits(request, env, url); if (visit) return visit;
@@ -402,6 +406,8 @@ export default {
     try { const siteRes = await handleWebsiteRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notifyTello); if (siteRes) return siteRes; } catch (err) { return dbErrorResponse("website-request", err); }
     try { const videoRes = await handleVideoRequest(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notifyTello); if (videoRes) return videoRes; } catch (err) { return dbErrorResponse("video-request", err); }
     try { const remoteRes = await handleRemoteInspections(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (remoteRes) return remoteRes; } catch (err) { return dbErrorResponse("ai-inspection", err); }
+    // Partner branding is public by design, so it is dispatched here, before the auth wall below.
+    try { const orgRes = await handleOrgBranding(request, env, url); if (orgRes) return orgRes; } catch (err) { return dbErrorResponse("org-branding", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
     try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
