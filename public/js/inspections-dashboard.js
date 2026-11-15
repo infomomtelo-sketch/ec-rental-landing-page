@@ -12,7 +12,15 @@
   var TYPES = { move_in: 'Move-in', move_out: 'Move-out', routine: 'Routine', annual: 'Annual' };
   var COND_BADGE = { good: 'badge-green', fair: 'badge-yellow', poor: 'badge-red', damaged: 'badge-red' };
   var OVERALL_BADGE = { 'Good': 'badge-green', 'Fair': 'badge-yellow', 'Needs Attention': 'badge-red' };
+  var SHOT_LABELS = { wall_a: 'Wall A', wall_b: 'Wall B', wall_c: 'Wall C', wall_d: 'Wall D', floor: 'Floor', wide_a: 'Wide view A', wide_b: 'Wide view B', counters_closeup: 'Counters close-up', under_sink_closeup: 'Under-sink close-up', appliances_closeup: 'Appliances close-up', fixtures_closeup: 'Fixtures close-up', '': 'Unlabeled' };
+  function shotsForRoom(room) {
+    if (/bathroom/i.test(room)) return ['wide_a', 'wide_b', 'floor', 'fixtures_closeup', 'under_sink_closeup'];
+    if (room === 'Kitchen') return ['wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor', 'counters_closeup', 'under_sink_closeup', 'appliances_closeup'];
+    if (/exterior|yard/i.test(room)) return ['wide_a', 'wide_b'];
+    return ['wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor'];
+  }
   var list = [], current = null, imageUrls = {};
+  var newProps = [];
   var recorder = null, voiceChunks = [], voiceBtn = null, voiceMsg = null, voiceItemId = null;
   // Scanning effect while the AI reads a photo (and a shimmer while it writes the report): pure CSS,
   // shown only while the AI is genuinely working, never as fake progress.
@@ -71,25 +79,55 @@
   function refreshCompare() {
     var wrap = document.getElementById('inspCompareWrap'), sel = newForm.elements.compare_to;
     var pid = Number(newForm.elements.property_id.value);
-    var moveIns = list.filter(function(i) { return i.property_id === pid && i.type === 'move_in'; });
+    var moveIns = list.filter(function(i) { return i.property_id === pid && i.type === 'move_in' && i.status === 'completed'; });
     wrap.style.display = newForm.elements.type.value === 'move_out' ? 'block' : 'none';
     sel.innerHTML = '<option value="">Don\'t compare</option>' + moveIns.map(function(i) { return '<option value="' + i.id + '">Move-in on ' + esc(i.inspection_date) + '</option>'; }).join('');
     if (moveIns.length) sel.value = String(moveIns[0].id);
   }
+  // The audit's selectable rooms: the room list roomsFor() builds for the remote form,
+  // minus bedrooms/bathrooms (those are always required via the counts above), plus the
+  // common areas. Checked rooms become selected_rooms and are required by the audit.
+  function renderNewRooms() {
+    var box = document.getElementById('inspSelectedRooms');
+    if (!box) return;
+    var rooms = roomsFor(newForm.elements.bedrooms.value, newForm.elements.bathrooms.value).filter(function(r) { return !/bedroom|bathroom/i.test(r); });
+    ['Laundry', 'Garage', 'Exterior Front', 'Backyard / Patio'].forEach(function(r) { if (rooms.indexOf(r) === -1) rooms.push(r); });
+    box.innerHTML = rooms.map(function(r) {
+      return '<label style="display:flex;gap:0.4rem;align-items:center;font-weight:400"><input type="checkbox" name="selected_rooms" value="' + esc(r) + '" /> ' + esc(r) + '</label>';
+    }).join('');
+  }
+  function fillNewFromProperty() {
+    var pid = Number(newForm.elements.property_id.value);
+    var p = newProps.filter(function(x) { return x.id === pid; })[0];
+    if (p) {
+      newForm.elements.square_footage.value = p.square_footage || '';
+      newForm.elements.bedrooms.value = p.bedrooms || '';
+      newForm.elements.bathrooms.value = p.bathrooms || '';
+      newForm.elements.property_type.value = p.property_type || '';
+    }
+    renderNewRooms();
+  }
   document.getElementById('newInspectionBtn').addEventListener('click', function() {
     newForm.reset(); document.getElementById('inspNewMsg').textContent = '';
     newForm.elements.inspection_date.value = new Date().toISOString().slice(0, 10);
+    renderNewRooms();
     api('/properties').then(function(props) {
+      newProps = props;
       newForm.elements.property_id.innerHTML = props.length ? props.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address) + '</option>'; }).join('') : '<option value="">Add a property first</option>';
       refreshCompare();
+      fillNewFromProperty();
     });
     newModal.classList.add('open');
   });
   newForm.elements.type.addEventListener('change', refreshCompare);
   newForm.elements.property_id.addEventListener('change', refreshCompare);
+  newForm.elements.property_id.addEventListener('change', fillNewFromProperty);
+  newForm.elements.bedrooms.addEventListener('change', renderNewRooms);
+  newForm.elements.bathrooms.addEventListener('change', renderNewRooms);
   newForm.addEventListener('submit', function(e) {
     e.preventDefault();
     var data = {}; Array.prototype.forEach.call(newForm.elements, function(el) { if (el.name) data[el.name] = el.value; });
+    data.selected_rooms = Array.prototype.map.call(newForm.querySelectorAll('input[name="selected_rooms"]:checked'), function(el) { return el.value; });
     api('/inspections', 'POST', data).then(function(r) { close('inspNewModal'); load(); openWork(r.id); }).catch(function(err) { document.getElementById('inspNewMsg').textContent = err.message; });
   });
 
@@ -210,6 +248,7 @@
       '<img alt="' + esc(it.room_area) + ' photo" style="width:150px;height:112px;object-fit:cover;border-radius:8px;background:#e5e7eb;flex:0 0 auto;cursor:zoom-in" data-zoom="1" />' +
       '<div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:0.4rem">' +
       '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center"><select data-f="condition" style="padding:0.35rem;border:1px solid #d1d5db;border-radius:6px">' + ['', 'good', 'fair', 'poor', 'damaged'].map(function(c) { return '<option value="' + c + '"' + (it.condition === c ? ' selected' : '') + '>' + (c ? c.charAt(0).toUpperCase() + c.slice(1) : 'Not rated') + '</option>'; }).join('') + '</select>' +
+      '<select data-f="shot" style="padding:0.35rem;border:1px solid #d1d5db;border-radius:6px">' + shotsForRoom(it.room_area).concat(['']).map(function(s) { return '<option value="' + s + '"' + ((it.shot || '') === s ? ' selected' : '') + '>' + SHOT_LABELS[s] + '</option>'; }).join('') + '</select>' +
       '<label style="font-size:0.85rem;font-weight:500"><input type="checkbox" data-f="repair_needed" style="width:auto"' + (it.repair_needed ? ' checked' : '') + ' /> Needs repair</label>' +
       '<input data-f="repair_item" placeholder="Repair (e.g. patch hole in wall)" value="' + esc(it.repair_item) + '" style="flex:1;min-width:160px;padding:0.35rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem' + (it.repair_needed ? '' : ';display:none') + '" /></div>' +
       '<textarea data-f="notes" rows="2" placeholder="Notes" style="width:100%;font:inherit;font-size:0.88rem;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px">' + esc(it.notes) + '</textarea>' +
@@ -228,7 +267,7 @@
     } else {
       out += '<p style="font-size:0.85rem;color:var(--gray);margin-bottom:0.5rem">' + (rep.status === 'signed' ? 'Signed by ' + esc(rep.signed_by) + ' on ' + esc((rep.signed_at || '').slice(0, 10)) + '. Editing it again clears the signature.' : 'Draft — read it and fix anything before signing.') + '</p>';
       out += '<textarea id="inspReportText" rows="14" style="width:100%;font:inherit;font-size:0.9rem;padding:0.6rem;border:1px solid #d1d5db;border-radius:8px;white-space:pre-wrap">' + esc(rep.text) + '</textarea>';
-      out += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem"><button type="button" class="btn" id="inspReportSave">Save edits</button>' + (rep.status === 'signed' ? '' : '<button type="button" class="btn btn-secondary" id="inspReportSign">Sign report</button>') + '<button type="button" class="btn btn-secondary" id="inspReportGen">Rewrite report</button><span id="inspReportMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
+      out += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem"><button type="button" class="btn" id="inspReportSave">Save edits</button>' + (rep.status === 'signed' ? '' : '<button type="button" class="btn btn-secondary" id="inspReportSign" data-finalize>Sign report</button>') + '<button type="button" class="btn btn-secondary" id="inspReportGen">Rewrite report</button><span id="inspReportMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
     }
     return out + '</div>';
   }
@@ -239,12 +278,14 @@
     var usedRooms = Object.keys(rooms);
     var html = '<h2 style="margin-bottom:0.25rem">' + esc(TYPES[i.type] || 'Inspection') + ' inspection</h2><p style="color:var(--gray);font-size:0.9rem;margin-bottom:1rem">' + esc(i.property_address) + ' · ' + esc(i.inspection_date) + (i.inspector_name ? ' · ' + esc(i.inspector_name) : '') + (d.compare_inspection ? ' · compared with move-in on ' + esc(d.compare_inspection.inspection_date) : '') + '</p>';
     html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.5rem"><label style="font-weight:600;font-size:0.9rem">Room</label><select id="inspRoom" style="padding:0.45rem;border:1px solid #d1d5db;border-radius:8px">' + ROOMS.map(function(r) { return '<option>' + r + '</option>'; }).join('') + '</select><input id="inspRoomOther" placeholder="Room name" maxlength="60" style="display:none;padding:0.45rem;border:1px solid #d1d5db;border-radius:8px" /></div>';
+    html += '<label style="font-weight:600;font-size:0.9rem">Shot</label><select id="inspShot" style="padding:0.45rem;border:1px solid #d1d5db;border-radius:8px"></select>';
     html += '<label id="inspDrop" style="display:block;border:2px dashed #d1d5db;border-radius:10px;padding:1rem;text-align:center;cursor:pointer;margin-bottom:0.5rem"><strong>Drag photos of this room here</strong> or click to choose<br><small style="color:var(--gray)">Add several at once (hold Command and click, or Command+A). The AI reads each photo and fills in the condition and notes.</small><input type="file" id="inspFiles" accept="image/jpeg,image/png,image/webp" multiple style="display:none" /></label><p id="inspUploadMsg" style="font-size:0.85rem;color:var(--gray);min-height:1.2em"></p>';
     if (!items.length && d.photos && d.photos.length) html += '<p style="font-size:0.85rem;color:var(--gray)">This inspection was made with the old version, which didn\'t keep photos. Its notes are on the report.</p>';
-    usedRooms.forEach(function(r) { html += '<h3 style="font-size:1rem;color:var(--primary);margin:1rem 0 0.5rem">' + esc(r) + ' <small style="color:var(--gray);font-weight:400">(' + rooms[r].length + ')</small></h3>' + rooms[r].map(itemCard).join(''); });
+    usedRooms.forEach(function(r) { html += '<div data-room="' + esc(r) + '"><h3 style="font-size:1rem;color:var(--primary);margin:1rem 0 0.5rem">' + esc(r) + ' <small style="color:var(--gray);font-weight:400">(' + rooms[r].length + ')</small></h3>' + rooms[r].map(itemCard).join('') + '</div>'; });
     if (i.status === 'completed') {
       html += '<div style="margin-top:1.25rem;padding:1rem;border-radius:10px;background:#eef4ee"><strong>Overall: <span class="badge ' + (OVERALL_BADGE[i.overall_condition] || 'badge-gray') + '">' + esc(i.overall_condition) + '</span></strong><p style="font-size:0.9rem;margin-top:0.4rem">' + esc(i.summary) + '</p></div>';
       if (i.type === 'move_out' && i.compare_to) html += comparisonHtml(d.comparison);
+      html += '<div id="audit-gate"></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem"><button type="button" class="btn btn-secondary" id="inspRunAudit">Run photo audit</button><span id="inspAuditMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
       html += reportHtml(d.report);
     }
     html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1.25rem"><button type="button" class="btn" id="inspFinish">' + (i.status === 'completed' ? 'Update summary' : 'Finish & write summary') + '</button><a class="btn btn-secondary" href="/inspection-report?id=' + i.id + '" target="_blank" rel="noopener">Printable report</a><span id="inspFinishMsg" style="font-size:0.85rem;color:var(--gray);align-self:center"></span></div>';
@@ -253,8 +294,21 @@
     var roomSel = document.getElementById('inspRoom'), other = document.getElementById('inspRoomOther');
     var next = ROOMS.filter(function(r) { return usedRooms.indexOf(r) === -1 && r !== 'Other'; })[0];
     if (next) roomSel.value = next;
-    roomSel.addEventListener('change', function() { other.style.display = roomSel.value === 'Other' ? '' : 'none'; if (roomSel.value === 'Other') other.focus(); });
+    roomSel.addEventListener('change', function() { other.style.display = roomSel.value === 'Other' ? '' : 'none'; if (roomSel.value === 'Other') other.focus(); drop.setAttribute('data-upload-for', roomSel.value); });
     var drop = document.getElementById('inspDrop'), files = document.getElementById('inspFiles');
+    drop.setAttribute('data-upload-for', roomSel.value);
+    var shotSel = document.getElementById('inspShot');
+    function syncShots() {
+      var room = roomSel.value === 'Other' ? other.value.trim() : roomSel.value;
+      var taken = {}; (rooms[room] || []).forEach(function(it) { if (it.shot) taken[it.shot] = 1; });
+      var shots = shotsForRoom(room);
+      shotSel.innerHTML = shots.concat(['']).map(function(s) { return '<option value="' + s + '">' + SHOT_LABELS[s] + (taken[s] ? ' ✓' : '') + '</option>'; }).join('');
+      var nextShot = shots.filter(function(s) { return !taken[s]; })[0];
+      if (nextShot) shotSel.value = nextShot;
+    }
+    roomSel.addEventListener('change', syncShots);
+    other.addEventListener('input', syncShots);
+    syncShots();
     files.addEventListener('change', function() { upload(files.files); });
     ['dragenter', 'dragover'].forEach(function(t) { drop.addEventListener(t, function(e) { e.preventDefault(); drop.style.borderColor = 'var(--primary)'; drop.style.background = '#f0fdf4'; }); });
     ['dragleave', 'drop'].forEach(function(t) { drop.addEventListener(t, function(e) { e.preventDefault(); drop.style.borderColor = '#d1d5db'; drop.style.background = ''; }); });
@@ -280,6 +334,52 @@
       var msgEl = document.getElementById('inspReportMsg');
       reportSign.disabled = true; if (msgEl) msgEl.textContent = 'Signing...';
       api('/inspections/' + current.inspection.id + '/report/sign', 'POST', {}).then(function(r) { current.report = r.report; render(); }).catch(function(err) { reportSign.disabled = false; if (msgEl) { msgEl.textContent = err.message; msgEl.style.color = '#991b1b'; } });
+    });
+    function auditState() {
+      var i = current.inspection;
+      function parse(v, dflt) { try { var p = v ? JSON.parse(v) : null; return p == null ? dflt : p; } catch (e) { return dflt; } }
+      var report = parse(i.audit_report, {});
+      return {
+        status: i.audit_status || 'NOT_RUN',
+        validation_errors: parse(i.audit_errors, []),
+        coverage_warnings: parse(i.audit_warnings, []),
+        override: parse(i.audit_override, null),
+        audit_warnings_ack: parse(i.audit_warnings_ack, null),
+        property_audit: report.property_audit || null,
+        move_out_comparison: report.move_out_comparison || [],
+        priority_repairs: report.priority_repairs || [],
+        room_by_room_report: report.room_by_room_report || [],
+        disclaimer: report.disclaimer || ''
+      };
+    }
+    function applyAuditState(fresh) {
+      var i = current.inspection;
+      i.audit_status = fresh.status;
+      i.audit_errors = JSON.stringify(fresh.validation_errors || []);
+      i.audit_warnings = JSON.stringify(fresh.coverage_warnings || []);
+      i.audit_override = fresh.override ? JSON.stringify(fresh.override) : null;
+      i.audit_warnings_ack = fresh.audit_warnings_ack ? JSON.stringify(fresh.audit_warnings_ack) : null;
+      i.audit_report = JSON.stringify({ property_audit: fresh.property_audit || null, move_out_comparison: fresh.move_out_comparison || [], priority_repairs: fresh.priority_repairs || [], room_by_room_report: fresh.room_by_room_report || [], disclaimer: fresh.disclaimer || '' });
+      if (fresh.audit_run_at !== undefined) i.audit_run_at = fresh.audit_run_at;
+      if (fresh.audit_photo_set_hash !== undefined) i.audit_photo_set_hash = fresh.audit_photo_set_hash;
+      render();
+    }
+    function renderGate() {
+      if (!window.TelloInspectGate || !document.getElementById('audit-gate')) return;
+      window.TelloInspectGate.render(auditState(), {
+        viewer: 'landlord',
+        initiatedBy: current.inspection.initiated_by || 'landlord',
+        overrideEndpoint: '/api/inspections/' + current.inspection.id + '/audit-override',
+        ackEndpoint: '/api/inspections/' + current.inspection.id + '/audit-ack',
+        onOverrideSaved: function(fresh) { applyAuditState(fresh); }
+      });
+    }
+    renderGate();
+    var runBtn = document.getElementById('inspRunAudit');
+    if (runBtn) runBtn.addEventListener('click', function() {
+      runBtn.disabled = true;
+      var msg = document.getElementById('inspAuditMsg'); if (msg) msg.textContent = 'Auditing the photos...';
+      api('/inspections/' + current.inspection.id + '/audit', 'POST', {}).then(function(state) { applyAuditState(state); }).catch(function(err) { runBtn.disabled = false; if (msg) { msg.textContent = err.message; msg.style.color = '#991b1b'; } });
     });
   }
 
@@ -308,10 +408,14 @@
           render();
           var m = document.getElementById('inspUploadMsg');
           if (m) m.textContent = 'Reading photo ' + (done + 1) + ' of ' + all.length + ' with AI...';
-          return api('/inspections/' + current.inspection.id + '/items?room=' + encodeURIComponent(room), 'POST', blob, 'image/jpeg')
+          var shotSelNow = document.getElementById('inspShot');
+          var shot = shotSelNow ? shotSelNow.value : '';
+          return api('/inspections/' + current.inspection.id + '/items?room=' + encodeURIComponent(room) + (shot ? '&shot=' + encodeURIComponent(shot) : ''), 'POST', blob, 'image/jpeg')
             .then(function(r) {
               var idx = -1; current.items.forEach(function(x, k) { if (x.id === tempId) idx = k; });
               if (idx >= 0) current.items[idx] = r.item;
+              var shotSel2 = document.getElementById('inspShot');
+              if (shotSel2) { var takenNow = {}; current.items.forEach(function(x) { if (x.room_area === room && x.shot) takenNow[x.shot] = 1; }); var nx = shotsForRoom(room).filter(function(s) { return !takenNow[s]; })[0]; if (nx) shotSel2.value = nx; }
               var card = work.querySelector('.insp-item[data-item="' + tempId + '"]');
               if (card) { var wrap = document.createElement('div'); wrap.innerHTML = itemCard(r.item); var neo = wrap.firstChild; card.replaceWith(neo); loadImage(r.item, neo.querySelector('img')); }
               else render();
