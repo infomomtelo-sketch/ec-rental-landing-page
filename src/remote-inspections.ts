@@ -10,7 +10,7 @@ import { textRun } from "./ai-text";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
 interface RemoteEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
-interface RemoteRow { id: number; token: string; name: string; email: string; phone: string; role: string; address: string; type: string; notes: string; status: string; overall: string; summary: string; created_at: string; finished_at: string | null; }
+interface RemoteRow { id: number; token: string; name: string; email: string; phone: string; role: string; address: string; type: string; notes: string; status: string; overall: string; summary: string; created_at: string; finished_at: string | null; organization_id: number | null; }
 interface RemoteItem { id: number; inspection_id: number; room: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; created_at: string; shot: string | null; for_item_id: number | null; }
 
 const NOTIFY_TO = "info@ecrentalpm.com";
@@ -64,6 +64,22 @@ function itemView(i: RemoteItem) {
   return { id: i.id, room: i.room, condition: i.condition, notes: i.notes, repair_needed: i.repair_needed, repair_item: i.repair_item, shot: i.shot || "", for_item_id: i.for_item_id || null };
 }
 
+interface OrgBrand { slug: string; brand_name: string | null; brand_logo_url: string | null; primary_color: string | null; support_email: string | null; }
+
+/** Public brand fields for the runner page header / report footer, or null when the inspection has no organization. */
+async function orgBrand(env: RemoteEnv, organizationId: number | null | undefined): Promise<OrgBrand | null> {
+  if (!organizationId) return null;
+  return env.DB.prepare("SELECT slug, brand_name, brand_logo_url, primary_color, support_email FROM organizations WHERE id = ?").bind(organizationId).first<OrgBrand>();
+}
+
+/** Resolve a partner slug (from /inspect/<slug>) to an organization id. Unknown slugs resolve to null — the inspection still runs, unbranded. */
+async function orgIdForSlug(env: RemoteEnv, slug: unknown): Promise<number | null> {
+  const s = str(slug, 80).toLowerCase();
+  if (!s) return null;
+  const org = await env.DB.prepare("SELECT id FROM organizations WHERE slug = ?").bind(s).first<{ id: number }>();
+  return org ? org.id : null;
+}
+
 /** Handles /api/public/ai-inspections*. `allow` is the per-IP rate limit for starting and finishing. */
 export async function handleRemoteInspections(request: Request, env: RemoteEnv, url: URL, allow: () => Promise<boolean>, notify?: Notify): Promise<Response | null> {
   const path = url.pathname;
@@ -79,9 +95,10 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     const type = TYPES.includes(str(b.type, 20)) ? str(b.type, 20) : "routine";
     const rooms = parseRooms(b.rooms, b.otherRooms);
     if (!rooms.length) return json({ error: "Pick at least one room to inspect." }, 400);
+    const organizationId = await orgIdForSlug(env, b.org);
     const token = newToken();
-    const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)")
-      .bind(token, name, email, phone, role, str(b.address, 200), type, str(b.notes, 1000), new Date().toISOString()).run();
+    const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at, organization_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)")
+      .bind(token, name, email, phone, role, str(b.address, 200), type, str(b.notes, 1000), new Date().toISOString(), organizationId).run();
     const id = r.meta.last_row_id as number;
     for (const room of rooms) await env.DB.prepare("INSERT OR IGNORE INTO remote_inspection_rooms (inspection_id, room) VALUES (?, ?)").bind(id, room).run();
     return json({ success: true, id, token, rooms });
@@ -96,7 +113,7 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
   if (!m[2] && request.method === "GET") {
     const rooms = await requiredRooms(env, insp.id);
     const removed = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
-    return json({ inspection: publicView(insp), items: (await items()).map(itemView), rooms, removed: removed ? removed.n : 0 });
+    return json({ inspection: publicView(insp), items: (await items()).map(itemView), rooms, removed: removed ? removed.n : 0, organization: await orgBrand(env, insp.organization_id) });
   }
 
   // Add one photo to a room: saved privately to R2, then read by the AI.
@@ -238,10 +255,19 @@ export async function handleLandlordRemote(request: Request, env: RemoteEnv, url
     const type = TYPES.includes(str(b.type, 20)) ? str(b.type, 20) : "routine";
     const rooms = parseRooms(b.rooms, b.otherRooms);
     if (!rooms.length) return json({ error: "Pick at least one room to inspect." }, 400);
+    // Partner white-label: the link can carry one of the landlord's OWN organizations
+    // (validated against owner_user_id — a partner admin generates runner links under
+    // their own brand only). A foreign or unknown id is rejected, not silently stored.
+    let organizationId: number | null = null;
+    if (b.organization_id !== undefined && b.organization_id !== null && b.organization_id !== "") {
+      const org = await env.DB.prepare("SELECT id FROM organizations WHERE id = ? AND owner_user_id = ?").bind(Math.floor(Number(b.organization_id)) || 0, user.id).first<{ id: number }>();
+      if (!org) return json({ error: "That organization isn't one of yours." }, 400);
+      organizationId = org.id;
+    }
     const token = newToken();
     const now = new Date().toISOString();
-    const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at) VALUES (?, ?, ?, ?, 'tenant', ?, ?, '', 'open', ?)")
-      .bind(token, name, email, prop.tenant_phone || "", prop.address, type, now).run();
+    const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at, organization_id) VALUES (?, ?, ?, ?, 'tenant', ?, ?, '', 'open', ?, ?)")
+      .bind(token, name, email, prop.tenant_phone || "", prop.address, type, now, organizationId).run();
     const id = r.meta.last_row_id as number;
     for (const room of rooms) await env.DB.prepare("INSERT OR IGNORE INTO remote_inspection_rooms (inspection_id, room) VALUES (?, ?)").bind(id, room).run();
     await env.DB.prepare("INSERT INTO remote_inspection_owners (inspection_id, owner_user_id, property_id) VALUES (?, ?, ?)").bind(id, user.id, propId).run();
