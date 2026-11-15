@@ -13,14 +13,30 @@
  *   POST /api/inspections/:id/audit-override  record a Landlord Override (landlord only)
  *   POST /api/inspections/:id/audit-ack       acknowledge coverage warnings (landlord only)
  *   assertFinalizable(env, userId, id)        the lock the /report/sign handler calls first
+ *
+ * Step 1–3 additions (migration 0002):
+ *   - Usage gate: POST /audit checks decideUsage() against the inspection
+ *     owner's users counters BEFORE any Claude call. Denied runs return
+ *     402 { error: "UPGRADE_REQUIRED" } or 413 { error: "PHOTO_LIMIT" }
+ *     and never reach Claude. A stored, Claude-backed result consumes
+ *     exactly one free run or credit; paid tiers consume nothing; a
+ *     result blocked by AI_RESPONSE_INVALID (Claude unreachable or
+ *     unparseable) consumes nothing — the user does not pay for an outage.
+ *   - Partner delivery: when a stored audit PASSED and the inspection
+ *     belongs to an organization with a webhook_url, the full report
+ *     (the same object stored in inspections.report_json) is POSTed to
+ *     that URL. Best-effort: a webhook failure never fails the audit.
+ *   - GET /api/inspections/org/:slug (exported as handleOrgBranding,
+ *     dispatched publicly by src/index.ts before the auth wall): the
+ *     partner's public branding fields for the white-label runner page.
  */
 import {
-  DISCLAIMER, codePreCheck, deriveCoverage, isValidBaseline, makeOverride, makeWarningAck,
+  DISCLAIMER, codePreCheck, decideUsage, deriveCoverage, isValidBaseline, makeOverride, makeWarningAck,
   mergeAudit, canFinalize, photoSetHash,
   type AiAuditResult, type AiPropertyAudit, type BaselineCandidateRecord, type CoverageWarning,
   type FinalizeVerdict, type MoveOutComparisonEntry, type OverrideRecord, type PhotoManifestEntry,
   type PriorityRepair, type PropertyMeta, type RoomReportEntry, type StoredAuditState,
-  type ValidationError, type WarningAck,
+  type UsageDecision, type ValidationError, type WarningAck,
 } from "./inspection-audit";
 import { buildAuditPrompt } from "./inspection-audit-prompt";
 
@@ -42,6 +58,7 @@ interface InspectionAuditRow {
   audit_status: string | null; audit_errors: string | null; audit_warnings: string | null;
   audit_warnings_ack: string | null; audit_report: string | null; audit_run_at: string | null;
   audit_photo_set_hash: string | null; audit_override: string | null;
+  organization_id: number | null; report_json: string | null;
   property_address: string; property_city: string; property_state: string; property_zip: string;
   property_user_id: number;
   property_square_footage: number | null; property_bedrooms: number | null;
@@ -184,6 +201,20 @@ function storedForGate(row: InspectionAuditRow): StoredAuditState {
   };
 }
 
+/** The full report in the finalized schema shape — stored in inspections.report_json and posted to partner webhooks. */
+function fullReport(state: AuditGateState): Record<string, unknown> {
+  return {
+    status: state.status,
+    property_audit: state.property_audit,
+    validation_errors: state.validation_errors,
+    coverage_warnings: state.coverage_warnings,
+    move_out_comparison: state.move_out_comparison,
+    priority_repairs: state.priority_repairs,
+    room_by_room_report: state.room_by_room_report,
+    disclaimer: state.disclaimer,
+  };
+}
+
 async function saveAudit(env: InspectionAuditEnv, inspectionId: number, state: AuditGateState): Promise<void> {
   const report = {
     property_audit: state.property_audit,
@@ -193,18 +224,87 @@ async function saveAudit(env: InspectionAuditEnv, inspectionId: number, state: A
     disclaimer: state.disclaimer,
   };
   await env.DB.prepare(
-    "UPDATE inspections SET audit_status = ?, audit_errors = ?, audit_warnings = ?, audit_warnings_ack = ?, audit_report = ?, audit_run_at = ?, audit_photo_set_hash = ?, audit_override = ? WHERE id = ?"
+    "UPDATE inspections SET audit_status = ?, audit_errors = ?, audit_warnings = ?, audit_warnings_ack = ?, audit_report = ?, report_json = ?, audit_run_at = ?, audit_photo_set_hash = ?, audit_override = ? WHERE id = ?"
   ).bind(
     state.status,
     JSON.stringify(state.validation_errors),
     JSON.stringify(state.coverage_warnings),
     state.audit_warnings_ack ? JSON.stringify(state.audit_warnings_ack) : null,
     JSON.stringify(report),
+    JSON.stringify(fullReport(state)),
     state.audit_run_at,
     state.audit_photo_set_hash,
     state.override ? JSON.stringify(state.override) : null,
     inspectionId
   ).run();
+}
+
+interface UsageRow { free_inspections_used: number; inspection_credits: number; plan_tier: string; }
+
+/** The audit owner's usage counters (the inspection owner's users row — for dashboard audits the session user IS that owner; loadInspectionRow already proved ownership). */
+async function loadUsage(env: InspectionAuditEnv, userId: number): Promise<UsageRow> {
+  const row = await env.DB.prepare("SELECT free_inspections_used, inspection_credits, plan_tier FROM users WHERE id = ?").bind(userId).first<UsageRow>();
+  return {
+    free_inspections_used: Number(row?.free_inspections_used) || 0,
+    inspection_credits: Number(row?.inspection_credits) || 0,
+    plan_tier: row?.plan_tier || "free",
+  };
+}
+
+/** Consume exactly one unit for a stored, Claude-backed audit. Paid tiers consume nothing. */
+async function consumeUsage(env: InspectionAuditEnv, userId: number, mode: "free" | "paid" | "credit"): Promise<void> {
+  if (mode === "free") {
+    await env.DB.prepare("UPDATE users SET free_inspections_used = free_inspections_used + 1 WHERE id = ?").bind(userId).run();
+  } else if (mode === "credit") {
+    await env.DB.prepare("UPDATE users SET inspection_credits = MAX(0, inspection_credits - 1) WHERE id = ?").bind(userId).run();
+  }
+}
+
+/**
+ * Partner delivery hook: POST the stored report to the organization's
+ * webhook_url. Awaited with a 5-second cap (this handler has no
+ * ctx.waitUntil) and fully guarded — a slow or failing partner endpoint
+ * never changes the audit response.
+ */
+async function firePartnerWebhook(env: InspectionAuditEnv, insp: InspectionAuditRow, state: AuditGateState): Promise<void> {
+  if (!insp.organization_id) return;
+  try {
+    const org = await env.DB.prepare("SELECT webhook_url FROM organizations WHERE id = ?").bind(insp.organization_id).first<{ webhook_url: string | null }>();
+    const hook = org?.webhook_url ? String(org.webhook_url).trim() : "";
+    if (!hook) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      await fetch(hook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: insp.organization_id, inspection_id: insp.id, status: state.status, report: fullReport(state) }),
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    console.error("[inspection-audit] partner webhook failed", err);
+  }
+}
+
+export interface OrgBranding { slug: string; brand_name: string | null; brand_logo_url: string | null; primary_color: string | null; support_email: string | null; }
+
+/**
+ * Public partner branding: GET /api/inspections/org/:slug. No auth —
+ * branding is public by design (it is what the partner prints on its own
+ * inspection pages). Dispatched by src/index.ts BEFORE the auth wall;
+ * returns null for every other path so normal routing continues.
+ */
+export async function handleOrgBranding(request: Request, env: InspectionAuditEnv, url: URL): Promise<Response | null> {
+  const m = url.pathname.match(/^\/api\/inspections\/org\/([^/]+)$/);
+  if (!m || request.method !== "GET") return null;
+  const slug = decodeURIComponent(m[1]).trim().toLowerCase();
+  if (!slug) return json({ error: "Organization not found" }, 404);
+  const org = await env.DB.prepare("SELECT slug, brand_name, brand_logo_url, primary_color, support_email FROM organizations WHERE slug = ?").bind(slug).first<OrgBranding>();
+  if (!org) return json({ error: "Organization not found" }, 404);
+  return json(org);
 }
 
 /**
@@ -336,7 +436,33 @@ export async function handleInspectionAuditRoutes(request: Request, env: Inspect
   const action = m[2];
 
   if (action === "audit") {
+    // USAGE GATE — before any Claude call. The photo count is the current
+    // inspection's manifest length (baseline photos are not double-counted:
+    // they were counted by the baseline inspection's own audit run).
+    const manifest = await loadPhotoManifest(env, insp.id);
+    const usage = await loadUsage(env, insp.property_user_id);
+    const decision: UsageDecision = decideUsage({
+      freeUsed: usage.free_inspections_used,
+      credits: usage.inspection_credits,
+      planTier: usage.plan_tier,
+      photoCount: manifest.length,
+    });
+    if (!decision.allowed) {
+      return json(
+        { error: decision.error, photo_limit: decision.photoLimit },
+        decision.error === "UPGRADE_REQUIRED" ? 402 : 413
+      );
+    }
     const state = await runAudit(env, insp, details);
+    // CONSUMPTION — exactly once, and only for a Claude-backed result.
+    // runAudit always stores a state, but a state carrying AI_RESPONSE_INVALID
+    // means Claude never produced a usable answer (transport/parse failure,
+    // missing key, or no photos at all): the user is not charged for that.
+    // Any other stored status — PASSED or a real blocked verdict — consumed
+    // a Claude call and a report, so it consumes one free run / credit.
+    const claudeBacked = !state.validation_errors.some((e) => e.error_type === "AI_RESPONSE_INVALID");
+    if (claudeBacked) await consumeUsage(env, insp.property_user_id, decision.mode);
+    if (state.status === "PASSED") await firePartnerWebhook(env, insp, state);
     return json(state);
   }
 
@@ -360,11 +486,15 @@ export async function handleInspectionAuditRoutes(request: Request, env: Inspect
     return json(state);
   }
 
-  // audit-override — OVERRIDE ACCESS RULE (strict): BOTH the acting session is a landlord
-  // session AND the inspection itself was landlord-initiated (inspections.initiated_by =
-  // 'landlord'). Tenant-submitted inspections live in remote_inspections and never reach
-  // this handler; there is no override path for them at all.
-  if (!landlordSession || (insp.initiated_by || "landlord") !== "landlord") {
+  // audit-override — OVERRIDE ACCESS RULE (strict): EITHER (the acting session is a
+  // landlord session AND the inspection itself was landlord-initiated,
+  // inspections.initiated_by = 'landlord') OR the acting session user is an admin
+  // (users.role = 'admin' — a partner admin; src/index.ts also promotes ADMIN_EMAILS
+  // accounts to role 'admin' before dispatch). Tenant-submitted inspections live in
+  // remote_inspections and never reach this handler; there is no override path for
+  // them at all, and a tenant-role session still gets 403 on every branch here.
+  const adminSession = !!user && user.role === "admin";
+  if (!adminSession && (!landlordSession || (insp.initiated_by || "landlord") !== "landlord")) {
     return json({ error: "Landlord Override is not available on tenant-submitted inspection links." }, 403);
   }
   const state = stateFromRow(insp);
