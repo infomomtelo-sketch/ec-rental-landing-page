@@ -643,3 +643,58 @@ export function makeOverride({ by, note, errors }: { by: string; note: string; e
   }
   return record;
 }
+
+// ---------------------------------------------------------------- usage gate
+
+/**
+ * Usage gate for the audit endpoint (migration 0002): protects the Claude
+ * API spend behind the audit. Pure — the routes layer loads the user's
+ * counters, calls this BEFORE any Claude call, and consumes exactly one
+ * unit (a free run or a credit) only after a Claude-backed result has
+ * been stored. Paid plan tiers never consume.
+ *
+ * Order matters: a paid tier wins first (a subscriber never burns free
+ * runs or credits), then remaining free runs, then credits.
+ */
+export const FREE_INSPECTION_LIMIT = 3;
+export const FREE_PHOTO_LIMIT = 30;
+export const PAID_PHOTO_LIMIT = 100;
+export const PAID_PLAN_TIERS = ["solo", "manager", "portfolio", "partner"];
+
+export interface UsageDecisionInput {
+  freeUsed: number;
+  credits: number;
+  planTier: string;
+  photoCount: number;
+}
+
+export type UsageDecision =
+  | { allowed: true; mode: "free" | "paid" | "credit"; photoLimit: number }
+  | { allowed: false; error: "UPGRADE_REQUIRED" | "PHOTO_LIMIT"; photoLimit: number };
+
+export function decideUsage(input: UsageDecisionInput): UsageDecision {
+  const tier = String(input.planTier || "free").trim().toLowerCase();
+  const freeUsed = Math.max(0, Math.floor(Number(input.freeUsed) || 0));
+  const credits = Math.max(0, Math.floor(Number(input.credits) || 0));
+  const photoCount = Math.max(0, Math.floor(Number(input.photoCount) || 0));
+
+  let mode: "free" | "paid" | "credit";
+  let photoLimit: number;
+  if (PAID_PLAN_TIERS.includes(tier)) {
+    mode = "paid";
+    photoLimit = PAID_PHOTO_LIMIT;
+  } else if (freeUsed < FREE_INSPECTION_LIMIT) {
+    mode = "free";
+    photoLimit = FREE_PHOTO_LIMIT;
+  } else if (credits > 0) {
+    mode = "credit";
+    photoLimit = PAID_PHOTO_LIMIT;
+  } else {
+    // No mode available: photoLimit reports the free-tier cap the user
+    // just exhausted (the upgrade modal does not use it, but API
+    // consumers can phrase "free inspections allow up to 30 photos").
+    return { allowed: false, error: "UPGRADE_REQUIRED", photoLimit: FREE_PHOTO_LIMIT };
+  }
+  if (photoCount > photoLimit) return { allowed: false, error: "PHOTO_LIMIT", photoLimit };
+  return { allowed: true, mode, photoLimit };
+}
