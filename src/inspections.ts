@@ -7,6 +7,7 @@
  */
 import { aiText, clean, MODEL } from "./ai-assist";
 import { textRun } from "./ai-text";
+import { handleInspectionAuditRoutes, assertFinalizable } from "./inspection-audit-routes";
 
 interface InspectionEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
 interface InspectionRow { id: number; property_id: number; inspector_name: string; inspection_date: string; overall_condition: string; summary: string; status: string; created_at: string; property_address: string; }
@@ -27,6 +28,7 @@ export const CONDITIONS = ["good", "fair", "poor", "damaged"];
 const PHOTO_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_ITEMS = 150;
+const SHOT_ALLOWLIST = ["wall_a", "wall_b", "wall_c", "wall_d", "floor", "wide_a", "wide_b", "counters_closeup", "under_sink_closeup", "appliances_closeup", "fixtures_closeup"];
 
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
 function str(v: unknown, max = 500): string { return v === undefined || v === null ? "" : String(v).trim().slice(0, max); }
@@ -85,6 +87,8 @@ function roomLines(items: ItemRow[]): string {
 export async function handleInspectionRoutes(request: Request, env: InspectionEnv, url: URL, user: { id: number }): Promise<Response | null> {
   const path = url.pathname;
   if (!path.startsWith("/api/inspections")) return null;
+  const auditRes = await handleInspectionAuditRoutes(request, env, url, user);
+  if (auditRes) return auditRes;
   const now = new Date().toISOString();
 
   if (path === "/api/inspections" && request.method === "GET") {
@@ -96,15 +100,23 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     const b = await request.json() as Record<string, unknown>;
     const propertyId = Number(b.property_id);
     if (!(await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(propertyId, user.id).first())) return json({ error: "Choose one of your properties." }, 400);
+    const metaCols: string[] = [];
+    const metaBinds: unknown[] = [];
+    if (b.square_footage !== undefined && Number.isFinite(Number(b.square_footage))) { metaCols.push("square_footage = ?"); metaBinds.push(Math.max(0, Math.floor(Number(b.square_footage)))); }
+    if (b.bedrooms !== undefined && Number.isFinite(Number(b.bedrooms))) { metaCols.push("bedrooms = ?"); metaBinds.push(Math.max(0, Math.floor(Number(b.bedrooms)))); }
+    if (b.bathrooms !== undefined && Number.isFinite(Number(b.bathrooms))) { metaCols.push("bathrooms = ?"); metaBinds.push(Math.max(0, Math.floor(Number(b.bathrooms)))); }
+    if (b.property_type !== undefined && str(b.property_type, 40)) { metaCols.push("property_type = ?"); metaBinds.push(str(b.property_type, 40)); }
+    if (metaCols.length) await env.DB.prepare(`UPDATE properties SET ${metaCols.join(", ")} WHERE id = ? AND user_id = ?`).bind(...metaBinds, propertyId, user.id).run();
+    const selectedRooms = Array.isArray(b.selected_rooms) ? b.selected_rooms.map((r) => str(r, 60)).filter(Boolean).slice(0, 30) : [];
     const type = INSPECTION_TYPES.includes(str(b.type)) ? str(b.type) : "routine";
     const date = /^\d{4}-\d{2}-\d{2}$/.test(str(b.inspection_date)) ? str(b.inspection_date) : now.slice(0, 10);
     let compareTo: number | null = null;
     if (type === "move_out" && b.compare_to) {
-      const c = await env.DB.prepare("SELECT i.id FROM inspections i JOIN properties p ON i.property_id = p.id WHERE i.id = ? AND i.property_id = ? AND p.user_id = ?").bind(Number(b.compare_to), propertyId, user.id).first<{ id: number }>();
-      if (!c) return json({ error: "The move-in inspection to compare with must be for the same property." }, 400);
+      const c = await env.DB.prepare("SELECT i.id FROM inspections i JOIN properties p ON i.property_id = p.id JOIN inspection_details d ON d.inspection_id = i.id WHERE i.id = ? AND i.property_id = ? AND p.user_id = ? AND d.type = 'move_in' AND i.status = 'completed'").bind(Number(b.compare_to), propertyId, user.id).first<{ id: number }>();
+      if (!c) return json({ error: "The move-in inspection to compare with must be a completed move-in for the same property." }, 400);
       compareTo = c.id;
     }
-    const r = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at) VALUES (?, ?, ?, '', '', 'in_progress', ?)").bind(propertyId, str(b.inspector_name, 100), date, now).run();
+    const r = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at, selected_rooms) VALUES (?, ?, ?, '', '', 'in_progress', ?, ?)").bind(propertyId, str(b.inspector_name, 100), date, now, JSON.stringify(selectedRooms)).run();
     const id = r.meta.last_row_id;
     await env.DB.prepare("INSERT INTO inspection_details (inspection_id, type, compare_to, comparison) VALUES (?, ?, ?, '')").bind(id, type, compareTo).run();
     return json({ success: true, id });
@@ -117,7 +129,7 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
   const rest = one[2] || "";
   const details = await env.DB.prepare("SELECT * FROM inspection_details WHERE inspection_id = ?").bind(insp.id).first<DetailsRow>();
   const type = details?.type || "routine";
-  const items = async () => (await env.DB.prepare("SELECT * FROM inspection_items WHERE inspection_id = ? ORDER BY room_area, id").bind(insp.id).all<ItemRow>()).results;
+  const items = async () => (await env.DB.prepare("SELECT i.*, COALESCE(s.shot, '') AS shot FROM inspection_items i LEFT JOIN inspection_item_shots s ON s.item_id = i.id WHERE i.inspection_id = ? ORDER BY i.room_area, i.id").bind(insp.id).all<ItemRow & { shot: string }>()).results;
 
   if (rest === "" && request.method === "GET") {
     const legacy = await env.DB.prepare("SELECT id, room_area, ai_condition, ai_recommendation, ai_repair_needed FROM inspection_photos WHERE inspection_id = ? ORDER BY id").bind(insp.id).all();
@@ -132,6 +144,7 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     const all = await items();
     if (env.PHOTOS && all.length) await env.PHOTOS.delete(all.map((i) => i.r2_key));
     await env.DB.batch([
+      env.DB.prepare("DELETE FROM inspection_item_shots WHERE item_id IN (SELECT id FROM inspection_items WHERE inspection_id = ?)").bind(insp.id),
       env.DB.prepare("DELETE FROM inspection_items WHERE inspection_id = ?").bind(insp.id),
       env.DB.prepare("DELETE FROM inspection_details WHERE inspection_id = ?").bind(insp.id),
       env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id = ?").bind(insp.id),
@@ -146,6 +159,8 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     if (!env.PHOTOS) return json({ error: "Photo storage isn't set up yet." }, 503);
     const room = str(url.searchParams.get("room"), 60);
     if (!room) return json({ error: "Pick the room first." }, 400);
+    const shotParam = str(url.searchParams.get("shot"), 40);
+    const shot = SHOT_ALLOWLIST.includes(shotParam) ? shotParam : "";
     const contentType = (request.headers.get("Content-Type") || "").split(";")[0].trim();
     const ext = PHOTO_TYPES[contentType];
     if (!ext) return json({ error: "Photos must be JPEG, PNG or WebP." }, 400);
@@ -157,8 +172,9 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
     const ai = await readPhoto(env, room, type, bytes);
     const r = await env.DB.prepare("INSERT INTO inspection_items (inspection_id, room_area, r2_key, condition, notes, repair_needed, repair_item, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(insp.id, room, key, ai.condition, ai.notes, ai.repair_needed, ai.repair_item, now).run();
+    await env.DB.prepare("INSERT INTO inspection_item_shots (item_id, shot) VALUES (?, ?)").bind(r.meta.last_row_id, shot).run();
     if (insp.status === "completed") await env.DB.prepare("UPDATE inspections SET status = 'in_progress' WHERE id = ?").bind(insp.id).run();
-    return json({ success: true, item: { id: r.meta.last_row_id, inspection_id: insp.id, room_area: room, condition: ai.condition, notes: ai.notes, repair_needed: ai.repair_needed, repair_item: ai.repair_item, maintenance_id: null }, ai_read: !!(ai.condition || ai.notes) });
+    return json({ success: true, item: { id: r.meta.last_row_id, inspection_id: insp.id, room_area: room, shot, condition: ai.condition, notes: ai.notes, repair_needed: ai.repair_needed, repair_item: ai.repair_item, maintenance_id: null }, ai_read: !!(ai.condition || ai.notes) });
   }
 
   // Voice note on one photo: transcribe it and append it to the item's notes, so the inspector can
@@ -212,11 +228,16 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
         b.room_area === undefined ? row.room_area : str(b.room_area, 60) || row.room_area, condition,
         b.notes === undefined ? row.notes : str(b.notes, 1000), repair,
         b.repair_item === undefined ? row.repair_item : str(b.repair_item, 120), row.id).run();
+      if (b.shot !== undefined) {
+        const s = SHOT_ALLOWLIST.includes(str(b.shot, 40)) ? str(b.shot, 40) : "";
+        await env.DB.prepare("INSERT INTO inspection_item_shots (item_id, shot) VALUES (?, ?) ON CONFLICT(item_id) DO UPDATE SET shot = excluded.shot").bind(row.id, s).run();
+      }
       return json({ success: true });
     }
 
     if (!item[2] && request.method === "DELETE") {
       if (env.PHOTOS) await env.PHOTOS.delete(row.r2_key);
+      await env.DB.prepare("DELETE FROM inspection_item_shots WHERE item_id = ?").bind(row.id).run();
       await env.DB.prepare("DELETE FROM inspection_items WHERE id = ?").bind(row.id).run();
       return json({ success: true });
     }
@@ -313,6 +334,8 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
   if (rest === "/report/sign" && request.method === "POST") {
     const existing = await loadReport(env, insp.id);
     if (!existing || !existing.report_text) return json({ error: "Write the report first." }, 400);
+    try { await assertFinalizable(env, user.id, insp.id); }
+    catch (err) { return json({ error: err instanceof Error ? err.message : "Report cannot be finalized." }, 409); }
     const signedBy = insp.inspector_name || "Inspector";
     await env.DB.prepare("UPDATE inspection_reports SET status = 'signed', signed_at = ?, signed_by = ? WHERE inspection_id = ?").bind(now, signedBy, insp.id).run();
     return json({ success: true, report: { text: existing.report_text, status: "signed", signed_at: now, signed_by: signedBy } });
