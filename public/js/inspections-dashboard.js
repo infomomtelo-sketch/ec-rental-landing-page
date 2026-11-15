@@ -24,7 +24,7 @@
   // credit packs. The Stripe payment links do not exist yet — the owner creates them after
   // the D1 migrations run and pastes the URLs here. While a slot is empty, its button
   // renders disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
-  var ECPM_UPGRADE_URL = 'https://buy.stripe.com/dRmdR31eb8i477a2SF8Ra03';
+  var ECPM_UPGRADE_URL = 'https://buy.stripe.com/4gM3cp7Cz9m8ezCctf8Ra06';
   var STRIPE_LINK_CREDITS_10 = 'https://buy.stripe.com/6oU7sF5ureGs4Z28cZ8Ra04';
   var STRIPE_LINK_CREDITS_50 = 'https://buy.stripe.com/fZu7sFe0X9m877a0Kx8Ra05';
   var list = [], current = null, imageUrls = {};
