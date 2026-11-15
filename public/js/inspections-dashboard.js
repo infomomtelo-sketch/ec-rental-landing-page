@@ -19,6 +19,14 @@
     if (/exterior|yard/i.test(room)) return ['wide_a', 'wide_b'];
     return ['wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor'];
   }
+  // Upgrade / credit-pack link slots for the audit usage gate (UPGRADE_REQUIRED modal).
+  // Owner-confirmed pricing (Nov 14): EC Rental PM Solo Landlord launch offer and the two
+  // credit packs. The Stripe payment links do not exist yet — the owner creates them after
+  // the D1 migrations run and pastes the URLs here. While a slot is empty, its button
+  // renders disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
+  var ECPM_UPGRADE_URL = '';
+  var STRIPE_LINK_CREDITS_10 = '';
+  var STRIPE_LINK_CREDITS_50 = '';
   var list = [], current = null, imageUrls = {};
   var newProps = [];
   var recorder = null, voiceChunks = [], voiceBtn = null, voiceMsg = null, voiceItemId = null;
@@ -207,15 +215,16 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function() { b.textContent = 'Copied'; }).catch(function() {});
   });
 
-  // Shrink phone photos to 1600px JPEG before upload.
+  // Shrink phone photos to 1280px JPEG (80%) before upload — keeps the audit's
+  // Claude payloads fast and low-cost without losing what the vision read needs.
   function resize(file) {
     return new Promise(function(resolve, reject) {
       var img = new Image(), url = URL.createObjectURL(file);
       img.onload = function() {
-        var scale = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        var scale = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
         c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-        c.toBlob(function(b) { b ? resolve(b) : reject(new Error('Could not read ' + file.name)); }, 'image/jpeg', 0.85);
+        c.toBlob(function(b) { b ? resolve(b) : reject(new Error('Could not read ' + file.name)); }, 'image/jpeg', 0.80);
       };
       img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('Could not read ' + file.name)); };
       img.src = url;
@@ -375,11 +384,52 @@
       });
     }
     renderGate();
+    // Upgrade modal for the usage gate: shown when the audit endpoint answers
+    // 402 UPGRADE_REQUIRED (3 free audits used, no credits, no paid plan). Each
+    // purchase path is a link slot — empty slots render disabled "opening soon"
+    // buttons instead of dead checkout doors.
+    function upgradeBtn(url, label) {
+      if (url) return '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">' + esc(label) + '</a>';
+      return '<button type="button" class="btn" disabled style="opacity:0.55;cursor:not-allowed">' + esc(label) + ' — opening soon</button>';
+    }
+    function showUpgradeModal() {
+      var old = document.getElementById('inspUpgradeModal'); if (old) old.remove();
+      var wrap = document.createElement('div');
+      wrap.id = 'inspUpgradeModal';
+      wrap.setAttribute('style', 'position:fixed;inset:0;background:rgba(17,24,39,0.55);display:flex;align-items:center;justify-content:center;z-index:1200;padding:1rem');
+      wrap.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:1.25rem;box-shadow:0 20px 50px rgba(0,0,0,0.25)">' +
+        '<h3 style="font-size:1.05rem;color:var(--primary);margin-bottom:0.4rem">You\'ve used your 3 free photo audits</h3>' +
+        '<p style="font-size:0.9rem;color:var(--gray);margin-bottom:0.9rem">Keep going with a plan, or buy inspection credits — one credit covers one full audit of up to 100 photos, and credits never expire.</p>' +
+        '<div style="display:flex;flex-direction:column;gap:0.5rem">' +
+        upgradeBtn(ECPM_UPGRADE_URL, 'Upgrade to EC Rental PM — Solo Landlord: $3 for 3 months (through Dec 31), then $29/mo') +
+        upgradeBtn(STRIPE_LINK_CREDITS_10, 'Buy inspection credits — 10 Inspections — $19') +
+        upgradeBtn(STRIPE_LINK_CREDITS_50, 'Buy inspection credits — 50 Inspections — $75') +
+        '<button type="button" class="btn btn-secondary" id="inspUpgradeClose">Not now</button>' +
+        '</div></div>';
+      document.body.appendChild(wrap);
+      wrap.querySelector('#inspUpgradeClose').addEventListener('click', function() { wrap.remove(); });
+      wrap.addEventListener('click', function(e) { if (e.target === wrap) wrap.remove(); });
+    }
     var runBtn = document.getElementById('inspRunAudit');
     if (runBtn) runBtn.addEventListener('click', function() {
       runBtn.disabled = true;
-      var msg = document.getElementById('inspAuditMsg'); if (msg) msg.textContent = 'Auditing the photos...';
-      api('/inspections/' + current.inspection.id + '/audit', 'POST', {}).then(function(state) { applyAuditState(state); }).catch(function(err) { runBtn.disabled = false; if (msg) { msg.textContent = err.message; msg.style.color = '#991b1b'; } });
+      var msg = document.getElementById('inspAuditMsg'); if (msg) { msg.textContent = 'Auditing the photos...'; msg.style.color = ''; }
+      // Direct fetch (not api()) so the usage-gate statuses survive: api() flattens
+      // every error to a message and the 402/413 distinction would be lost.
+      fetch('/api/inspections/' + current.inspection.id + '/audit', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function(res) { return res.json().catch(function() { return {}; }).then(function(d) { return { status: res.status, data: d }; }); })
+        .then(function(r) {
+          if (r.status === 402 || (r.data && r.data.error === 'UPGRADE_REQUIRED')) { runBtn.disabled = false; if (msg) msg.textContent = ''; showUpgradeModal(); return; }
+          if (r.status === 413 || (r.data && r.data.error === 'PHOTO_LIMIT')) {
+            runBtn.disabled = false; if (msg) msg.textContent = '';
+            var lim = (r.data && (r.data.photo_limit || r.data.photoLimit)) || 30;
+            alert('This inspection has more photos than one audit on your current plan can include (limit: ' + lim + ' photos — free inspections allow up to 30 photos). Remove some photos and run the audit again, or upgrade to raise the limit to 100.');
+            return;
+          }
+          if (r.status < 200 || r.status >= 300) throw new Error((r.data && r.data.error) || ('Request failed (' + r.status + ')'));
+          applyAuditState(r.data);
+        })
+        .catch(function(err) { runBtn.disabled = false; if (msg) { msg.textContent = err.message; msg.style.color = '#991b1b'; } });
     });
   }
 
