@@ -103,3 +103,9 @@ CREATE INDEX IF NOT EXISTS idx_hub_visitors_day ON hub_visitors(day);
 CREATE TABLE IF NOT EXISTS hub_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, vote INTEGER NOT NULL, question TEXT NOT NULL, reply TEXT NOT NULL, created_at TEXT NOT NULL);
 -- "Email me my link" on tello.live: when a manage link was last emailed to an address (one per 10 minutes).
 CREATE TABLE IF NOT EXISTS biz_link_sends (email TEXT PRIMARY KEY, sent_at TEXT NOT NULL);
+
+-- Tello Inspect photo audit (src/inspection-audit.ts). Run migrations/2026-11-14_property_specs.sql once for the properties columns.
+CREATE TABLE IF NOT EXISTS remote_inspection_specs (inspection_id INTEGER PRIMARY KEY, square_footage INTEGER DEFAULT 0, bedrooms INTEGER DEFAULT 0, bathrooms REAL DEFAULT 0, property_type TEXT DEFAULT '', baseline_id INTEGER, FOREIGN KEY (inspection_id) REFERENCES remote_inspections(id));
+CREATE TABLE IF NOT EXISTS remote_inspection_audits (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, signature TEXT NOT NULL, status TEXT NOT NULL, result TEXT NOT NULL, photo_count INTEGER DEFAULT 0, created_at TEXT NOT NULL, FOREIGN KEY (inspection_id) REFERENCES remote_inspections(id));
+CREATE INDEX IF NOT EXISTS idx_remote_inspection_audits ON remote_inspection_audits(inspection_id, id);
+CREATE TABLE IF NOT EXISTS remote_inspection_overrides (inspection_id INTEGER PRIMARY KEY, owner_user_id INTEGER NOT NULL, note TEXT NOT NULL, errors TEXT NOT NULL, audit_id INTEGER, overridden_at TEXT NOT NULL, FOREIGN KEY (inspection_id) REFERENCES remote_inspections(id));

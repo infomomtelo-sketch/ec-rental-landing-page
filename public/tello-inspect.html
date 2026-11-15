@@ -62,6 +62,17 @@
     .disclaimer { font-size: 0.82rem; color: var(--gray); margin-top: 0.75rem; }
     .cta { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
     .ghost-btn { display: inline-block; border: 2px solid var(--primary); color: var(--primary); padding: 0.75rem 1.2rem; border-radius: 8px; font-weight: 700; text-decoration: none; background: none; cursor: pointer; font: inherit; font-weight: 700; }
+    .ck-room.attn { border: 2px solid #9b2c1c; background: #fff6f4; }
+    .audit-panel { background: #fff6f4; border: 2px solid #9b2c1c; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .audit-panel h3 { margin: 0 0 0.35rem; color: #9b2c1c; font-size: 1.05rem; }
+    .audit-panel p { margin: 0 0 0.6rem; font-size: 0.92rem; color: #374151; }
+    .err-item { background: var(--white); border-left: 4px solid #9b2c1c; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .err-item b { color: #9b2c1c; } .err-item .act { color: #166534; margin-top: 0.25rem; }
+    .warn-box { background: #fdf3d7; border-radius: 10px; padding: 0.7rem 0.9rem; margin: 0.75rem 0; font-size: 0.9rem; }
+    .slot.attn { border-color: #9b2c1c; background: #fff6f4; }
+    .rep-room { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.6rem; font-size: 0.9rem; }
+    .rep-room h3 { margin: 0 0 0.3rem; color: var(--primary); font-size: 1rem; } .rep-room p { margin: 0.2rem 0; color: #374151; }
+    .override-note { background: #fdf3d7; border-radius: 10px; padding: 0.7rem 0.9rem; margin: 0.75rem 0; font-size: 0.9rem; }
     @media (max-width: 560px) { .item img { width: 90px; height: 72px; } }
     @media print { header, .cta, .no-print { display: none !important; } .item, .summary { box-shadow: none; border: 1px solid #ddd; } }
   </style>
@@ -75,7 +86,7 @@
       <p class="lead">For landlords, homeowners, buyers and tenants. Walk through the home with your phone and follow the shot list for each room — a wide shot, then close-ups. Tello, the EC Rental AI, reads every photo and sends back a condition report with anything that may need repair. No app to download and no account needed.</p>
       <div class="steps">
         <div><b>Tell us about it</b>Your name, email, what kind of check you need, and which rooms to cover.</div>
-        <div><b>Follow the shot list</b>Wide shot first, then close-ups. Blurry photos are sent back for a retake, and the report can't be sent until every room is covered.</div>
+        <div><b>Follow the shot list</b>Wide shot first, then close-ups. Tello checks every photo against the home's size and layout, and the report can't be sent until every room is covered.</div>
         <div><b>Get your report</b>See it right away and get a copy by email to keep or share.</div>
       </div>
     </section>
@@ -87,6 +98,13 @@
         <label>Kind of check<select name="type"><option value="move_in">Move-in</option><option value="move_out">Move-out</option><option value="routine" selected>Routine check-up</option></select></label></div>
         <label>Property address (optional)<input name="address" maxlength="200" autocomplete="street-address" placeholder="1234 Example Ave, City, State" /></label>
         <label>Anything we should know? (optional)<textarea name="notes" rows="2" maxlength="1000" placeholder="For example: tenant moving out Friday, worried about a ceiling stain"></textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>About the home</legend>
+        <div class="row"><label>Home type<select name="property_type"><option value="">Select</option><option value="house">House</option><option value="condo">Condo</option><option value="apartment">Apartment</option><option value="townhouse">Townhouse</option><option value="duplex">Duplex</option><option value="mobile_home">Mobile home</option><option value="other">Other</option></select></label>
+        <label>Square feet<input name="square_footage" type="number" min="0" max="20000" inputmode="numeric" placeholder="For example: 1200" /></label></div>
+        <div class="row"><label>Bedrooms<input name="bedrooms" type="number" min="0" max="12" value="2" /></label><label>Bathrooms<input name="bathrooms" type="number" min="0" max="12" step="0.5" value="1" /></label></div>
+        <p class="muted small" style="margin:0">Tello checks your photos cover every bedroom and bathroom listed here before it writes the report.</p>
       </fieldset>
       <fieldset>
         <legend>Rooms to inspect</legend>
@@ -113,7 +131,8 @@
         <p id="busy" class="busy" hidden></p>
         <div id="items"></div>
       </fieldset></div>
-      <button class="primary-btn" type="button" id="finishBtn" disabled>Get my report</button>
+      <div id="auditPanel" aria-live="polite"></div>
+      <button class="primary-btn" type="button" id="finishBtn" disabled>Check photos and get my report</button>
       <p id="todoMsg" class="muted small" style="margin-top:0.5rem" hidden></p>
       <p id="finishMsg" class="err" style="margin-top:0.75rem" hidden></p>
     </section>
@@ -126,11 +145,11 @@
     var ROOMS = ['Exterior front', 'Exterior back', 'Entry', 'Living room', 'Dining room', 'Kitchen', 'Hallway', 'Primary bedroom', 'Bedroom 2', 'Bedroom 3', 'Primary bathroom', 'Bathroom 2', 'Laundry', 'Garage', 'Yard', 'Roof', 'HVAC / water heater', 'Other'];
     var DEFAULT_ROOMS = ['Living room', 'Kitchen', 'Primary bedroom', 'Primary bathroom'];
     var TYPES = { move_in: 'Move-in', move_out: 'Move-out', routine: 'Routine' };
-    var state = { id: null, t: null, items: [], rooms: [], removed: 0 };
+    var state = { id: null, t: null, items: [], rooms: [], removed: 0, audit: null, focusRoom: null, focusAction: '' };
     var $ = function(id) { return document.getElementById(id); };
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
     function api(path, opts) {
-      return fetch('/api/public/ai-inspections' + path, opts || {}).then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { if (!r.ok) throw new Error(d.error || 'Something went wrong. Please try again.'); return d; }); });
+      return fetch('/api/public/ai-inspections' + path, opts || {}).then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { if (!r.ok) { var e = new Error(d.error || 'Something went wrong. Please try again.'); e.data = d; throw e; } return d; }); });
     }
     function q(extra) { return '?t=' + encodeURIComponent(state.t) + (extra || ''); }
     function photoUrl(it) { return '/api/public/ai-inspections/' + state.id + '/photos/' + it.id + q(); }
@@ -147,6 +166,22 @@
       return order.map(function(r) { return '<h3 class="room-h">' + esc(r) + '</h3>' + rooms[r].map(function(it) { return itemHtml(it, editable); }).join(''); }).join('');
     }
 
+    function fmtTime(t) { try { return new Date(t).toLocaleString(); } catch (e) { return String(t || ''); } }
+    // Photo audit sections of the report: warnings, move-out changes, priority repairs, room-by-room notes, and any landlord override.
+    function auditReportHtml(d) {
+      var a = d.audit && d.audit.result, h = '';
+      if (d.override) {
+        var ers = Array.isArray(d.override.errors) ? d.override.errors : [];
+        h += '<div class="override-note"><strong>Landlord override.</strong> The photo completeness check found items that were not resolved. The landlord finalized this report on ' + esc(fmtTime(d.override.overridden_at)) + '. Landlord note: ' + esc(d.override.note) +
+          (ers.length ? '<br><br>Not resolved:<br>' + ers.map(function(x) { return esc(x.room) + ': ' + esc(x.description); }).join('<br>') : '') + '</div>';
+      }
+      if (!a) return h;
+      if (a.coverage_warnings && a.coverage_warnings.length) h += '<div class="warn-box"><strong>Not photographed</strong><br>' + a.coverage_warnings.map(function(w) { return esc(w.space) + ': ' + esc(w.description); }).join('<br>') + '</div>';
+      if (a.priority_repairs && a.priority_repairs.length) h += '<div class="summary"><h2>Repair and maintenance flags</h2>' + a.priority_repairs.map(function(x) { return '<p><span class="badge ' + (x.severity === 'Urgent' ? 'b-damaged' : x.severity === 'Moderate' ? 'b-fair' : 'b-none') + '">' + esc(x.severity) + '</span> ' + esc(x.room) + ': ' + esc(x.issue) + (x.is_new_since_move_in ? ' <em>(new since move-in)</em>' : '') + '</p>'; }).join('') + '</div>';
+      if (a.move_out_comparison && a.move_out_comparison.length) h += '<div class="summary"><h2>Move-out compared with move-in</h2><p class="muted small">Descriptions of what the photos show. Fault and deposit decisions are the landlord\'s alone.</p>' + a.move_out_comparison.map(function(c) { return '<div class="rep-room"><h3>' + esc(c.room) + ': ' + esc(c.item_or_surface) + '</h3><p><strong>Move-in:</strong> ' + esc(c.move_in_state) + '</p><p><strong>Move-out:</strong> ' + esc(c.move_out_state) + '</p><p>' + (c.is_new_since_move_in ? 'New since move-in' : 'Already present at move-in') + ' · ' + esc(c.classification) + '</p></div>'; }).join('') + '</div>';
+      if (a.room_by_room_report && a.room_by_room_report.length) h += '<h2 class="room-h" style="font-size:1.15rem">Room by room</h2>' + a.room_by_room_report.map(function(x) { return '<div class="rep-room"><h3>' + esc(x.room_name) + ' ' + '<span class="badge ' + (x.overall_condition === 'Good' ? 'b-good' : x.overall_condition === 'Fair' ? 'b-fair' : 'b-damaged') + '">' + esc(x.overall_condition) + '</span></h3><p><strong>Walls and paint:</strong> ' + esc(x.walls_and_paint) + '</p><p><strong>Flooring:</strong> ' + esc(x.flooring) + '</p><p><strong>Ceiling and fixtures:</strong> ' + esc(x.ceiling_and_fixtures) + '</p>' + (x.move_in_comparison_notes ? '<p><strong>Compared with move-in:</strong> ' + esc(x.move_in_comparison_notes) + '</p>' : '') + '</div>'; }).join('');
+      return h;
+    }
     // Report view (also used straight after finishing)
     function showReport(d) {
       var i = d.inspection, cls = i.overall === 'Good' ? 'o-good' : i.overall === 'Fair' ? 'o-fair' : 'o-attn';
@@ -157,9 +192,10 @@
         '<p class="muted small">For ' + esc(i.name) + ' · ' + esc((i.finished_at || i.created_at || '').slice(0, 10)) + ' · ' + d.items.length + ' photos</p>' +
         '<p class="overall ' + cls + '">Overall: ' + esc(i.overall || 'In progress') + '</p><p>' + esc(i.summary) + '</p>' +
         (repairs.length ? '<p><strong>May need repair</strong><br>' + repairs.map(function(x) { return esc(x.room) + ': ' + esc(x.repair_item || 'repair needed'); }).join('<br>') + '</p>' : '') +
-        '<p class="disclaimer">This is an AI review of the photos sent, not a licensed or certified home inspection. It can only describe what the photos show and can make mistakes.</p>' +
+        '<p class="disclaimer">AI photo condition review generated by Tello Inspect. This is not a licensed or certified home inspection. It can only describe what the photos show and can make mistakes. All maintenance, fault and deposit decisions are made solely by the landlord.</p>' +
         '<div class="cta"><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
-        grouped(d.items, false) +
+        auditReportHtml(d) +
+        '<h2 class="room-h" style="font-size:1.15rem">Photos</h2>' + grouped(d.items, false) +
         '';
       window.scrollTo(0, 0);
     }
@@ -168,13 +204,27 @@
     $('roomsPick').innerHTML = ROOMS.filter(function(r) { return r !== 'Other'; }).map(function(r) {
       return '<label><input type="checkbox" name="rooms" value="' + esc(r) + '"' + (DEFAULT_ROOMS.indexOf(r) !== -1 ? ' checked' : '') + ' /> ' + esc(r) + '</label>';
     }).join('');
+    // Keep the room list in step with the bedroom and bathroom counts so the check doesn't ask for rooms nobody picked.
+    function syncRooms() {
+      var f = $('startForm'), beds = Math.max(0, Math.min(12, Number(f.elements.bedrooms.value) || 0)), baths = Math.max(0, Math.min(12, Math.ceil(Number(f.elements.bathrooms.value) || 0)));
+      var want = [], i, extra = [];
+      for (i = 1; i <= beds; i++) want.push(i === 1 ? 'Primary bedroom' : 'Bedroom ' + i);
+      for (i = 1; i <= baths; i++) want.push(i === 1 ? 'Primary bathroom' : 'Bathroom ' + i);
+      Array.prototype.forEach.call(f.querySelectorAll('input[name="rooms"]'), function(c) { if (/bedroom|bathroom/i.test(c.value)) c.checked = want.indexOf(c.value) !== -1; });
+      want.forEach(function(w) { if (ROOMS.indexOf(w) === -1) extra.push(w); });
+      var o = f.elements.otherRooms, kept = String(o.value || '').split(',').map(function(x) { return x.trim(); }).filter(function(x) { return x && !/^(bedroom|bathroom) \d+$/i.test(x); });
+      o.value = kept.concat(extra).join(', ');
+    }
+    $('startForm').elements.bedrooms.addEventListener('change', syncRooms);
+    $('startForm').elements.bathrooms.addEventListener('change', syncRooms);
+    syncRooms();
     if (params.get('id') && params.get('t')) {
       state.id = params.get('id'); state.t = params.get('t');
       $('intro').hidden = true; $('startForm').hidden = true;
       $('report').hidden = false; $('report').innerHTML = '<p class="busy">Loading your report...</p>';
       api('/' + state.id + q()).then(function(d) {
         if (d.inspection.status === 'done') return showReport(d);
-        state.items = d.items; state.rooms = d.rooms || []; state.removed = d.removed || 0; openPhotos();
+        state.items = d.items; state.rooms = d.rooms || []; state.removed = d.removed || 0; state.audit = d.audit && d.audit.result && d.audit.result.status !== 'PASSED' ? d.audit : null; state.stale = !!(state.audit && !state.audit.current); openPhotos();
         $('report').hidden = true;
       }).catch(function(err) { $('report').innerHTML = '<p class="err">' + esc(err.message) + '</p>'; });
     }
@@ -233,20 +283,51 @@
       $('intro').hidden = true; $('startForm').hidden = true; $('photosStep').hidden = false;
       renderAll(); $('photosStep').scrollIntoView({ behavior: 'smooth' });
     }
-    function renderAll() { renderChecklist(); renderShotBox(); renderItems(); }
+    function renderAll() { renderChecklist(); renderShotBox(); renderItems(); renderAuditPanel(); }
+    function auditErrors() { return state.audit && state.audit.result && state.audit.result.status !== 'PASSED' ? state.audit.result.validation_errors || [] : []; }
+    function errorsFor(room) { return auditErrors().filter(function(e) { return String(e.room || '').toLowerCase() === String(room).toLowerCase(); }); }
     function renderChecklist() {
       var el = $('checklist');
-      if (!state.rooms.length) { el.innerHTML = ''; return; }
+      var extraRooms = [];
+      auditErrors().forEach(function(e) { if (e.room && state.rooms.map(function(r) { return r.toLowerCase(); }).indexOf(e.room.toLowerCase()) === -1 && extraRooms.indexOf(e.room) === -1) extraRooms.push(e.room); });
+      if (!state.rooms.length && !extraRooms.length) { el.innerHTML = ''; return; }
       el.innerHTML = '<div class="checklist">' + state.rooms.map(function(room) {
-        var s = roomStatus(room);
-        return '<div class="ck-room' + (s.done ? ' done' : '') + '"><strong>' + esc(room) + (s.done ? ' ✓' : '') + '</strong><ul>' +
+        var s = roomStatus(room), errs = errorsFor(room);
+        return '<div class="ck-room' + (s.done && !errs.length ? ' done' : '') + (errs.length ? ' attn' : '') + '"><strong>' + esc(room) + (s.done && !errs.length ? ' ✓' : '') + '</strong><ul>' +
           '<li>' + (s.wide ? '✓' : '○') + ' Wide shot</li>' +
           '<li>' + (s.close ? '✓' : '○') + ' Close-up</li>' +
-          s.flagNeeds.map(function(f) { return '<li class="flag">⚠ Close-up needed: ' + esc(f.repair_item || 'the damage') + '</li>'; }).join('') + '</ul></div>';
+          s.flagNeeds.map(function(f) { return '<li class="flag">⚠ Close-up needed: ' + esc(f.repair_item || 'the damage') + '</li>'; }).join('') +
+          errs.map(function(e) { return '<li class="flag">⚠ Needs attention: ' + esc(e.required_action || e.description) + '</li>'; }).join('') + '</ul></div>';
+      }).join('') + extraRooms.map(function(room) {
+        return '<div class="ck-room attn"><strong>' + esc(room) + '</strong><ul>' + errorsFor(room).map(function(e) { return '<li class="flag">⚠ ' + esc(e.required_action || e.description) + '</li>'; }).join('') + '</ul></div>';
       }).join('') + '</div>';
     }
+    var ERR_LABEL = { MISSING_ROOM: 'Room not photographed', MISSING_ANGLE: 'Part of the room not shown', COVERAGE_GAP: 'Wall section not visible', POOR_PHOTO_QUALITY: 'Photo too unclear' };
+    // Shows the exact errors from the photo check, the rooms to fix, and the retake button. There is no override here: only the landlord's dashboard has one.
+    function renderAuditPanel() {
+      var el = $('auditPanel'), errs = auditErrors();
+      if (!errs.length) { el.innerHTML = ''; return; }
+      var warns = state.audit.result.coverage_warnings || [];
+      el.innerHTML = '<div class="audit-panel"><h3>Photos need attention before your report can be finished</h3>' +
+        (state.stale ? '<p><strong>You added photos since this check.</strong> Tap the check button below to run it again.</p>' : '<p>Tello checked every photo against the home&rsquo;s layout and found ' + errs.length + ' thing' + (errs.length === 1 ? '' : 's') + ' to fix.</p>') +
+        errs.map(function(e, i) { return '<div class="err-item"><b>' + esc(e.room || 'Home') + '</b> · ' + esc(ERR_LABEL[e.error_type] || 'Needs attention') + '<br>' + esc(e.description) + '<div class="act">To fix: ' + esc(e.required_action) + '</div><button type="button" class="ghost-btn" style="margin-top:0.4rem;padding:0.4rem 0.8rem" data-retake="' + i + '">Add photos for ' + esc(e.room || 'this room') + '</button></div>'; }).join('') +
+        (warns.length ? '<div class="warn-box"><strong>Also not photographed (won&rsquo;t block the report)</strong><br>' + warns.map(function(w) { return esc(w.space) + ': ' + esc(w.description); }).join('<br>') + '</div>' : '') +
+        '<button type="button" class="primary-btn" data-retake="0">Retake / Upload Missing Photos</button></div>';
+    }
+    $('auditPanel').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-retake]'); if (!b) return;
+      var er = auditErrors()[Number(b.getAttribute('data-retake'))] || auditErrors()[0]; if (!er) return;
+      state.focusRoom = er.room || state.rooms[0] || 'Other'; state.focusAction = er.required_action || er.description || '';
+      renderAll(); $('shotBox').scrollIntoView({ behavior: 'smooth' });
+    });
     var CAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
     function renderShotBox() {
+      renderShotBoxBase();
+      if (!state.focusRoom) return;
+      $('shotBox').innerHTML = '<div class="slot attn"><h3>' + esc(state.focusRoom) + ' — Retake / add photos</h3><p>' + esc(state.focusAction || 'Add the photo Tello asked for.') + '</p>' +
+        '<label class="drop" data-drop="extra">' + CAM_SVG + 'Take or choose a photo<small>Photos are checked again when you tap the check button.</small><input type="file" data-extra="1" data-room="' + esc(state.focusRoom) + '" accept="image/*" /></label></div>' + $('shotBox').innerHTML;
+    }
+    function renderShotBoxBase() {
       var box = $('shotBox'), slot = nextSlot();
       if (!slot) {
         if (!state.rooms.length) {
@@ -279,7 +360,7 @@
       b.disabled = true;
       api('/' + state.id + '/photos/' + b.getAttribute('data-del') + q(), { method: 'DELETE' }).then(function() {
         state.items = state.items.filter(function(i) { return String(i.id) !== b.getAttribute('data-del'); });
-        state.removed++; renderAll();
+        state.removed++; state.stale = true; renderAll();
       }).catch(function(err) { alert(err.message); b.disabled = false; });
     });
     // Sharpness check: a Laplacian-variance score on a small copy of the photo. The threshold is
@@ -322,7 +403,7 @@
         var extra = '&room=' + encodeURIComponent(room) + '&shot=' + shot + (forItem ? '&for_item=' + forItem : '');
         return api('/' + state.id + '/photos' + q(extra), { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
       }).then(function(r) {
-        state.items.push(r.item);
+        state.items.push(r.item); state.stale = true;
         if (r.item.repair_needed) alert('Tello flagged something in this photo: ' + (r.item.repair_item || 'repair needed') + '. A close-up of it is now required before the report can be sent.');
       }).catch(function(err) { alert(err.message); }).then(function() {
         uploading = false; busy.hidden = true; renderAll();
@@ -352,15 +433,30 @@
       uploadFromInput(input, e.dataTransfer.files[0]);
     });
 
-    // Step 3
+    // Step 3 — the AI photo check runs first. The report is only written once the check passes.
+    var STOP = new Error('stop');
     $('finishBtn').addEventListener('click', function() {
-      var btn = $('finishBtn'), msg = $('finishMsg'); msg.hidden = true; btn.disabled = true; btn.textContent = 'Writing your report...';
-      api('/' + state.id + '/finish' + q(), { method: 'POST' }).then(function() { return api('/' + state.id + q()); }).then(function(d) {
+      var btn = $('finishBtn'), msg = $('finishMsg'), label = 'Check photos and get my report'; msg.hidden = true; btn.disabled = true; btn.textContent = 'Tello is checking every photo...';
+      state.focusRoom = null; state.stale = false;
+      $('auditPanel').innerHTML = '<p class="busy">Checking your photos against the home&rsquo;s layout. This can take up to a minute.</p>';
+      api('/' + state.id + '/audit' + q(), { method: 'POST' }).then(function(r) {
+        state.audit = r.audit;
+        if (r.audit.result.status !== 'PASSED') { renderAll(); $('auditPanel').scrollIntoView({ behavior: 'smooth' }); throw STOP; }
+        state.audit = null; $('auditPanel').innerHTML = '';
+        btn.textContent = 'Writing your report...';
+        return api('/' + state.id + '/finish' + q(), { method: 'POST' });
+      }).then(function() { return api('/' + state.id + q()); }).then(function(d) {
         showReport(d);
         var note = document.createElement('p'); note.className = 'done no-print'; note.style.marginBottom = '1rem';
         note.textContent = 'Done. We emailed a copy of this report to you. Bookmark this page to come back to it.';
         $('report').insertBefore(note, $('report').children[1]);
-      }).catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my report'; });
+      }).catch(function(err) {
+        if (err !== STOP) {
+          if (err.data && err.data.audit) { state.audit = err.data.audit; renderAll(); }
+          else { $('auditPanel').innerHTML = ''; msg.textContent = err.message; msg.hidden = false; }
+        }
+        btn.textContent = label; renderItems();
+      });
     });
   })();
   </script>

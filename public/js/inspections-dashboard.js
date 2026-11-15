@@ -95,7 +95,7 @@
 
   // Remote inspections: the landlord sends a tenant a link. The rooms come from the property,
   // the tenant photographs them with the guided shot list, and the report goes to both.
-  var remoteProps = [], remoteListings = [];
+  var remoteProps = [], remoteListings = [], remoteRows = [];
   function roomsFor(beds, baths) {
     var out = ['Entry', 'Living room', 'Dining room', 'Kitchen', 'Hallway'], b = Math.max(0, Math.min(10, Number(beds) || 0)), a = Math.max(0, Math.min(10, Number(baths) || 0)), i;
     for (i = 1; i <= b; i++) out.push(i === 1 ? 'Primary bedroom' : 'Bedroom ' + i);
@@ -108,21 +108,37 @@
       return '<label style="display:flex;gap:0.4rem;align-items:center;font-weight:400"><input type="checkbox" name="rooms" value="' + esc(r) + '" checked /> ' + esc(r) + '</label>';
     }).join('');
   }
+  function renderBaselines() {
+    var f = document.getElementById('inspRemoteForm'), wrap = document.getElementById('inspBaselineWrap'), sel = f.elements.baseline_id;
+    var pid = Number(f.elements.property_id.value);
+    var opts = remoteRows.filter(function(r) { return r.type === 'move_in' && r.status === 'done' && r.property_id === pid; });
+    wrap.style.display = f.elements.type.value === 'move_out' ? 'block' : 'none';
+    sel.innerHTML = '<option value="">No comparison</option>' + opts.map(function(r) { return '<option value="' + r.id + '">Move-in finished ' + esc((r.finished_at || r.created_at || '').slice(0, 10)) + ' (' + esc(r.name) + ', ' + (r.photos || 0) + ' photos)</option>'; }).join('');
+    if (opts.length) sel.value = String(opts[0].id);
+  }
   function fillRemoteFromProperty() {
     var f = document.getElementById('inspRemoteForm');
     var pid = Number(f.elements.property_id.value);
     var p = remoteProps.filter(function(x) { return x.id === pid; })[0];
     if (p) { f.elements.tenant_name.value = p.tenant_name || ''; f.elements.tenant_email.value = p.tenant_email || ''; }
     var l = remoteListings.filter(function(x) { return x.property_id === pid; })[0];
-    if (l) { f.elements.bedrooms.value = l.bedrooms || 0; f.elements.bathrooms.value = l.full_baths || 0; }
+    if (l) { f.elements.bedrooms.value = l.bedrooms || 0; f.elements.bathrooms.value = l.full_baths || 0; f.elements.square_footage.value = l.square_feet || ''; }
+    // The property's own saved layout wins over the listing.
+    if (p) {
+      if (p.bedrooms) f.elements.bedrooms.value = p.bedrooms;
+      if (p.bathrooms) f.elements.bathrooms.value = p.bathrooms;
+      if (p.square_footage) f.elements.square_footage.value = p.square_footage;
+      if (p.property_type) f.elements.property_type.value = p.property_type;
+    }
+    renderBaselines();
     renderRemoteRooms();
   }
   document.getElementById('newRemoteBtn').addEventListener('click', function() {
     var f = document.getElementById('inspRemoteForm');
     f.reset(); document.getElementById('inspRemoteMsg').textContent = ''; document.getElementById('inspRemoteLink').style.display = 'none';
     renderRemoteRooms();
-    Promise.all([api('/properties'), api('/listings').catch(function() { return []; })]).then(function(res) {
-      remoteProps = res[0] || []; remoteListings = res[1] || [];
+    Promise.all([api('/inspections/remote').then(function(rows) { remoteRows = rows || []; }).catch(function() { remoteRows = []; }), api('/properties'), api('/listings').catch(function() { return []; })]).then(function(res) {
+      remoteProps = res[1] || []; remoteListings = res[2] || [];
       f.elements.property_id.innerHTML = remoteProps.length ? remoteProps.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address) + '</option>'; }).join('') : '<option value="">Add a property first</option>';
       fillRemoteFromProperty();
     });
@@ -131,6 +147,7 @@
   (function() {
     var f = document.getElementById('inspRemoteForm');
     f.elements.property_id.addEventListener('change', fillRemoteFromProperty);
+    f.elements.type.addEventListener('change', renderBaselines);
     f.elements.bedrooms.addEventListener('change', renderRemoteRooms);
     f.elements.bathrooms.addEventListener('change', renderRemoteRooms);
   })();
@@ -156,17 +173,38 @@
     var rb = document.getElementById('remoteBody');
     if (!rb || !token()) return;
     api('/inspections/remote').then(function(rows) {
+      remoteRows = rows;
       if (!rows.length) { rb.innerHTML = '<tr><td colspan="6" class="empty-state">No remote inspections sent yet. Click "Send remote inspection" to send one to a tenant.</td></tr>'; return; }
       rb.innerHTML = rows.map(function(r) {
-        var status = r.status === 'done' ? '<span class="badge badge-green">Done' + (r.overall ? ' — ' + esc(r.overall) : '') + '</span>' : '<span class="badge badge-yellow">Waiting for photos</span>';
-        return '<tr><td>' + esc(r.address) + '</td><td>' + esc(r.name) + '</td><td>' + esc(TYPES[r.type] || 'Inspection') + '</td><td>' + status + '</td><td>' + (r.photos || 0) + ' photos · ' + (r.rooms || 0) + ' rooms</td><td style="white-space:nowrap"><button class="btn btn-sm btn-secondary" data-copy-link="' + esc(r.link) + '">Copy link</button> <a class="btn btn-sm" href="' + esc(r.link) + '" target="_blank" rel="noopener">View report</a></td></tr>';
+        var status = r.status === 'done' ? '<span class="badge badge-green">Done' + (r.overall ? ' — ' + esc(r.overall) : '') + '</span>' + (r.overridden_at ? ' <span class="badge badge-red">Finished with override</span>' : '') : '<span class="badge badge-yellow">Waiting for photos</span>' + (r.audit_status === 'ERROR_INCOMPLETE_OR_SKIPPED' ? ' <span class="badge badge-red">Photo check: ' + (r.audit_errors || []).length + ' to fix</span>' : '');
+        var ovBtn = r.status !== 'done' && r.audit_status === 'ERROR_INCOMPLETE_OR_SKIPPED' ? ' <button class="btn btn-sm btn-secondary" data-override="' + r.id + '">Finish with override</button>' : '';
+        return '<tr><td>' + esc(r.address) + '</td><td>' + esc(r.name) + '</td><td>' + esc(TYPES[r.type] || 'Inspection') + '</td><td>' + status + '</td><td>' + (r.photos || 0) + ' photos · ' + (r.rooms || 0) + ' rooms</td><td style="white-space:nowrap"><button class="btn btn-sm btn-secondary" data-copy-link="' + esc(r.link) + '">Copy link</button>' + ovBtn + ' <a class="btn btn-sm" href="' + esc(r.link) + '" target="_blank" rel="noopener">View report</a></td></tr>';
       }).join('');
     }).catch(function(err) { rb.innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>'; });
   }
+  // Landlord override: only here, signed in. It is never offered on the tenant's link.
+  var overrideId = null;
   document.getElementById('remoteBody').addEventListener('click', function(e) {
+    var ob = e.target.closest('[data-override]');
+    if (ob) {
+      overrideId = Number(ob.getAttribute('data-override'));
+      var row = remoteRows.filter(function(r) { return r.id === overrideId; })[0] || {};
+      document.getElementById('inspOverrideErrors').innerHTML = (row.audit_errors || []).map(function(x) { return '<div style="margin-bottom:0.35rem"><strong>' + esc(x.room) + '</strong>: ' + esc(x.description) + '</div>'; }).join('') || 'No details saved.';
+      document.getElementById('inspOverrideNote').value = ''; document.getElementById('inspOverrideMsg').textContent = '';
+      document.getElementById('inspOverrideModal').classList.add('open');
+      return;
+    }
     var b = e.target.closest('[data-copy-link]'); if (!b) return;
     var link = b.getAttribute('data-copy-link');
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function() { b.textContent = 'Copied'; }).catch(function() {});
+  });
+
+  document.getElementById('inspOverrideGo').addEventListener('click', function() {
+    var btn = this, msg = document.getElementById('inspOverrideMsg'), note = document.getElementById('inspOverrideNote').value.trim();
+    msg.textContent = '';
+    if (note.length < 10) { msg.textContent = 'Add a short note (at least 10 characters) saying why.'; return; }
+    btn.disabled = true; btn.textContent = 'Finishing...';
+    api('/inspections/remote/' + overrideId + '/override', 'POST', { note: note }).then(function() { close('inspOverrideModal'); loadRemote(); }).catch(function(err) { msg.textContent = err.message; }).then(function() { btn.disabled = false; btn.textContent = 'Finish report with override'; });
   });
 
   // Shrink phone photos to 1600px JPEG before upload.

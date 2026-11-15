@@ -7,9 +7,10 @@
 import { aiText, clean, MODEL } from "./ai-assist";
 import { readPhoto, overallFrom, typeLabel } from "./inspections";
 import { textRun } from "./ai-text";
+import { auditForCurrentPhotos, latestAudit, photoSignature, AuditError } from "./inspection-audit";
 
 type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
-interface RemoteEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
+interface RemoteEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; ANTHROPIC_API_KEY?: string; ANTHROPIC_BASE_URL?: string; }
 interface RemoteRow { id: number; token: string; name: string; email: string; phone: string; role: string; address: string; type: string; notes: string; status: string; overall: string; summary: string; created_at: string; finished_at: string | null; }
 interface RemoteItem { id: number; inspection_id: number; room: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; created_at: string; shot: string | null; for_item_id: number | null; }
 
@@ -28,6 +29,18 @@ function parseRooms(v: unknown, other: unknown): string[] {
   const extra = String(other ?? "").split(",").map((s) => s.trim().slice(0, 60)).filter(Boolean);
   for (const s of extra) { if (!out.includes(s) && out.length < 12) out.push(s); }
   return out.slice(0, 12);
+}
+
+const PROPERTY_TYPES = ["house", "condo", "apartment", "townhouse", "duplex", "mobile_home", "other"];
+/** Layout facts the photo audit checks coverage against. Bounded so a typo can't ask for 900 bedrooms. */
+function parseSpec(b: Record<string, unknown>) {
+  const num = (v: unknown, max: number) => { const x = Number(v); return Number.isFinite(x) ? Math.max(0, Math.min(max, x)) : 0; };
+  const pt = str(b.property_type, 20).toLowerCase();
+  return { square_footage: Math.round(num(b.square_footage, 20000)), bedrooms: Math.round(num(b.bedrooms, 12)), bathrooms: Math.round(num(b.bathrooms, 12) * 2) / 2, property_type: PROPERTY_TYPES.includes(pt) ? pt : "" };
+}
+async function saveSpec(env: RemoteEnv, inspId: number, spec: ReturnType<typeof parseSpec>, baselineId: number | null) {
+  await env.DB.prepare("INSERT OR REPLACE INTO remote_inspection_specs (inspection_id, square_footage, bedrooms, bathrooms, property_type, baseline_id) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(inspId, spec.square_footage, spec.bedrooms, spec.bathrooms, spec.property_type, baselineId).run();
 }
 async function requiredRooms(env: RemoteEnv, inspId: number): Promise<string[]> {
   const r = await env.DB.prepare("SELECT room FROM remote_inspection_rooms WHERE inspection_id = ? ORDER BY rowid").bind(inspId).all<{ room: string }>();
@@ -84,10 +97,11 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
       .bind(token, name, email, phone, role, str(b.address, 200), type, str(b.notes, 1000), new Date().toISOString()).run();
     const id = r.meta.last_row_id as number;
     for (const room of rooms) await env.DB.prepare("INSERT OR IGNORE INTO remote_inspection_rooms (inspection_id, room) VALUES (?, ?)").bind(id, room).run();
+    await saveSpec(env, id, parseSpec(b), null);
     return json({ success: true, id, token, rooms });
   }
 
-  const m = path.match(/^\/api\/public\/ai-inspections\/(\d+)(\/finish|\/photos(?:\/(\d+))?)?$/);
+  const m = path.match(/^\/api\/public\/ai-inspections\/(\d+)(\/finish|\/audit|\/photos(?:\/(\d+))?)?$/);
   if (!m) return json({ error: "Not found" }, 404);
   const insp = await env.DB.prepare("SELECT * FROM remote_inspections WHERE id = ?").bind(parseInt(m[1])).first<RemoteRow>();
   if (!insp || !sameToken(url.searchParams.get("t") || "", insp.token)) return json({ error: "This report link isn't valid." }, 404);
@@ -96,7 +110,25 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
   if (!m[2] && request.method === "GET") {
     const rooms = await requiredRooms(env, insp.id);
     const removed = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
-    return json({ inspection: publicView(insp), items: (await items()).map(itemView), rooms, removed: removed ? removed.n : 0 });
+    const audit = await latestAudit(env, insp.id);
+    const sig = await photoSignature(env, insp.id);
+    const ov = await env.DB.prepare("SELECT note, errors, overridden_at FROM remote_inspection_overrides WHERE inspection_id = ?").bind(insp.id).first<{ note: string; errors: string; overridden_at: string }>();
+    return json({ inspection: publicView(insp), items: (await items()).map(itemView), rooms, removed: removed ? removed.n : 0,
+      audit: audit ? { id: audit.id, status: audit.status, created_at: audit.created_at, current: audit.signature === sig.signature, result: audit.result } : null,
+      override: ov ? { note: ov.note, overridden_at: ov.overridden_at, errors: safeJson(ov.errors) } : null });
+  }
+
+  // Strict AI photo audit: Claude checks every photo against the property layout. Fails closed.
+  if (m[2] === "/audit" && request.method === "POST") {
+    if (insp.status !== "open") return json({ error: "This report is already finished." }, 400);
+    if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
+    try {
+      const a = await auditForCurrentPhotos(env, insp);
+      return json({ success: true, audit: { id: a.id, status: a.status, created_at: a.created_at, current: true, result: a.result } });
+    } catch (err) {
+      if (err instanceof AuditError) return json({ error: err.message }, err.status);
+      throw err;
+    }
   }
 
   // Add one photo to a room: saved privately to R2, then read by the AI.
@@ -150,69 +182,80 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     }
   }
 
-  // Finish: overall rating, AI summary, lead for EC Rental, report link emailed to the requester.
+  // Finish: the AI photo audit must have passed for the current photos. Only the landlord's signed-in dashboard can override it (see handleLandlordRemote).
   if (m[2] === "/finish" && request.method === "POST") {
     if (insp.status !== "open") return json({ success: true, overall: insp.overall, summary: insp.summary });
     if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
-    const all = await items();
-    if (!all.length) return json({ error: "Add at least one photo first." }, 400);
+    if (!(await items()).length) return json({ error: "Add at least one photo first." }, 400);
     const missing = await missingShots(env, insp.id, await requiredRooms(env, insp.id));
     if (missing.length) return json({ error: "Still needed: " + missing.join("; ") + "." }, 400);
-    const overall = overallFrom(all);
-    const rooms = new Set(all.map((i) => i.room)).size;
-    const repairs = all.filter((i) => i.repair_needed);
-    let summary = `We reviewed ${all.length} photo${all.length === 1 ? "" : "s"} across ${rooms} area${rooms === 1 ? "" : "s"}. ${repairs.length} item${repairs.length === 1 ? "" : "s"} may need repair. Overall: ${overall}.`;
-    const notes = all.map((i) => `${i.room}: ${i.condition || "not rated"}${i.notes ? ", " + i.notes : ""}${i.repair_needed ? " (repair: " + (i.repair_item || "yes") + ")" : ""}`).join("\n");
-    try {
-      const out = await textRun(env, { messages: [
-        { role: "system", content: "You write short, plain, factual home condition summaries from photo notes. Only use the notes given. Don't describe people. This is an AI photo review, not a licensed home inspection, so don't claim anything the photos can't show." },
-        { role: "user", content: `Summarize this ${typeLabel(insp.type)} photo review for a ${ROLES[insp.role] || "reader"} in 2 to 4 sentences: the overall condition, the main issues by room, and what to look at first.\n\n${notes}` },
-      ], max_tokens: 300 } as never);
-      const text = clean(aiText(out));
-      if (text) summary = text.slice(0, 1500);
-    } catch (err) { console.error("[remote-inspection-summary]", err); }
-    const removedRow = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
-    const removedCount = removedRow ? removedRow.n : 0;
-    if (removedCount > 0) summary += `\n\nNote: ${removedCount} photo${removedCount === 1 ? "" : "s"} ${removedCount === 1 ? "was" : "were"} removed before this report was finished.`;
-
-    const now = new Date().toISOString();
-    await env.DB.prepare("UPDATE remote_inspections SET status = 'done', overall = ?, summary = ?, finished_at = ? WHERE id = ?").bind(overall, summary, now, insp.id).run();
-    const reportUrl = `https://${url.host}/tello-inspect?id=${insp.id}&t=${insp.token}`;
-    const details = { source: "ai_inspection", inspection_id: insp.id, role: insp.role, type: insp.type, address: insp.address, photos: all.length, repairs: repairs.length, overall, notes: insp.notes };
-    await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(insp.name, "", insp.email, insp.phone || "", "1", "ai_inspection", JSON.stringify(details), "pending", now).run();
-
-    if (notify) {
-      const repairLines = repairs.slice(0, 10).map((i) => `${i.room}: ${i.repair_item || "repair needed"}`);
-      const userText = [`Hi ${insp.name},`, "", `Your Tello Inspect report is ready. Overall: ${overall}.`, "", summary, "", ...(repairLines.length ? ["Items that may need repair:", ...repairLines.map((l) => "- " + l), ""] : []),
-        `See the full report with photos: ${reportUrl}`, "", "This is an AI review of your photos, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.", "", "EC Rental Property Management"].join("\n");
-      const userHtml = `<p>Hi ${esc(insp.name)},</p><p>Your Tello Inspect report is ready. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
-        (repairLines.length ? `<p><strong>Items that may need repair</strong><br>${repairLines.map(esc).join("<br>")}</p>` : "") +
-        `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of your photos, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.</p><p>EC Rental Property Management</p>`;
-      try { await notify(insp.email, "Your Tello Inspect report", userHtml, userText); } catch (err) { console.error("[remote-inspection] email requester", err); }
-      const lines = [`Name: ${insp.name}`, `Email: ${insp.email}`, `Phone: ${insp.phone || "not given"}`, `They are: ${ROLES[insp.role] || "Other"}`,
-        `Address: ${insp.address || "not given"}`, `Type: ${typeLabel(insp.type)}`, `Photos: ${all.length}, repairs flagged: ${repairs.length}, overall: ${overall}, photos removed: ${removedCount}`, ...(insp.notes ? [`Notes: ${insp.notes}`] : []), `Report: ${reportUrl}`];
-      try {
-        await notify(NOTIFY_TO, `Tello Inspect finished: ${insp.address || insp.name}`,
-          `<p>Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.</p><p>${lines.map(esc).join("<br>")}</p>`,
-          "Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.\n\n" + lines.join("\n"));
-      } catch (err) { console.error("[remote-inspection] email EC Rental", err); }
-      // If a landlord sent this inspection, the report goes to them too.
-      const owner = await env.DB.prepare("SELECT u.email FROM users u JOIN remote_inspection_owners o ON o.owner_user_id = u.id WHERE o.inspection_id = ?").bind(insp.id).first<{ email: string }>();
-      if (owner && owner.email && owner.email !== insp.email) {
-        try {
-          await notify(owner.email, `Tello Inspect finished: ${insp.address || insp.name}`,
-            `<p>Hi,</p><p>${esc(insp.name)} finished the ${esc(typeLabel(insp.type))} inspection for ${esc(insp.address || "your property")}. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
-            (repairLines.length ? `<p><strong>Items that may need repair</strong><br>${repairLines.map(esc).join("<br>")}</p>` : "") +
-            `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of the photos sent, not a licensed home inspection.</p><p>EC Rental Property Management</p>`,
-            `Hi,\n\n${insp.name} finished the ${typeLabel(insp.type)} inspection for ${insp.address || "your property"}. Overall: ${overall}.\n\n${summary}\n\nSee the full report with photos: ${reportUrl}\n\nThis is an AI review of the photos sent, not a licensed home inspection.\n\nEC Rental Property Management`);
-        } catch (err) { console.error("[remote-inspection] email owner", err); }
-      }
-    }
-    return json({ success: true, overall, summary, report_url: reportUrl, removed: removedCount });
+    let audit;
+    try { audit = await auditForCurrentPhotos(env, insp); } catch (err) { if (err instanceof AuditError) return json({ error: err.message }, err.status); throw err; }
+    if (audit.status !== "PASSED") return json({ error: "The photo check found items to fix before the report can be finished.", audit: { id: audit.id, status: audit.status, created_at: audit.created_at, current: true, result: audit.result } }, 409);
+    return json(await finishInspection(env, insp, url, notify, null));
   }
 
   return json({ error: "Not found" }, 404);
+}
+
+function safeJson(t: string): unknown { try { return JSON.parse(t); } catch { return null; } }
+
+/** Writes the summary, saves the lead, and emails the report. `override` is set only when the landlord finalized past an unresolved audit. */
+async function finishInspection(env: RemoteEnv, insp: RemoteRow, url: URL, notify: Notify | undefined, override: { note: string; at: string } | null): Promise<Record<string, unknown>> {
+  const all = (await env.DB.prepare("SELECT i.*, s.shot, s.for_item_id FROM remote_inspection_items i LEFT JOIN remote_inspection_shots s ON s.item_id = i.id WHERE i.inspection_id = ? ORDER BY i.id").bind(insp.id).all<RemoteItem>()).results;
+  const overall = overallFrom(all);
+  const rooms = new Set(all.map((i) => i.room)).size;
+  const repairs = all.filter((i) => i.repair_needed);
+  let summary = `We reviewed ${all.length} photo${all.length === 1 ? "" : "s"} across ${rooms} area${rooms === 1 ? "" : "s"}. ${repairs.length} item${repairs.length === 1 ? "" : "s"} may need repair. Overall: ${overall}.`;
+  const notes = all.map((i) => `${i.room}: ${i.condition || "not rated"}${i.notes ? ", " + i.notes : ""}${i.repair_needed ? " (repair: " + (i.repair_item || "yes") + ")" : ""}`).join("\n");
+  try {
+    const out = await textRun(env, { messages: [
+      { role: "system", content: "You write short, plain, factual home condition summaries from photo notes. Only use the notes given. Don't describe people. This is an AI photo review, not a licensed home inspection, so don't claim anything the photos can't show." },
+      { role: "user", content: `Summarize this ${typeLabel(insp.type)} photo review for a ${ROLES[insp.role] || "reader"} in 2 to 4 sentences: the overall condition, the main issues by room, and what to look at first.\n\n${notes}` },
+    ], max_tokens: 300 } as never);
+    const text = clean(aiText(out));
+    if (text) summary = text.slice(0, 1500);
+  } catch (err) { console.error("[remote-inspection-summary]", err); }
+  const removedRow = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_deleted WHERE inspection_id = ?").bind(insp.id).first<{ n: number }>();
+  const removedCount = removedRow ? removedRow.n : 0;
+  if (override) summary += `\n\nNote: the photo completeness check found items that were not resolved. The landlord finalized this report on ${override.at.slice(0, 10)} with an override. Landlord note: ${override.note}`;
+  if (removedCount > 0) summary += `\n\nNote: ${removedCount} photo${removedCount === 1 ? "" : "s"} ${removedCount === 1 ? "was" : "were"} removed before this report was finished.`;
+
+  const now = new Date().toISOString();
+  await env.DB.prepare("UPDATE remote_inspections SET status = 'done', overall = ?, summary = ?, finished_at = ? WHERE id = ?").bind(overall, summary, now, insp.id).run();
+  const reportUrl = `https://${url.host}/tello-inspect?id=${insp.id}&t=${insp.token}`;
+  const details = { source: "ai_inspection", inspection_id: insp.id, role: insp.role, type: insp.type, address: insp.address, photos: all.length, repairs: repairs.length, overall, notes: insp.notes };
+  await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(insp.name, "", insp.email, insp.phone || "", "1", "ai_inspection", JSON.stringify(details), "pending", now).run();
+
+  if (notify) {
+    const repairLines = repairs.slice(0, 10).map((i) => `${i.room}: ${i.repair_item || "repair needed"}`);
+    const userText = [`Hi ${insp.name},`, "", `Your Tello Inspect report is ready. Overall: ${overall}.`, "", summary, "", ...(repairLines.length ? ["Items that may need repair:", ...repairLines.map((l) => "- " + l), ""] : []),
+      `See the full report with photos: ${reportUrl}`, "", "This is an AI review of your photos, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.", "", "EC Rental Property Management"].join("\n");
+    const userHtml = `<p>Hi ${esc(insp.name)},</p><p>Your Tello Inspect report is ready. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
+      (repairLines.length ? `<p><strong>Items that may need repair</strong><br>${repairLines.map(esc).join("<br>")}</p>` : "") +
+      `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of your photos, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.</p><p>EC Rental Property Management</p>`;
+    try { await notify(insp.email, "Your Tello Inspect report", userHtml, userText); } catch (err) { console.error("[remote-inspection] email requester", err); }
+    const lines = [`Name: ${insp.name}`, `Email: ${insp.email}`, `Phone: ${insp.phone || "not given"}`, `They are: ${ROLES[insp.role] || "Other"}`,
+      `Address: ${insp.address || "not given"}`, `Type: ${typeLabel(insp.type)}`, `Photos: ${all.length}, repairs flagged: ${repairs.length}, overall: ${overall}, photos removed: ${removedCount}`, ...(insp.notes ? [`Notes: ${insp.notes}`] : []), `Report: ${reportUrl}`];
+    try {
+      await notify(NOTIFY_TO, `Tello Inspect finished: ${insp.address || insp.name}`,
+        `<p>Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.</p><p>${lines.map(esc).join("<br>")}</p>`,
+        "Someone ran Tello Inspect on ecrentalpm.com. They got the report by email. Follow up if they have questions.\n\n" + lines.join("\n"));
+    } catch (err) { console.error("[remote-inspection] email EC Rental", err); }
+    // If a landlord sent this inspection, the report goes to them too.
+    const owner = await env.DB.prepare("SELECT u.email FROM users u JOIN remote_inspection_owners o ON o.owner_user_id = u.id WHERE o.inspection_id = ?").bind(insp.id).first<{ email: string }>();
+    if (owner && owner.email && owner.email !== insp.email) {
+      try {
+        await notify(owner.email, `Tello Inspect finished: ${insp.address || insp.name}`,
+          `<p>Hi,</p><p>${esc(insp.name)} finished the ${esc(typeLabel(insp.type))} inspection for ${esc(insp.address || "your property")}. <strong>Overall: ${esc(overall)}</strong></p><p>${esc(summary)}</p>` +
+          (repairLines.length ? `<p><strong>Items that may need repair</strong><br>${repairLines.map(esc).join("<br>")}</p>` : "") +
+          `<p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of the photos sent, not a licensed home inspection.</p><p>EC Rental Property Management</p>`,
+          `Hi,\n\n${insp.name} finished the ${typeLabel(insp.type)} inspection for ${insp.address || "your property"}. Overall: ${overall}.\n\n${summary}\n\nSee the full report with photos: ${reportUrl}\n\nThis is an AI review of the photos sent, not a licensed home inspection.\n\nEC Rental Property Management`);
+      } catch (err) { console.error("[remote-inspection] email owner", err); }
+    }
+  }
+  return { success: true, overall, summary, report_url: reportUrl, removed: removedCount };
 }
 
 interface LandlordUser { id: number; name: string; email: string; }
@@ -220,11 +263,32 @@ interface LandlordUser { id: number; name: string; email: string; }
 /** Landlord-sent remote inspections: the landlord picks a property and a tenant, the rooms come from the property, and the tenant gets a link to photograph them. */
 export async function handleLandlordRemote(request: Request, env: RemoteEnv, url: URL, user: LandlordUser, notify?: Notify): Promise<Response | null> {
   const path = url.pathname;
-  if (path !== "/api/inspections/remote") return null;
+  const ov = path.match(/^\/api\/inspections\/remote\/(\d+)\/override$/);
+  if (path !== "/api/inspections/remote" && !ov) return null;
+
+  // Landlord override: only the signed-in landlord who sent the inspection can finalize past an unresolved photo audit. It is never offered on the tenant's link.
+  if (ov && request.method === "POST") {
+    const owned = await env.DB.prepare("SELECT r.* FROM remote_inspections r JOIN remote_inspection_owners o ON o.inspection_id = r.id WHERE r.id = ? AND o.owner_user_id = ?").bind(parseInt(ov[1]), user.id).first<RemoteRow>();
+    if (!owned) return json({ error: "Inspection not found." }, 404);
+    if (owned.status !== "open") return json({ error: "This report is already finished." }, 400);
+    const b = await request.json() as Record<string, unknown>;
+    const note = str(b.note, 600);
+    if (note.length < 10) return json({ error: "Add a short note (at least 10 characters) saying why you are finishing without the missing photos." }, 400);
+    const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM remote_inspection_items WHERE inspection_id = ?").bind(owned.id).first<{ n: number }>();
+    if (!cnt || !cnt.n) return json({ error: "There are no photos yet, so there is nothing to finish." }, 400);
+    let audit;
+    try { audit = await auditForCurrentPhotos(env, owned); } catch (err) { if (err instanceof AuditError) return json({ error: err.message }, err.status); throw err; }
+    const now = new Date().toISOString();
+    if (audit.status !== "PASSED") {
+      await env.DB.prepare("INSERT OR REPLACE INTO remote_inspection_overrides (inspection_id, owner_user_id, note, errors, audit_id, overridden_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(owned.id, user.id, note, JSON.stringify(audit.result.validation_errors), audit.id, now).run();
+    }
+    return json(await finishInspection(env, owned, url, notify, audit.status !== "PASSED" ? { note, at: now } : null));
+  }
 
   if (request.method === "GET") {
-    const rows = (await env.DB.prepare("SELECT r.*, o.property_id, (SELECT COUNT(*) FROM remote_inspection_rooms WHERE inspection_id = r.id) AS rooms, (SELECT COUNT(*) FROM remote_inspection_items WHERE inspection_id = r.id) AS photos FROM remote_inspections r JOIN remote_inspection_owners o ON o.inspection_id = r.id WHERE o.owner_user_id = ? ORDER BY r.created_at DESC").bind(user.id).all()).results as Array<RemoteRow & { property_id: number; rooms: number; photos: number }>;
-    return json(rows.map((r) => ({ id: r.id, property_id: r.property_id, name: r.name, email: r.email, address: r.address, type: r.type, status: r.status, overall: r.overall, photos: r.photos, rooms: r.rooms, created_at: r.created_at, finished_at: r.finished_at, link: `https://${url.host}/tello-inspect?id=${r.id}&t=${r.token}` })));
+    const rows = (await env.DB.prepare("SELECT r.*, o.property_id, (SELECT COUNT(*) FROM remote_inspection_rooms WHERE inspection_id = r.id) AS rooms, (SELECT COUNT(*) FROM remote_inspection_items WHERE inspection_id = r.id) AS photos, (SELECT status FROM remote_inspection_audits WHERE inspection_id = r.id ORDER BY id DESC LIMIT 1) AS audit_status, (SELECT result FROM remote_inspection_audits WHERE inspection_id = r.id ORDER BY id DESC LIMIT 1) AS audit_result, (SELECT overridden_at FROM remote_inspection_overrides WHERE inspection_id = r.id) AS overridden_at FROM remote_inspections r JOIN remote_inspection_owners o ON o.inspection_id = r.id WHERE o.owner_user_id = ? ORDER BY r.created_at DESC").bind(user.id).all()).results as Array<RemoteRow & { property_id: number; rooms: number; photos: number; audit_status: string | null; audit_result: string | null; overridden_at: string | null }>;
+    return json(rows.map((r) => ({ id: r.id, property_id: r.property_id, name: r.name, email: r.email, address: r.address, type: r.type, status: r.status, overall: r.overall, photos: r.photos, rooms: r.rooms, audit_status: r.audit_status || "", audit_errors: ((r.audit_result ? (safeJson(r.audit_result) as { validation_errors?: unknown[] } | null) : null)?.validation_errors || []).slice(0, 20), overridden_at: r.overridden_at || "", created_at: r.created_at, finished_at: r.finished_at, link: `https://${url.host}/tello-inspect?id=${r.id}&t=${r.token}` })));
   }
 
   if (request.method === "POST") {
@@ -238,6 +302,14 @@ export async function handleLandlordRemote(request: Request, env: RemoteEnv, url
     const type = TYPES.includes(str(b.type, 20)) ? str(b.type, 20) : "routine";
     const rooms = parseRooms(b.rooms, b.otherRooms);
     if (!rooms.length) return json({ error: "Pick at least one room to inspect." }, 400);
+    // A Move-Out can be compared with a finished Move-In this landlord sent for the same property.
+    let baselineId: number | null = null;
+    if (type === "move_out" && b.baseline_id) {
+      const base = await env.DB.prepare("SELECT r.id FROM remote_inspections r JOIN remote_inspection_owners o ON o.inspection_id = r.id WHERE r.id = ? AND o.owner_user_id = ? AND o.property_id = ? AND r.type = 'move_in' AND r.status = 'done'").bind(parseInt(String(b.baseline_id)), user.id, propId).first<{ id: number }>();
+      if (!base) return json({ error: "That Move-In inspection isn't a finished Move-In for this property." }, 400);
+      baselineId = base.id;
+    }
+    const spec = parseSpec(b);
     const token = newToken();
     const now = new Date().toISOString();
     const r = await env.DB.prepare("INSERT INTO remote_inspections (token, name, email, phone, role, address, type, notes, status, created_at) VALUES (?, ?, ?, ?, 'tenant', ?, ?, '', 'open', ?)")
@@ -245,6 +317,9 @@ export async function handleLandlordRemote(request: Request, env: RemoteEnv, url
     const id = r.meta.last_row_id as number;
     for (const room of rooms) await env.DB.prepare("INSERT OR IGNORE INTO remote_inspection_rooms (inspection_id, room) VALUES (?, ?)").bind(id, room).run();
     await env.DB.prepare("INSERT INTO remote_inspection_owners (inspection_id, owner_user_id, property_id) VALUES (?, ?, ?)").bind(id, user.id, propId).run();
+    await saveSpec(env, id, spec, baselineId);
+    // Remember the layout on the property so the next inspection is pre-filled. Best effort: needs migrations/2026-11-14_property_specs.sql.
+    try { await env.DB.prepare("UPDATE properties SET square_footage = ?, bedrooms = ?, bathrooms = ?, property_type = ? WHERE id = ? AND user_id = ?").bind(spec.square_footage, spec.bedrooms, spec.bathrooms, spec.property_type, propId, user.id).run(); } catch (err) { console.error("[remote-inspection] property specs", err); }
     const link = `https://${url.host}/tello-inspect?id=${id}&t=${token}`;
     if (notify) {
       const subject = `${typeLabel(type)} inspection for ${prop.address}`;

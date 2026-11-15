@@ -487,7 +487,7 @@ export default {
     if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
-    if (user && url.pathname === "/api/inspections/remote") { try { const res = await handleLandlordRemote(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("remote-inspection", err); } }
+    if (user && (url.pathname === "/api/inspections/remote" || /^\/api\/inspections\/remote\/\d+\/override$/.test(url.pathname))) { try { const res = await handleLandlordRemote(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("remote-inspection", err); } }
     if (url.pathname.startsWith("/api/inspections")) { try { const res = await handleInspectionRoutes(request, env, url, user!); if (res) return res; } catch (err) { return dbErrorResponse("inspections", err); } }
 
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
@@ -509,4 +509,4 @@ export default {
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; ANTHROPIC_API_KEY?: string; }
