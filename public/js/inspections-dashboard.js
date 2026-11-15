@@ -25,7 +25,7 @@
   // the D1 migrations run and pastes the URLs here. While a slot is empty, its button
   // renders disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
   var ECPM_UPGRADE_URL = 'https://buy.stripe.com/dRmdR31eb8i477a2SF8Ra03';
-  var STRIPE_LINK_CREDITS_10 = 'https://buy.stripe.com/28EeV73mj7e0fDG2SF8Ra02';
+  var STRIPE_LINK_CREDITS_10 = 'https://buy.stripe.com/6oU7sF5ureGs4Z28cZ8Ra04';
   var STRIPE_LINK_CREDITS_50 = 'https://buy.stripe.com/bJe8wJ9KH55Sajmbpb8Ra01';
   var list = [], current = null, imageUrls = {};
   var newProps = [];
