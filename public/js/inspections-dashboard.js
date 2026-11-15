@@ -26,7 +26,7 @@
   // renders disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
   var ECPM_UPGRADE_URL = '';
   var STRIPE_LINK_CREDITS_10 = '';
-  var STRIPE_LINK_CREDITS_50 = '';
+  var STRIPE_LINK_CREDITS_50 = 'https://buy.stripe.com/bJe8wJ9KH55Sajmbpb8Ra01';
   var list = [], current = null, imageUrls = {};
   var newProps = [];
   var recorder = null, voiceChunks = [], voiceBtn = null, voiceMsg = null, voiceItemId = null;
