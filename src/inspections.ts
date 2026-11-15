@@ -10,7 +10,7 @@ import { textRun } from "./ai-text";
 import { handleInspectionAuditRoutes, assertFinalizable } from "./inspection-audit-routes";
 
 interface InspectionEnv { AI: Ai; DB: D1Database; PHOTOS?: R2Bucket; }
-interface InspectionRow { id: number; property_id: number; inspector_name: string; inspection_date: string; overall_condition: string; summary: string; status: string; created_at: string; property_address: string; }
+interface InspectionRow { id: number; property_id: number; inspector_name: string; inspection_date: string; overall_condition: string; summary: string; status: string; created_at: string; property_address: string; organization_id?: number | null; }
 interface ItemRow { id: number; inspection_id: number; room_area: string; r2_key: string; condition: string; notes: string; repair_needed: number; repair_item: string; maintenance_id: number | null; created_at: string; }
 interface DetailsRow { inspection_id: number; type: string; compare_to: number | null; comparison: string; }
 interface ReportRow { inspection_id: number; report_text: string; status: string; signed_at: string; signed_by: string; }
@@ -116,7 +116,18 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
       if (!c) return json({ error: "The move-in inspection to compare with must be a completed move-in for the same property." }, 400);
       compareTo = c.id;
     }
-    const r = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at, selected_rooms) VALUES (?, ?, ?, '', '', 'in_progress', ?, ?)").bind(propertyId, str(b.inspector_name, 100), date, now, JSON.stringify(selectedRooms)).run();
+    // Snapshot (migration 0002): the property metadata in effect at create time (the
+    // save-back above has already applied any start-form edits to properties, so reading
+    // the property row back gives the exact values this inspection was started with),
+    // the baseline id, and the partner organization when the caller named one of their
+    // own organizations. An organization id that isn't the user's is ignored, never stored.
+    let organizationId: number | null = null;
+    if (b.organization_id !== undefined && Number.isFinite(Number(b.organization_id))) {
+      const org = await env.DB.prepare("SELECT id FROM organizations WHERE id = ? AND owner_user_id = ?").bind(Math.floor(Number(b.organization_id)), user.id).first<{ id: number }>();
+      if (org) organizationId = org.id;
+    }
+    const snap = await env.DB.prepare("SELECT square_footage, bedrooms, bathrooms, property_type FROM properties WHERE id = ?").bind(propertyId).first<{ square_footage: number | null; bedrooms: number | null; bathrooms: number | null; property_type: string | null }>();
+    const r = await env.DB.prepare("INSERT INTO inspections (property_id, inspector_name, inspection_date, overall_condition, summary, status, created_at, selected_rooms, organization_id, property_sqft, bedrooms, bathrooms, property_type, baseline_inspection_id) VALUES (?, ?, ?, '', '', 'in_progress', ?, ?, ?, ?, ?, ?, ?, ?)").bind(propertyId, str(b.inspector_name, 100), date, now, JSON.stringify(selectedRooms), organizationId, snap?.square_footage ?? null, snap?.bedrooms ?? null, snap?.bathrooms ?? null, snap?.property_type ?? null, compareTo).run();
     const id = r.meta.last_row_id;
     await env.DB.prepare("INSERT INTO inspection_details (inspection_id, type, compare_to, comparison) VALUES (?, ?, ?, '')").bind(id, type, compareTo).run();
     return json({ success: true, id });
@@ -137,7 +148,10 @@ export async function handleInspectionRoutes(request: Request, env: InspectionEn
     try { comparison = details?.comparison ? JSON.parse(details.comparison) : []; } catch { comparison = []; }
     const compareInfo = details?.compare_to ? await env.DB.prepare("SELECT id, inspection_date FROM inspections WHERE id = ?").bind(details.compare_to).first() : null;
     const report = await loadReport(env, insp.id);
-    return json({ inspection: { ...insp, type, compare_to: details?.compare_to ?? null }, compare_inspection: compareInfo, items: await items(), comparison, photos: legacy.results, report: report ? { text: report.report_text, status: report.status, signed_at: report.signed_at, signed_by: report.signed_by } : null });
+    // Partner branding for the printable report view (public/inspection-report.html):
+    // public brand fields only, present when the inspection belongs to an organization.
+    const organization = insp.organization_id ? await env.DB.prepare("SELECT slug, brand_name, brand_logo_url, primary_color, support_email FROM organizations WHERE id = ?").bind(insp.organization_id).first() : null;
+    return json({ inspection: { ...insp, type, compare_to: details?.compare_to ?? null }, compare_inspection: compareInfo, items: await items(), comparison, photos: legacy.results, report: report ? { text: report.report_text, status: report.status, signed_at: report.signed_at, signed_by: report.signed_by } : null, organization });
   }
 
   if (rest === "" && request.method === "DELETE") {
