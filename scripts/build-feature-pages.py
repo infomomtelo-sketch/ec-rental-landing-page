@@ -184,11 +184,11 @@ PAGES = {
        ("Can I try it without an account?", "Yes. Tello Inspect at ecrentalpm.com/tello-inspect is a free remote AI home inspection for landlords, homeowners, buyers and tenants. Send photos from your phone, no app needed, and get a condition report by email. It is not a licensed home inspection."),
        ("Can tenants see the photos?", "Inspection photos are private to the landlord's account and the printed report."),
        ("Is the AI always right?", "No. It drafts notes from the photos; you review and correct every one."),
-       ("What does it cost?", "Your first inspection is free. After that, buy inspection credits: 10 inspections for $19 or 50 for $75, both one-time. Buy them from the 'Need more inspections?' section below, or from your Inspections dashboard once you are signed in.")],
+       ("What does it cost?", "Your first inspection is free. Solo Landlord includes 1 inspection credit a month. Need more? Buy inspection credits: 10 inspections for $19 or 50 for $75, both one-time. Buy them from the 'Need more inspections?' section below, or from your Inspections dashboard once you are signed in.")],
   extra="""<section class="band alt"><div class="wrap">
       <div class="kicker">Need more inspections?</div>
       <h2 class="title">Buy inspection credits.</h2>
-      <p class="sub">Your first inspection is free. One credit covers one completed inspection, including the room-by-room report and the move-out comparison.</p>
+      <p class="sub">Your first inspection is free, and Solo Landlord includes 1 inspection credit a month. One credit covers one completed inspection, including the room-by-room report and the move-out comparison.</p>
       <div class="cta-row"><a class="btn btn-gold" href="https://buy.stripe.com/6oU7sF5ureGs4Z28cZ8Ra04">10 inspections — $19 one-time</a><a class="btn btn-ghost" href="https://buy.stripe.com/fZu7sFe0X9m877a0Kx8Ra05">50 inspections — $75 one-time</a></div>
       <p class="sub" style="margin-top:1rem">Check out with your EC Rental account email, so the credits land on the right account. Already signed in? You can also buy credits from your Inspections dashboard. First time here? <a href="/tello-inspect">Try Tello Inspect free</a> — no account needed.</p>
     </div></section>""",
