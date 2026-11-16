@@ -183,7 +183,15 @@ PAGES = {
   faq=[("Who does the inspection?", "You do, from your phone. Tello reads the photos and drafts the notes, and you review and correct them. It is not a licensed home inspection."),
        ("Can I try it without an account?", "Yes. Tello Inspect at ecrentalpm.com/tello-inspect is a free remote AI home inspection for landlords, homeowners, buyers and tenants. Send photos from your phone, no app needed, and get a condition report by email. It is not a licensed home inspection."),
        ("Can tenants see the photos?", "Inspection photos are private to the landlord's account and the printed report."),
-       ("Is the AI always right?", "No. It drafts notes from the photos; you review and correct every one.")],
+       ("Is the AI always right?", "No. It drafts notes from the photos; you review and correct every one."),
+       ("What does it cost?", "Your first inspection is free. After that, buy inspection credits: 10 inspections for $19 or 50 for $75, both one-time. Buy them from the 'Need more inspections?' section below, or from your Inspections dashboard once you are signed in.")],
+  extra="""<section class="band alt"><div class="wrap">
+      <div class="kicker">Need more inspections?</div>
+      <h2 class="title">Buy inspection credits.</h2>
+      <p class="sub">Your first inspection is free. One credit covers one completed inspection, including the room-by-room report and the move-out comparison.</p>
+      <div class="cta-row"><a class="btn btn-gold" href="https://buy.stripe.com/6oU7sF5ureGs4Z28cZ8Ra04">10 inspections — $19 one-time</a><a class="btn btn-ghost" href="https://buy.stripe.com/fZu7sFe0X9m877a0Kx8Ra05">50 inspections — $75 one-time</a></div>
+      <p class="sub" style="margin-top:1rem">Check out with your EC Rental account email, so the credits land on the right account. Already signed in? You can also buy credits from your Inspections dashboard. First time here? <a href="/tello-inspect">Try Tello Inspect free</a> — no account needed.</p>
+    </div></section>""",
  ),
  "maintenance": dict(
   title="Rental maintenance requests, handled fast | EC Rental",
@@ -359,6 +367,7 @@ def page(slug, p):
     else:
         right = f'<div class="mock"><div class="mock-bar"><i></i><i></i><i></i><span>ecrentalpm.com</span></div><div class="screen">{p["mock"]}</div></div>'
     faq = "".join(f"<details><summary>{esc(q)}</summary><p>{esc(a)}</p></details>" for q, a in p["faq"])
+    extra = p.get("extra", "")
     more = "".join(f'<a href="/features/{s}"><span>{icon(i)}</span>{esc(l)}</a>' for s, l, i in NAV if s != slug)
     ld = {"@context": "https://schema.org", "@type": "WebPage", "name": p["title"], "description": p["desc"], "url": url,
           "isPartOf": {"@type": "WebSite", "name": "EC Rental Property Management", "url": SITE},
@@ -406,7 +415,7 @@ def page(slug, p):
       <h2 class="title">Good to know.</h2>
       <div class="faq">{faq}</div>
     </div></section>
-
+{extra}
     <section class="band" style="padding-top:0"><div class="wrap">
       <div class="ctaband"><h2>Run your rentals <span class="grad">the modern way.</span></h2><p>Listings, applications, inspections, repairs, documents and reports, with Tello built into all of it. Launch offer: 3 months for $3 on Solo Landlord for sign ups through December 31, then $29/month. Your own business landing page is included.</p>
       <div class="cta-row"><a class="btn btn-gold" href="/#subscribe">Start for $3</a><a class="btn btn-ghost" href="/rent-review">Free rent review</a></div></div>
