@@ -64,6 +64,12 @@
     .reading .scan i { display: block; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), #c9a227); animation: telloScan 1.4s ease-in-out infinite; }
     @keyframes telloScan { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
     .reading .r-note { color: var(--gray); font-size: 0.85rem; margin-top: 0.6rem; }
+    .feed { margin: 0.75rem 0; }
+    .feed-line { display: flex; gap: 0.6rem; align-items: flex-start; background: var(--white); border-radius: 10px; box-shadow: var(--shadow); padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; font-size: 0.92rem; }
+    .feed-line .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #c9a227; margin-top: 0.35rem; }
+    .feed-line.flag { border-left: 3px solid #9b2c1c; }
+    .feed-line.flag .dot { background: #9b2c1c; }
+    .feed-line a { color: var(--primary); font-weight: 700; }
     .summary { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1rem; }
     .summary h2 { margin: 0 0 0.25rem; color: var(--primary); }
     .overall { font-size: 1.2rem; font-weight: 800; }
@@ -136,6 +142,7 @@
     <section id="photosStep" hidden>
       <div class="app-form"><fieldset>
         <legend>Add photos room by room</legend>
+        <div id="telloFeed" class="feed"><div class="feed-line"><span class="dot"></span><span>Hi, I'm Tello — I'll read each photo as you take it, and tell you what I see.</span></div></div>
         <div id="checklist"></div>
         <div id="shotBox"></div>
         <p id="busy" class="busy" hidden></p>
@@ -380,6 +387,15 @@
         img.src = url;
       });
     }
+    // Tello talks while you photograph: one line per photo, in her voice.
+    function telloSay(text, flag) {
+      var feed = $('telloFeed'); if (!feed) return;
+      var line = document.createElement('div'); line.className = 'feed-line' + (flag ? ' flag' : '');
+      var dot = document.createElement('span'); dot.className = 'dot'; line.appendChild(dot);
+      var span = document.createElement('span'); span.textContent = text; line.appendChild(span);
+      feed.appendChild(line);
+      while (feed.children.length > 8) feed.removeChild(feed.children[1]);
+    }
     var uploading = false;
     function uploadOne(file, room, shot, forItem) {
       if (!file || uploading) return;
@@ -392,7 +408,9 @@
         return api('/' + state.id + '/photos' + q(extra), { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
       }).then(function(r) {
         state.items.push(r.item);
-        if (r.item.repair_needed) alert('Tello flagged something in this photo: ' + (r.item.repair_item || 'repair needed') + '. A close-up of it is now required before the report can be sent.');
+        var it = r.item;
+        if (it.repair_needed) telloSay('I spotted something in this photo: ' + (it.repair_item || 'repair needed') + '. A close-up of it is now required before the report can be sent.', true);
+        else { var msg = room + ' \u2014 ' + (it.condition || 'looked over'); if (it.notes) msg += '. ' + it.notes; telloSay(msg); }
       }).catch(function(err) { alert(err.message); }).then(function() {
         uploading = false; busy.hidden = true; renderAll();
       });
@@ -433,8 +451,11 @@
         if (d.organization) applyBranding(d.organization);
         showReport(d);
         var note = document.createElement('p'); note.className = 'done no-print'; note.style.marginBottom = '1rem';
-        note.textContent = 'Done. We emailed a copy of this report to you. Bookmark this page to come back to it.';
+        note.textContent = 'Done. We emailed a copy of this report to you. Bookmark this page to come back to it. Landlords: EC Rental Solo includes 1 inspection credit a month.';
         $('report').insertBefore(note, $('report').children[1]);
+        var promo = document.createElement('div'); promo.className = 'feed-line no-print'; promo.style.marginBottom = '1rem';
+        promo.innerHTML = '<span class="dot"></span><span>Your report is ready. Want me on your website too, talking to your customers? That is Tello Live \u2014 an optional add-on. <a href="https://tello.live">Try it free at tello.live</a>.</span>';
+        $('report').insertBefore(promo, note.nextSibling);
       }).catch(function(err) { clearInterval(timer); reading.hidden = true; msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my report'; });
     });
   })();
