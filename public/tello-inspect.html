@@ -54,7 +54,16 @@
     .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; text-transform: capitalize; }
     .b-good { background: #e7f5ec; color: #166534; } .b-fair { background: #fdf3d7; color: #8a6510; } .b-poor, .b-damaged { background: #fde8e4; color: #9b2c1c; } .b-none { background: #eef0f2; color: #4b5563; }
     .repair { color: #9b2c1c; font-weight: 600; }
-    .busy { color: var(--gray); font-size: 0.9rem; }
+    .busy { display: flex; align-items: center; gap: 0.5rem; color: var(--gray); font-size: 0.9rem; }
+    .busy::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #c9a227; animation: telloPulse 1.1s ease-in-out infinite; }
+    @keyframes telloPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.45; } }
+    .reading { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; margin-top: 1rem; }
+    .reading .r-top { display: flex; align-items: center; gap: 0.7rem; font-weight: 700; color: var(--primary); }
+    .reading .orb { width: 14px; height: 14px; border-radius: 50%; background: #c9a227; animation: telloPulse 1.1s ease-in-out infinite; flex: none; }
+    .reading .scan { height: 6px; border-radius: 999px; background: #eef0f2; overflow: hidden; margin-top: 0.8rem; }
+    .reading .scan i { display: block; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), #c9a227); animation: telloScan 1.4s ease-in-out infinite; }
+    @keyframes telloScan { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+    .reading .r-note { color: var(--gray); font-size: 0.85rem; margin-top: 0.6rem; }
     .summary { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1rem; }
     .summary h2 { margin: 0 0 0.25rem; color: var(--primary); }
     .overall { font-size: 1.2rem; font-weight: 800; }
@@ -135,6 +144,11 @@
       <button class="primary-btn" type="button" id="finishBtn" disabled>Get my report</button>
       <p id="todoMsg" class="muted small" style="margin-top:0.5rem" hidden></p>
       <p id="finishMsg" class="err" style="margin-top:0.75rem" hidden></p>
+      <div id="reading" class="reading" hidden>
+        <div class="r-top"><span class="orb"></span><span id="readingText">Reading your photos...</span></div>
+        <div class="scan"><i></i></div>
+        <p class="r-note">Tello is reading every photo and writing your condition report. Please keep this page open.</p>
+      </div>
     </section>
 
     <section id="report" hidden></section>
@@ -410,13 +424,18 @@
     // Step 3
     $('finishBtn').addEventListener('click', function() {
       var btn = $('finishBtn'), msg = $('finishMsg'); msg.hidden = true; btn.disabled = true; btn.textContent = 'Writing your report...';
+      var reading = $('reading'); reading.hidden = false;
+      var steps = ['Reading your photos...', 'Checking every room for repairs...', 'Writing your report...'];
+      var i = 0; $('readingText').textContent = steps[0];
+      var timer = setInterval(function() { i = (i + 1) % steps.length; $('readingText').textContent = steps[i]; }, 2500);
       api('/' + state.id + '/finish' + q(), { method: 'POST' }).then(function() { return api('/' + state.id + q()); }).then(function(d) {
+        clearInterval(timer); reading.hidden = true;
         if (d.organization) applyBranding(d.organization);
         showReport(d);
         var note = document.createElement('p'); note.className = 'done no-print'; note.style.marginBottom = '1rem';
         note.textContent = 'Done. We emailed a copy of this report to you. Bookmark this page to come back to it.';
         $('report').insertBefore(note, $('report').children[1]);
-      }).catch(function(err) { msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my report'; });
+      }).catch(function(err) { clearInterval(timer); reading.hidden = true; msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my report'; });
     });
   })();
   </script>
