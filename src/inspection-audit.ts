@@ -63,6 +63,8 @@ export interface PhotoManifestEntry {
   room: string;
   angle?: string;
   set?: string;
+  /** Shot-list category (e.g. "cabinets", "floor") when the upload flow supplies one. */
+  category?: string;
 }
 
 export interface ValidationError {
@@ -124,6 +126,8 @@ export interface AiValidationError {
 
 export interface MoveOutComparisonEntry {
   room: string;
+  /** Shot-list category when the comparison was made per category. */
+  category?: string;
   item_or_surface: string;
   move_in_state: string;
   move_out_state: string;
@@ -140,11 +144,25 @@ export interface PriorityRepair {
 
 export interface RoomReportEntry {
   room_name: string;
+  /** Shot-list category when the report was written per category. */
+  category?: string;
+  /** The photographer's own comment for this room/category. */
+  human_comment?: string;
   overall_condition: string;
   walls_and_paint: string;
   flooring: string;
   ceiling_and_fixtures: string;
   move_in_comparison_notes: string;
+}
+
+/** One box of the report: a room + category with its findings, the human comment, and its photos. */
+export interface CategoryReportEntry {
+  room: string;
+  category: string;
+  overall_condition: string;
+  human_comment: string;
+  findings: string[];
+  photo_ids: (string | number)[];
 }
 
 export interface AiAuditResult {
@@ -166,6 +184,8 @@ export interface MergedAudit {
   move_out_comparison: MoveOutComparisonEntry[];
   priority_repairs: PriorityRepair[];
   room_by_room_report: RoomReportEntry[];
+  /** The same report grouped into one box per room + category. */
+  category_report: CategoryReportEntry[];
   disclaimer: string;
   photo_set_hash: string;
   audited_at: string;
@@ -518,6 +538,32 @@ export async function photoSetHash(manifest: PhotoManifestEntry[], baselineManif
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * One box per room + category: group the room-by-room report and the photo
+ * manifest by room + category. Dashboard photos carry no category yet, so
+ * their boxes group by room (category "") — the shape is ready for
+ * per-category data when the upload flow supplies it.
+ */
+export function groupReportByCategory(roomReport: RoomReportEntry[], manifest: PhotoManifestEntry[]): CategoryReportEntry[] {
+  const boxes = new Map<string, CategoryReportEntry>();
+  const keyOf = (room: string, category: string) => room + "||" + (category || "");
+  for (const r of roomReport || []) {
+    const k = keyOf(r.room_name, r.category || "");
+    if (!boxes.has(k)) boxes.set(k, { room: r.room_name, category: r.category || "", overall_condition: r.overall_condition || "", human_comment: r.human_comment || "", findings: [], photo_ids: [] });
+    const box = boxes.get(k)!;
+    for (const f of [r.walls_and_paint, r.flooring, r.ceiling_and_fixtures, r.move_in_comparison_notes]) {
+      if (f && f.trim()) box.findings.push(f);
+    }
+    if (r.human_comment && !box.human_comment) box.human_comment = r.human_comment;
+  }
+  for (const p of manifest || []) {
+    const k = keyOf(p.room, p.category || "");
+    if (!boxes.has(k)) boxes.set(k, { room: p.room, category: p.category || "", overall_condition: "", human_comment: "", findings: [], photo_ids: [] });
+    boxes.get(k)!.photo_ids.push(p.photo_id);
+  }
+  return [...boxes.values()];
+}
+
 /** Merge code + AI results into the final gate state (the stored audit). */
 export async function mergeAudit({ meta, codeErrors, codeWarnings, aiResult, manifest, baselineManifest = [], baselineProvided = false }: MergeAuditArgs): Promise<MergedAudit> {
   const errors: ValidationError[] = [...(codeErrors || [])];
@@ -575,6 +621,7 @@ export async function mergeAudit({ meta, codeErrors, codeWarnings, aiResult, man
     move_out_comparison: meta.inspection_type === "Move-Out" ? comparison : [],
     priority_repairs: priorityRepairs,
     room_by_room_report: roomReport,
+    category_report: groupReportByCategory(roomReport, manifest),
     disclaimer: DISCLAIMER,
     photo_set_hash: await photoSetHash(manifest || [], baselineManifest || []),
     audited_at: new Date().toISOString(),

@@ -32,8 +32,8 @@
  */
 import {
   DISCLAIMER, codePreCheck, decideUsage, deriveCoverage, isValidBaseline, makeOverride, makeWarningAck,
-  mergeAudit, canFinalize, photoSetHash,
-  type AiAuditResult, type AiPropertyAudit, type BaselineCandidateRecord, type CoverageWarning,
+  mergeAudit, canFinalize, photoSetHash, groupReportByCategory,
+  type AiAuditResult, type AiPropertyAudit, type BaselineCandidateRecord, type CategoryReportEntry, type CoverageWarning,
   type FinalizeVerdict, type MoveOutComparisonEntry, type OverrideRecord, type PhotoManifestEntry,
   type PriorityRepair, type PropertyMeta, type RoomReportEntry, type StoredAuditState,
   type UsageDecision, type ValidationError, type WarningAck,
@@ -77,6 +77,8 @@ export interface AuditGateState {
   move_out_comparison: MoveOutComparisonEntry[];
   priority_repairs: PriorityRepair[];
   room_by_room_report: RoomReportEntry[];
+  /** The same report grouped into one box per room + category. */
+  category_report: CategoryReportEntry[];
   disclaimer: string;
   override: OverrideRecord | null;
   audit_warnings_ack: WarningAck | null;
@@ -174,7 +176,7 @@ async function listInspectionCandidates(env: InspectionAuditEnv, userId: number)
 }
 
 function stateFromRow(row: InspectionAuditRow): AuditGateState {
-  const report = parseJsonCol<{ property_audit?: AiPropertyAudit | null; move_out_comparison?: MoveOutComparisonEntry[]; priority_repairs?: PriorityRepair[]; room_by_room_report?: RoomReportEntry[]; disclaimer?: string }>(row.audit_report);
+  const report = parseJsonCol<{ property_audit?: AiPropertyAudit | null; move_out_comparison?: MoveOutComparisonEntry[]; priority_repairs?: PriorityRepair[]; room_by_room_report?: RoomReportEntry[]; category_report?: CategoryReportEntry[]; disclaimer?: string }>(row.audit_report);
   return {
     status: row.audit_status || "NOT_RUN",
     property_audit: report?.property_audit ?? null,
@@ -183,6 +185,7 @@ function stateFromRow(row: InspectionAuditRow): AuditGateState {
     move_out_comparison: report?.move_out_comparison || [],
     priority_repairs: report?.priority_repairs || [],
     room_by_room_report: report?.room_by_room_report || [],
+    category_report: report?.category_report || groupReportByCategory(report?.room_by_room_report || [], []),
     disclaimer: report?.disclaimer || DISCLAIMER,
     override: parseJsonCol<OverrideRecord>(row.audit_override),
     audit_warnings_ack: parseJsonCol<WarningAck>(row.audit_warnings_ack),
@@ -211,6 +214,7 @@ function fullReport(state: AuditGateState): Record<string, unknown> {
     move_out_comparison: state.move_out_comparison,
     priority_repairs: state.priority_repairs,
     room_by_room_report: state.room_by_room_report,
+    category_report: state.category_report,
     disclaimer: state.disclaimer,
   };
 }
@@ -221,6 +225,7 @@ async function saveAudit(env: InspectionAuditEnv, inspectionId: number, state: A
     move_out_comparison: state.move_out_comparison,
     priority_repairs: state.priority_repairs,
     room_by_room_report: state.room_by_room_report,
+    category_report: state.category_report,
     disclaimer: state.disclaimer,
   };
   await env.DB.prepare(
@@ -392,6 +397,7 @@ async function runAudit(env: InspectionAuditEnv, insp: InspectionAuditRow, detai
     move_out_comparison: merged.move_out_comparison,
     priority_repairs: merged.priority_repairs,
     room_by_room_report: merged.room_by_room_report,
+    category_report: merged.category_report,
     disclaimer: merged.disclaimer,
     override: null,           // a re-audit clears any old override
     audit_warnings_ack: null, // and any old warning acknowledgment
