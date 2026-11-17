@@ -877,7 +877,7 @@
       var cat = findCat(room, key);
       if (!cat) return;
       var tmp = document.createElement('div');
-      tmp.innerHTML = catCardHtml(room, key);
+      tmp.innerHTML = catCardHtml(room, cat);
       card.replaceWith(tmp.firstChild);
       if (liveComment !== null) {
         var ni = document.querySelector('[data-cat-card="' + CSS.escape(room + '||' + key) + '"] [data-comment]');
