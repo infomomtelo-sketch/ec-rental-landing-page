@@ -401,7 +401,7 @@
         '<h3 style="font-size:1.05rem;color:var(--primary);margin-bottom:0.4rem">You\'ve used your 3 free photo audits</h3>' +
         '<p style="font-size:0.9rem;color:var(--gray);margin-bottom:0.9rem">Keep going with a plan, or buy inspection credits — one credit covers one full audit of up to 100 photos, and credits never expire.</p>' +
         '<div style="display:flex;flex-direction:column;gap:0.5rem">' +
-        upgradeBtn(ECPM_UPGRADE_URL, 'Upgrade to EC Rental PM — Solo Landlord: $3 for 3 months (through Dec 31), then $29/mo') +
+        upgradeBtn(ECPM_UPGRADE_URL, 'Upgrade to EC Rental PM — Solo Landlord: $3 for 3 months, then $29/mo') +
         upgradeBtn(STRIPE_LINK_CREDITS_10, 'Buy inspection credits — 10 Inspections — $19 one-time') +
         upgradeBtn(STRIPE_LINK_CREDITS_50, 'Buy inspection credits — 50 Inspections — $75 one-time') +
         '<button type="button" class="btn btn-secondary" id="inspUpgradeClose">Not now</button>' +
