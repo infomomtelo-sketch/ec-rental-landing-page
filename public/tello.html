@@ -55,6 +55,10 @@
     form button:disabled { opacity: 0.5; }
     form .attach { background: #fff; color: var(--deep); border: 1px solid #d6d3c9; padding: 0 0.85rem; font-size: 1.1rem; }
     form .attach[hidden] { display: none; }
+    .m-play { display: inline-block; margin-left: 0.4rem; background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 0; vertical-align: middle; opacity: 0.55; }
+    .m-play:hover { opacity: 1; }
+    form #voiceToggle { background: #fff; color: var(--deep); border: 1.5px solid #d6d3c9; padding: 0 0.9rem; white-space: nowrap; }
+    form #voiceToggle.on { background: #ffd23f; border-color: #ffd23f; color: #050505; }
     .pick { display: flex; align-items: center; gap: 0.5rem; max-width: 760px; width: 100%; margin: 0 auto; padding: 0.5rem 1rem 0; background: #fff; font-size: 0.85rem; color: var(--gray); }
     .pick[hidden] { display: none; }
     .pick img { height: 48px; border-radius: 8px; border: 1px solid #e7e3d8; }
@@ -94,7 +98,7 @@
   </main>
   <div class="pick" id="pick" hidden><img id="pickImg" alt="Picture to send" /><span>Picture attached</span><button type="button" id="pickDrop">Remove</button></div>
   <div class="bar" id="bar" hidden><button type="button" id="newchat">New chat</button></div>
-  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><textarea id="q" rows="2" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off"></textarea><button type="submit" id="send">Send</button></form>
+  <form id="ask"><button type="button" class="attach" id="attach" title="Attach a screenshot or photo" aria-label="Attach a screenshot or photo" hidden><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input type="file" id="file" accept="image/*" hidden /><textarea id="q" rows="2" maxlength="1000" placeholder="Ask Tello..." aria-label="Your question" autocomplete="off"></textarea><button type="submit" id="send">Send</button><button type="button" id="voiceToggle" aria-label="Hear Tello's replies" aria-pressed="false" title="Hear Tello's replies">🔊 Voice off</button></form>
   <p class="note">Tello can be wrong, so check anything that matters. EC Rental confirms every detail. Equal Housing Opportunity.</p>
   <script src="/js/tello-briefing.js"></script>
   <script src="/js/tello-talk.js"></script>
@@ -139,7 +143,7 @@
         dash: ['What needs my attention today?', "Who hasn't paid rent this month?", 'Which leases end soon?', 'How much notice to end a month-to-month?'],
         own: ['How much can I raise rent in California?', 'How much deposit can I charge?', 'What does EC Rental do for landlords?', 'What should my rental rent for?']
       };
-      function add(cls, text, image) { var d = document.createElement('div'); d.className = 'm ' + cls; if (image) { var i = document.createElement('img'); i.className = 'shot'; i.src = image; i.alt = 'Picture you sent'; d.appendChild(i); } if (text) d.appendChild(document.createTextNode(text)); log.appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d; }
+      function add(cls, text, image) { var d = document.createElement('div'); d.className = 'm ' + cls; if (image) { var i = document.createElement('img'); i.className = 'shot'; i.src = image; i.alt = 'Picture you sent'; d.appendChild(i); } if (text) d.appendChild(document.createTextNode(text)); if (cls === 'bot' && text) { var play = document.createElement('button'); play.type = 'button'; play.className = 'm-play'; play.setAttribute('aria-label', 'Hear Tello read this reply'); play.textContent = '🔊'; play.addEventListener('click', function() { speakReply(text); }); d.appendChild(play); } log.appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d; }
       function showChips() {
         chips.innerHTML = '';
         SUGGEST[inDashboard ? 'dash' : mode].forEach(function(s) { var b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.onclick = function() { ask(s); }; chips.appendChild(b); });
@@ -170,7 +174,7 @@
           .then(function(d) {
             if (d.proposal) { showProposal(d.proposal, text); return; }
             var reply = String(d.reply || d.response || '').replace(/\[SHOW_[A-Z_]+\]/g, '').trim();
-            add('bot', reply); if (talk) talk.onReply(reply);
+            add('bot', reply); if (talk) talk.onReply(reply); if (chatVoiceOn()) speakReply(reply);
             history.push({ role: 'user', content: (image ? '[sent a picture] ' : '') + text }, { role: 'assistant', content: reply }); history = history.slice(-8);
             var extra = document.createElement('div'); extra.className = 'chips';
             (d.listings || []).forEach(function(l) { var a = document.createElement('a'); a.className = 'home'; a.href = '/listing?id=' + l.id; a.textContent = l.label; extra.appendChild(a); });
@@ -184,7 +188,7 @@
       var ACTION_WORDS = /\b(record|log|mark|add|create|set|change|update|resolve|close|reopen|received|paid|got|fix|repair)\b/i;
       function showProposal(p, text) {
         var line = 'Here is what I would do: ' + p.summary;
-        add('bot', line); if (talk) talk.onReply(line + ' Tap Confirm to go ahead.');
+        add('bot', line); if (talk) talk.onReply(line + ' Tap Confirm to go ahead.'); if (chatVoiceOn()) speakReply(line + ' Tap Confirm to go ahead.');
         history.push({ role: 'user', content: text }, { role: 'assistant', content: line }); history = history.slice(-8);
         var box = document.createElement('div'); box.className = 'chips'; box.setAttribute('data-proposal', '1');
         var yes = document.createElement('button'); yes.type = 'button'; yes.textContent = 'Confirm'; yes.className = 'home';
@@ -194,7 +198,7 @@
           yes.disabled = no.disabled = true; yes.textContent = 'Working...';
           fetch('/api/tello/confirm', { method: 'POST', headers: chatHeaders(), body: JSON.stringify({ action: p.action }) })
             .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || 'That did not work.'); return d; }); })
-            .then(function(d) { finish(d.message); if (talk) talk.onReply(d.message); try { window.parent.postMessage({ type: 'tello-refresh' }, location.origin); } catch (e) {} })
+            .then(function(d) { finish(d.message); if (talk) talk.onReply(d.message); if (chatVoiceOn()) speakReply(d.message); try { window.parent.postMessage({ type: 'tello-refresh' }, location.origin); } catch (e) {} })
             .catch(function(err) { finish("I couldn't do that: " + err.message + ' Nothing was changed.'); });
         };
         no.onclick = function() { finish('Okay, I did not change anything.'); };
@@ -211,6 +215,19 @@
         document.getElementById('bar').hidden = true; showChips(); log.scrollTop = 0; q.focus();
       });
       var talk = window.ECTelloTalk ? ECTelloTalk.attach({ form: form, input: q, submit: function(t) { ask(t); }, token: function() { return inDashboard ? savedToken() : ''; } }) : null;
+      // Voice: Tello reads her replies aloud here too, only when turned on. Off by default, no autoplay.
+      // Same 'ec_tello_chat_voice' key as the homepage chat — separate from the briefing's 'ec_tello_voice',
+      // which drives the briefing autoplay and the Listen button (both untouched). Spoken replies are exactly
+      // the same text as the written replies; nothing extra is spoken. The mic/voiceMode behaviour is unchanged:
+      // if both the mic and this toggle are on, the reply is still only played once (speak stops the first play).
+      var VOICE_KEY = 'ec_tello_chat_voice';
+      function chatVoiceOn() { try { return localStorage.getItem(VOICE_KEY) === 'on'; } catch (e) { return false; } }
+      function voiceToken() { return inDashboard ? (savedToken() || '') : ''; }
+      function speakReply(text) { if (window.ECTelloTalk) ECTelloTalk.speak(text, voiceToken()); }
+      var voiceBtn = document.getElementById('voiceToggle');
+      function syncVoiceBtn() { if (!voiceBtn) return; var on = chatVoiceOn(); voiceBtn.classList.toggle('on', on); voiceBtn.setAttribute('aria-pressed', String(on)); voiceBtn.textContent = on ? '🔊 Voice on' : '🔊 Voice off'; }
+      if (voiceBtn) voiceBtn.addEventListener('click', function() { var on = !chatVoiceOn(); try { localStorage.setItem(VOICE_KEY, on ? 'on' : 'off'); } catch (e) {} syncVoiceBtn(); if (!on && window.ECTelloTalk) ECTelloTalk.stop(); });
+      syncVoiceBtn();
       form.addEventListener('submit', function(e) { e.preventDefault(); ask(q.value); });
       var start = params.get('mode');
       if (inDashboard) {
