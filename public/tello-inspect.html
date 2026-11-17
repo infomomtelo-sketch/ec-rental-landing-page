@@ -131,6 +131,7 @@
     .progressbar .grow { flex: 1; min-width: 180px; font-weight: 700; color: var(--primary); }
     .edit-note { background: #fdf3d7; border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.9rem; margin: 0 0 0.75rem; }
     .clear-cat { background: none; border: none; color: #9b2c1c; cursor: pointer; font-size: 0.82rem; padding: 0.3rem 0; }
+    .save-err { color: #9b2c1c; font-size: 0.88rem; margin: 0.35rem 0 0; }
     /* Per-unit report: one section per space, picked with a checkbox. */
     .room-report { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.1rem; margin-bottom: 0.9rem; }
     .room-report > h2 { margin: 0 0 0.75rem; color: var(--primary); font-size: 1.1rem; display: flex; align-items: center; gap: 0.55rem; }
@@ -344,7 +345,7 @@
       return null;
     }
 
-    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null, cats: {}, openSecs: {}, geo: null, editingFinished: false, lastReport: null };
+    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null, cats: {}, openSecs: {}, geo: null, editingFinished: false, lastReport: null, savedCats: {}, saveErrs: {}, pendingComment: {} };
     var $ = function(id) { return document.getElementById(id); };
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
     function api(path, opts) {
@@ -540,6 +541,7 @@
         if (d.inspection.status === 'done') return showReport(d);
         state.items = d.items; state.rooms = d.rooms || []; state.removed = d.removed || 0;
         (d.categories || []).forEach(function(c) { state.cats[c.room + '||' + c.category] = { floor_type: c.floor_type || '', answers: c.answers || {}, comment: c.comment || '' }; });
+        Object.keys(state.cats).forEach(function(k) { state.savedCats[k] = snapCat(state.cats[k]); });
         openPhotos();
         $('report').hidden = true;
       }).catch(function(err) { $('report').innerHTML = '<p class="err">' + esc(err.message) + '</p>'; });
@@ -648,6 +650,17 @@
       if (!state.cats[k]) state.cats[k] = { floor_type: '', answers: {}, comment: '' };
       return state.cats[k];
     }
+    // Last values the server confirmed for a category. state.cats is kept
+    // equal to the confirmed values, so the checklist and the "Still
+    // needed" list — which both read state.cats — can never count an
+    // answer the server didn't keep. Typed-but-unconfirmed text is held
+    // separately in state.pendingComment so the user never loses it.
+    function snapCat(st) { return { floor_type: st.floor_type || '', answers: JSON.parse(JSON.stringify(st.answers || {})), comment: st.comment || '' }; }
+    function commentShown(room, key) {
+      var k = catKey(room, key);
+      if (state.pendingComment[k] != null) return state.pendingComment[k];
+      return catState(room, key).comment || '';
+    }
     function catPhotos(room, key) {
       return state.items.filter(function(i) { return i.room === room && (i.category || '') === key; });
     }
@@ -744,8 +757,9 @@
         : '';
       return '<div class="cat' + (done ? ' done' : '') + '" data-cat-card="' + esc(room) + '||' + esc(cat.key) + '"><h4>' + esc(cat.label) + (done ? ' ✓' : '') + ' <span class="cat-prog">' + (cat.photo === false ? 'checks + comment' : photos.length + '/3 angles') + '</span></h4>' +
         slots + checksHtml + floorHtml +
-        '<input class="comment-box" data-comment data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" maxlength="' + COMMENT_MAX + '" placeholder="Your comment — cleaning, damage, repair or replace" value="' + esc(st.comment || '') + '" />' +
-        '<button type="button" class="clear-cat" data-clear data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '">Clear this category</button></div>';
+        '<input class="comment-box" data-comment data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" maxlength="' + COMMENT_MAX + '" placeholder="Your comment — cleaning, damage, repair or replace" value="' + esc(commentShown(room, cat.key)) + '" />' +
+        '<button type="button" class="clear-cat" data-clear data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '">Clear this category</button>' +
+        (state.saveErrs[catKey(room, cat.key)] ? '<p class="save-err" role="alert">Couldn\'t save this — your text is still here, try again.</p>' : '') + '</div>';
     }
     function renderShotBox() {
       var box = $('shotBox');
@@ -814,27 +828,61 @@
       if (state.removed > 0) bits.push(state.removed + ' photo' + (state.removed > 1 ? 's' : '') + ' removed — the report will say so.');
       if (bits.length) { tm.textContent = bits.join(' '); tm.hidden = false; } else tm.hidden = true;
     }
-    // Save proof: a visible "Saved ✓ HH:MM" that updates on every auto-save
-    // and every finished photo upload.
-    function markSaved() {
+    // Save status, shown inline in the #saveState line — never silent.
+    // "Saving…" while a category save is in flight, "Saved ✓ HH:MM" on
+    // success, and the server's own error text on failure. No alert():
+    // on a phone an alert is easy to miss or dismiss, and a dismissed
+    // alert leaves the page claiming the answer saved when it didn't.
+    function setSaveState(text, isErr) {
       var el = $('saveState'); if (!el) return;
-      var d = new Date();
-      el.textContent = 'Saved \u2713 ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      el.textContent = text;
+      el.style.color = isErr ? '#9b2c1c' : '';
     }
+    function markSaved() {
+      var d = new Date();
+      setSaveState('Saved \u2713 ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2), false);
+    }
+    function markSaving() { setSaveState('Saving…', false); }
+    function markSaveError(msg) { setSaveState('Couldn\'t save — ' + msg, true); }
     function saveCategory(room, key) {
       var st = catState(room, key);
+      var k = catKey(room, key);
+      var attempt = snapCat(st); // what this save is trying to store
+      markSaving();
       api('/' + state.id + '/categories' + q(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, category: key, floor_type: st.floor_type || '', answers: st.answers, comment: st.comment || '' }) })
-        .then(function() { markSaved(); })
-        .catch(function(err) { alert('Could not save that answer: ' + err.message); });
+        .then(function() {
+          state.savedCats[k] = attempt;
+          delete state.saveErrs[k];
+          delete state.pendingComment[k];
+          markSaved();
+          refreshCard(room, key);
+        })
+        .catch(function(err) {
+          // The server didn't keep it: revert to the last confirmed values
+          // so the checklist keeps demanding this answer — but keep the
+          // typed comment in the box so the user doesn't lose their words.
+          var confirmed = state.savedCats[k];
+          state.cats[k] = confirmed ? snapCat(confirmed) : { floor_type: '', answers: {}, comment: '' };
+          state.pendingComment[k] = attempt.comment;
+          state.saveErrs[k] = err.message;
+          markSaveError(err.message);
+          refreshCard(room, key);
+        });
     }
     function refreshCard(room, key) {
       var card = document.querySelector('[data-cat-card="' + CSS.escape(room + '||' + key) + '"]');
       if (!card) return;
+      var live = card.querySelector('[data-comment]');
+      var liveComment = live ? live.value : null; // what the user typed — keep it across the re-render
       var cat = findCat(room, key);
       if (!cat) return;
       var tmp = document.createElement('div');
       tmp.innerHTML = catCardHtml(room, key);
       card.replaceWith(tmp.firstChild);
+      if (liveComment !== null) {
+        var ni = document.querySelector('[data-cat-card="' + CSS.escape(room + '||' + key) + '"] [data-comment]');
+        if (ni) ni.value = liveComment;
+      }
       renderChecklist(); updateFinish(); updateProgress(); updateContinue();
     }
     $('shotBox').addEventListener('toggle', function(e) {
@@ -992,7 +1040,9 @@
         state.rooms = d.rooms || [];
         state.removed = d.removed || 0;
         state.cats = {};
+        state.savedCats = {}; state.pendingComment = {}; state.saveErrs = {};
         (d.categories || []).forEach(function(c) { state.cats[c.room + '||' + c.category] = { floor_type: c.floor_type || '', answers: c.answers || {}, comment: c.comment || '' }; });
+        Object.keys(state.cats).forEach(function(k) { state.savedCats[k] = snapCat(state.cats[k]); });
       }
       state.editingFinished = true;
       $('report').hidden = true;
@@ -1016,6 +1066,9 @@
           state.items = state.items.filter(function(i) { return !(i.room === room && (i.category || '') === key); });
           state.removed += n;
           state.cats[catKey(room, key)] = { floor_type: '', answers: {}, comment: '' };
+          state.savedCats[catKey(room, key)] = { floor_type: '', answers: {}, comment: '' };
+          delete state.pendingComment[catKey(room, key)];
+          delete state.saveErrs[catKey(room, key)];
           markSaved();
           renderAll();
         })
