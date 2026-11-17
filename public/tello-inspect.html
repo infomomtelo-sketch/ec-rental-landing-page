@@ -29,6 +29,12 @@
     .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
     .pick { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.75rem; }
     .pick label { min-width: 180px; }
+    .addr-wrap { position: relative; }
+    .addr-sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; background: var(--white); border: 1px solid #c9d6cd; border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; margin-top: 0.25rem; }
+    .addr-sugg button { display: block; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid #eef0f2; padding: 0.6rem 0.75rem; font: inherit; font-size: 0.9rem; cursor: pointer; color: #374151; }
+    .addr-sugg button:last-child { border-bottom: none; }
+    .addr-sugg button:hover, .addr-sugg button:focus { background: #f7faf8; }
+    .prop-summary { background: #e7f5ec; border-radius: 10px; padding: 0.6rem 0.75rem; margin-top: 0.5rem; font-size: 0.9rem; color: #14532d; }
     .drop { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; border: 2px dashed #c9d6cd; border-radius: 12px; padding: 1.25rem; text-align: center; cursor: pointer; background: #f7faf8; color: var(--primary); font-weight: 700; }
     .drop svg { width: 34px; height: 34px; }
     .drop small { color: var(--gray); font-weight: 400; }
@@ -83,8 +89,39 @@
     .report-brand { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; }
     .report-brand img { height: 30px; width: auto; max-width: 140px; object-fit: contain; }
     .powered { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; color: var(--gray); border: 1px solid #d1d5db; border-radius: 999px; padding: 0.15rem 0.55rem; margin-top: 0.75rem; }
+    /* Shot-list rebuild: room dropdowns, category cards, angle slots, yes/no checks, comment box. */
+    .room-sec { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 0.75rem; }
+    .room-sec summary { cursor: pointer; padding: 0.8rem 1rem; font-weight: 700; color: var(--primary); list-style: none; display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+    .room-sec summary::-webkit-details-marker { display: none; }
+    .room-sec summary .prog { color: var(--gray); font-weight: 400; font-size: 0.85rem; white-space: nowrap; }
+    .room-sec .body { padding: 0 1rem 1rem; }
+    .cat { border: 1px solid #dfe7e1; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
+    .cat.done { border: 2px solid #166534; }
+    .cat h4 { margin: 0 0 0.5rem; color: var(--primary); font-size: 0.95rem; }
+    .cat h4 .cat-prog { color: var(--gray); font-weight: 400; font-size: 0.82rem; }
+    .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-bottom: 0.6rem; }
+    .slotdrop { padding: 0.7rem 0.5rem; min-height: 84px; justify-content: center; }
+    .slotdrop svg { width: 24px; height: 24px; }
+    .slotcell { background: #f7faf8; border: 1px solid #c9d6cd; border-radius: 10px; padding: 0.4rem; font-size: 0.82rem; }
+    .slotcell img { width: 100%; height: 84px; object-fit: cover; border-radius: 8px; background: #e5e7eb; display: block; }
+    .slotcell p { margin: 0.3rem 0 0; color: #374151; }
+    .slotcell button { background: none; border: none; color: var(--gray); cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0; }
+    .yn { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.4rem 0; align-items: center; }
+    .yn > span { font-size: 0.9rem; margin-right: 0.2rem; }
+    .yn button { border: 1px solid #c9d6cd; background: #fff; border-radius: 999px; padding: 0.25rem 0.8rem; cursor: pointer; font: inherit; font-size: 0.85rem; }
+    .yn button.on-yes { background: #166534; color: #fff; border-color: #166534; }
+    .yn button.on-no { background: #9b2c1c; color: #fff; border-color: #9b2c1c; }
+    .cat .fld { font-size: 0.85rem; color: #374151; display: block; margin-top: 0.4rem; }
+    .cat .fld select { font: inherit; font-size: 0.9rem; padding: 0.35rem; border: 1px solid #c9d6cd; border-radius: 8px; margin-left: 0.3rem; }
+    .comment-box { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.9rem; padding: 0.5rem 0.6rem; border: 1px solid #c9d6cd; border-radius: 8px; margin-top: 0.35rem; }
+    .comment-box::placeholder { color: #9ca3af; }
+    .catbox { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.1rem; margin-bottom: 0.9rem; }
+    .catbox h3 { margin: 0 0 0.4rem; color: var(--primary); font-size: 1.05rem; }
+    .catbox .human { font-size: 0.92rem; margin: 0.25rem 0; }
+    .catbox .human b { color: var(--primary); }
+    .catbox .checks { font-size: 0.88rem; color: #374151; margin: 0.25rem 0 0.6rem; }
     @media (max-width: 560px) { .item img { width: 90px; height: 72px; } }
-    @media print { header, .cta, .no-print { display: none !important; } .item, .summary { box-shadow: none; border: 1px solid #ddd; } }
+    @media print { header, .cta, .no-print { display: none !important; } .item, .summary, .catbox { box-shadow: none; border: 1px solid #ddd; } }
   </style>
 </head>
 <body>
@@ -94,11 +131,11 @@
     <section id="intro">
       <h1>Tello Inspect</h1>
       <p class="kicker">Free remote AI home inspection</p>
-      <p class="lead">For landlords, homeowners, buyers and tenants. Walk through the home with your phone and follow the shot list for each room — a wide shot, then close-ups. Tello, the EC Rental AI, reads every photo and sends back a condition report with anything that may need repair. No app to download and no account needed.</p>
+      <p class="lead">For landlords, homeowners, buyers and tenants. Walk through the home with your phone and follow the shot list for each room — three photos of every ceiling, wall, floor, fixture and fitting, plus a few yes/no checks and your own comment on each one. Tello, the EC Rental AI, reads every photo and sends back a condition report with anything that may need repair. No app to download and no account needed.</p>
       <p class="muted small">Tello Inspect was built by a certified home inspector.</p>
       <div class="steps">
         <div><b>Tell us about it</b>Your name, email, what kind of check you need, and which rooms to cover.</div>
-        <div><b>Follow the shot list</b>Wide shot first, then close-ups. Blurry photos are sent back for a retake, and the report can't be sent until every room is covered.</div>
+        <div><b>Follow the shot list</b>Three angles of each ceiling, wall, floor, fixture and fitting, plus yes/no checks and your comment on each one. Blurry photos are sent back for a retake, and the report can't be sent until every category is covered.</div>
         <div><b>Get your report</b>See it right away and get a copy by email to keep or share.</div>
       </div>
     </section>
@@ -119,12 +156,12 @@
         <legend>About the check</legend>
         <div class="row"><label>I am a<select name="role"><option value="landlord">Landlord or owner</option><option value="manager">Property manager</option><option value="tenant">Tenant</option><option value="buyer">Home buyer</option><option value="homeowner">Homeowner</option><option value="other">Other</option></select></label>
         <label>Kind of check<select name="type"><option value="move_in">Move-in</option><option value="move_out">Move-out</option><option value="routine" selected>Routine check-up</option></select></label></div>
-        <label>Property address (optional)<input name="address" maxlength="200" autocomplete="street-address" placeholder="1234 Example Ave, City, State" /></label>
+        <div class="addr-wrap"><label for="addressInput">Property address (optional)</label><input id="addressInput" name="address" maxlength="200" autocomplete="off" placeholder="Start typing an address — 1234 Example Ave, City, State" /><div id="addrSugg" class="addr-sugg" hidden></div><div id="propSummary" class="prop-summary" hidden></div></div>
         <label>Anything we should know? (optional)<textarea name="notes" rows="2" maxlength="1000" placeholder="For example: tenant moving out Friday, worried about a ceiling stain"></textarea></label>
       </fieldset>
       <fieldset>
         <legend>Rooms to inspect</legend>
-        <p class="muted small" style="margin:0 0 0.5rem">Pick every room this check should cover. The list locks in here — the report can't be sent until each room has a wide shot and a close-up.</p>
+        <p class="muted small" style="margin:0 0 0.5rem">Pick every room this check should cover. The list locks in here — the report can't be sent until every category in each room has its photos, checks and comment.</p>
         <div class="rooms" id="roomsPick"></div>
         <label>Other rooms (optional)<input name="otherRooms" maxlength="180" placeholder="For example: Office, Sunroom" /></label>
       </fieldset>
@@ -146,7 +183,6 @@
         <div id="checklist"></div>
         <div id="shotBox"></div>
         <p id="busy" class="busy" hidden></p>
-        <div id="items"></div>
       </fieldset></div>
       <button class="primary-btn" type="button" id="finishBtn" disabled>Get my report</button>
       <p id="todoMsg" class="muted small" style="margin-top:0.5rem" hidden></p>
@@ -173,7 +209,102 @@
     var ROOMS = ['Exterior front', 'Exterior back', 'Entry', 'Living room', 'Dining room', 'Kitchen', 'Hallway', 'Primary bedroom', 'Bedroom 2', 'Bedroom 3', 'Primary bathroom', 'Bathroom 2', 'Laundry', 'Garage', 'Yard', 'Roof', 'HVAC / water heater', 'Other'];
     var DEFAULT_ROOMS = ['Living room', 'Kitchen', 'Primary bedroom', 'Primary bathroom'];
     var TYPES = { move_in: 'Move-in', move_out: 'Move-out', routine: 'Routine' };
-    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null };
+    var MAX_PHOTOS = 40;
+    var COMMENT_MAX = 120;
+
+    // Shot list: every room is a dropdown of categories. Every room carries
+    // the common categories (ceiling, walls, floor, lighting, switches) and
+    // then its own. Each photo category takes 3 photos from 3 different
+    // angles. Almost every category has yes/no checks and a comment box —
+    // the comment is typed in and only needs one word: cleaning, damage,
+    // repair or replace. Detectors are check-only (no photos).
+    var COMMON_CATS = [
+      { key: 'ceiling', label: 'Ceiling' },
+      { key: 'walls', label: 'Walls' },
+      { key: 'floor', label: 'Floor', floorType: true },
+      { key: 'lighting', label: 'Lighting' },
+      { key: 'switches', label: 'Switches' }
+    ];
+    var TEMPLATES = {
+      living: { label: 'Living room', cats: COMMON_CATS.concat([{ key: 'window', label: 'Window' }]) },
+      bathroom: { label: 'Bathroom', cats: COMMON_CATS.concat([
+        { key: 'toilet', label: 'Toilet', checks: [{ key: 'flushing', label: 'Flushing works?' }] },
+        { key: 'vanity', label: 'Vanity' },
+        { key: 'faucets', label: 'Faucets', checks: [{ key: 'hot_cold', label: 'Hot and cold water run?' }] },
+        { key: 'shower', label: 'Shower' },
+        { key: 'mirror', label: 'Mirror' },
+        { key: 'exhaust_fan', label: 'Exhaust fan', checks: [{ key: 'works', label: 'Works?' }] },
+        { key: 'bathtub', label: 'Bathtub' }
+      ]) },
+      kitchen: { label: 'Kitchen', cats: COMMON_CATS.concat([
+        { key: 'appliances', label: 'Appliances', checks: [{ key: 'stove_heats', label: 'Stove heats?' }, { key: 'fridge_cold', label: 'Fridge cold?' }, { key: 'dishwasher_runs', label: 'Dishwasher runs?' }] },
+        { key: 'cabinets', label: 'Cabinets' },
+        { key: 'countertops', label: 'Countertops' },
+        { key: 'sink_faucets', label: 'Sink + faucets', checks: [{ key: 'hot_cold', label: 'Hot and cold water run?' }] },
+        { key: 'plumbing', label: 'Plumbing under sink' }
+      ]) },
+      bedroom: { label: 'Bedroom', cats: COMMON_CATS.concat([
+        { key: 'closet', label: 'Closet' },
+        { key: 'window', label: 'Window' }
+      ]) },
+      dining: { label: 'Dining room', cats: COMMON_CATS.concat([{ key: 'window', label: 'Window' }]) },
+      hallway: { label: 'Hallway / Entry', cats: COMMON_CATS.concat([
+        { key: 'front_door', label: 'Front door + locks', checks: [{ key: 'keys_tested', label: 'All keys tested?' }] },
+        { key: 'doorbell', label: 'Doorbell', checks: [{ key: 'works', label: 'Works?' }] }
+      ]) },
+      laundry: { label: 'Laundry', cats: COMMON_CATS.concat([
+        { key: 'washer', label: 'Washer', checks: [{ key: 'runs', label: 'Runs?' }] },
+        { key: 'dryer', label: 'Dryer', checks: [{ key: 'runs', label: 'Runs?' }] },
+        { key: 'hookups', label: 'Hookups' }
+      ]) },
+      systems: { label: 'Systems', cats: [
+        { key: 'ac', label: 'A/C', checks: [{ key: 'works', label: 'Works?' }] },
+        { key: 'heater', label: 'Heater', checks: [{ key: 'works', label: 'Works?' }] }
+      ] },
+      exterior: { label: 'Exterior', cats: [
+        { key: 'front_door', label: 'Front door + locks', checks: [{ key: 'keys_tested', label: 'All keys tested?' }] },
+        { key: 'porch', label: 'Porch / steps' },
+        { key: 'exterior_walls', label: 'Exterior walls' },
+        { key: 'yard_front', label: 'Front yard' },
+        { key: 'yard_back', label: 'Back yard' },
+        { key: 'yard_side', label: 'Side yard' },
+        { key: 'driveway', label: 'Driveway / walkway' },
+        { key: 'garage', label: 'Garage' }
+      ] }
+    };
+    var DETECTOR_CATS = [
+      { key: 'smoke', label: 'Smoke detector', photo: false, checks: [{ key: 'present', label: 'Present?' }, { key: 'functional', label: 'Functional?' }, { key: 'needs_battery', label: 'Needs battery?' }] },
+      { key: 'co', label: 'Carbon monoxide detector', photo: false, checks: [{ key: 'available', label: 'Available?' }, { key: 'tested', label: 'Tested?' }] }
+    ];
+    function templateFor(room) {
+      var r = String(room || '').toLowerCase();
+      if (r === 'systems') return TEMPLATES.systems;
+      if (r === 'exterior') return TEMPLATES.exterior;
+      if (r.indexOf('living') !== -1) return TEMPLATES.living;
+      if (r.indexOf('kitchen') !== -1) return TEMPLATES.kitchen;
+      if (r.indexOf('bedroom') !== -1) return TEMPLATES.bedroom;
+      if (r.indexOf('bathroom') !== -1) return TEMPLATES.bathroom;
+      if (r.indexOf('dining') !== -1) return TEMPLATES.dining;
+      if (r === 'entry' || r === 'hallway') return TEMPLATES.hallway;
+      if (r.indexOf('laundry') !== -1) return TEMPLATES.laundry;
+      if (r.indexOf('hvac') !== -1) return TEMPLATES.systems;
+      if (r.indexOf('exterior') !== -1 || r === 'yard' || r === 'garage' || r === 'roof') return TEMPLATES.exterior;
+      return { label: room, cats: COMMON_CATS.slice() };
+    }
+    function catLabel(room, key) {
+      var t = templateFor(room), i;
+      for (i = 0; i < t.cats.length; i++) if (t.cats[i].key === key) return t.cats[i].label;
+      for (i = 0; i < DETECTOR_CATS.length; i++) if (DETECTOR_CATS[i].key === key) return DETECTOR_CATS[i].label;
+      return key ? key.replace(/_/g, ' ') : 'Photos';
+    }
+    function findCat(room, key) {
+      var t = templateFor(room), i;
+      for (i = 0; i < t.cats.length; i++) if (t.cats[i].key === key) return t.cats[i];
+      for (i = 0; i < DETECTOR_CATS.length; i++) if (DETECTOR_CATS[i].key === key) return DETECTOR_CATS[i];
+      return null;
+    }
+
+    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null, cats: {}, openSecs: {}, geo: null };
     var $ = function(id) { return document.getElementById(id); };
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
     function api(path, opts) {
@@ -182,16 +313,19 @@
     function q(extra) { return '?t=' + encodeURIComponent(state.t) + (extra || ''); }
     function photoUrl(it) { return '/api/public/ai-inspections/' + state.id + '/photos/' + it.id + q(); }
     function badge(c) { return '<span class="badge b-' + (c || 'none') + '">' + esc(c || 'not rated') + '</span>'; }
+    function shotLabel(s) {
+      if (s === 'angle1') return 'Angle 1';
+      if (s === 'angle2') return 'Angle 2';
+      if (s === 'angle3') return 'Angle 3';
+      if (s === 'wide') return 'Wide shot';
+      if (s === 'closeup') return 'Close-up';
+      return '';
+    }
     function itemHtml(it, editable) {
       return '<div class="item"><img src="' + photoUrl(it) + '" alt="' + esc(it.room) + ' photo" loading="lazy" /><div class="meta">' + badge(it.condition) +
-        (it.shot ? ' <span class="badge b-none">' + esc(it.shot === 'wide' ? 'Wide shot' : 'Close-up') + '</span>' : '') +
+        (it.shot ? ' <span class="badge b-none">' + esc(shotLabel(it.shot)) + '</span>' : '') +
         (it.repair_needed ? ' <span class="repair">Repair: ' + esc(it.repair_item || 'needed') + '</span>' : '') +
         (it.notes ? '<p>' + esc(it.notes) + '</p>' : '') + (editable ? '<button type="button" data-del="' + it.id + '">Remove photo</button>' : '') + '</div></div>';
-    }
-    function grouped(items, editable) {
-      var rooms = {}, order = [];
-      items.forEach(function(it) { if (!rooms[it.room]) { rooms[it.room] = []; order.push(it.room); } rooms[it.room].push(it); });
-      return order.map(function(r) { return '<h3 class="room-h">' + esc(r) + '</h3>' + rooms[r].map(function(it) { return itemHtml(it, editable); }).join(''); }).join('');
     }
 
     // White-label branding: when this page runs under a partner organization
@@ -212,12 +346,46 @@
       if (org.brand_name) document.title = org.brand_name + ' — Inspection';
     }
 
-    // Report view (also used straight after finishing)
+    // Report view (also used straight after finishing): one box per category.
+    // Inside each box: the category's photos, what Tello saw in each photo,
+    // and the person's comment.
     function showReport(d) {
       var i = d.inspection, cls = i.overall === 'Good' ? 'o-good' : i.overall === 'Fair' ? 'o-fair' : 'o-attn';
       var repairs = d.items.filter(function(x) { return x.repair_needed; });
       $('intro').hidden = true; $('startForm').hidden = true; $('photosStep').hidden = true;
       var r = $('report'); r.hidden = false;
+      var catByKey = {};
+      (d.categories || []).forEach(function(c) { catByKey[c.room + '||' + c.category] = c; });
+      var order = [], boxes = {};
+      d.items.forEach(function(it) {
+        var k = it.room + '||' + (it.category || '');
+        if (!boxes[k]) { boxes[k] = { room: it.room, category: it.category || '', items: [] }; order.push(k); }
+        boxes[k].items.push(it);
+      });
+      (d.categories || []).forEach(function(c) {
+        var k = c.room + '||' + c.category;
+        if (!boxes[k]) { boxes[k] = { room: c.room, category: c.category, items: [] }; order.push(k); }
+        boxes[k].cat = c;
+      });
+      var boxesHtml = order.map(function(k) {
+        var b = boxes[k], c = b.cat, label = catLabel(b.room, b.category);
+        var checksHtml = '';
+        if (c && c.answers) {
+          var cat = findCat(b.room, b.category);
+          var bits = [];
+          (cat && cat.checks ? cat.checks : []).forEach(function(ch) {
+            var a = c.answers[ch.key];
+            if (a === 'yes' || a === 'no') bits.push(esc(ch.label) + ' ' + (a === 'yes' ? 'Yes' : 'No'));
+          });
+          if (c.floor_type) bits.push('Floor type: ' + esc(c.floor_type));
+          if (bits.length) checksHtml = '<p class="checks">' + bits.join(' · ') + '</p>';
+        }
+        return '<div class="catbox"><h3>' + esc(b.room) + ' — ' + esc(label) + '</h3>' +
+          (c && c.comment ? '<p class="human"><b>Your comment:</b> ' + esc(c.comment) + '</p>' : '') +
+          checksHtml +
+          b.items.map(function(it) { return itemHtml(it, false); }).join('') +
+          (b.items.length ? '' : '<p class="muted small">No photos — checks and comment only.</p>') + '</div>';
+      }).join('');
       r.innerHTML = '<h1>Tello Inspect report</h1><div class="summary"><h2>' + esc(TYPES[i.type] || 'Routine') + ' check' + (i.address ? ': ' + esc(i.address) : '') + '</h2>' +
         '<p class="muted small">For ' + esc(i.name) + ' · ' + esc((i.finished_at || i.created_at || '').slice(0, 10)) + ' · ' + d.items.length + ' photos</p>' +
         '<p class="overall ' + cls + '">Overall: ' + esc(i.overall || 'In progress') + '</p><p>' + esc(i.summary) + '</p>' +
@@ -226,7 +394,7 @@
         (state.org && state.org.brand_name ? '<div class="report-brand">' + (state.org.brand_logo_url ? '<img src="' + esc(state.org.brand_logo_url) + '" alt="" />' : '') + '<span><strong>' + esc(state.org.brand_name) + '</strong>' + (state.org.support_email ? '<br><span class="muted small">' + esc(state.org.support_email) + '</span>' : '') + '</span></div>' : '') +
         (state.org ? '<span class="powered">Powered by Tello Inspect</span>' : '') +
         '<div class="cta"><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
-        grouped(d.items, false) +
+        boxesHtml +
         '';
       window.scrollTo(0, 0);
     }
@@ -249,10 +417,85 @@
       api('/' + state.id + q()).then(function(d) {
         if (d.organization) applyBranding(d.organization);
         if (d.inspection.status === 'done') return showReport(d);
-        state.items = d.items; state.rooms = d.rooms || []; state.removed = d.removed || 0; openPhotos();
+        state.items = d.items; state.rooms = d.rooms || []; state.removed = d.removed || 0;
+        (d.categories || []).forEach(function(c) { state.cats[c.room + '||' + c.category] = { floor_type: c.floor_type || '', answers: c.answers || {}, comment: c.comment || '' }; });
+        openPhotos();
         $('report').hidden = true;
       }).catch(function(err) { $('report').innerHTML = '<p class="err">' + esc(err.message) + '</p>'; });
     }
+
+    // Address auto-search: any US address, via OpenStreetMap Nominatim
+    // (free, no key). Debounced ~350ms and never more than one request
+    // per second — Nominatim's usage policy. A pick fills the address and
+    // stores the match's city/state/ZIP + map-pin coordinates, and Tello
+    // auto-creates the property info from the match. The lookup knows
+    // the address, not bedrooms/bathrooms — rooms are still picked by
+    // the person, never invented from an address.
+    var addrTimer = null, addrLastReq = 0, addrSeq = 0;
+    function addrParts(a) {
+      return {
+        city: a.city || a.town || a.village || a.hamlet || a.county || '',
+        state: a.state || '',
+        postcode: String(a.postcode || '').split(' ')[0] || ''
+      };
+    }
+    function hideAddrSugg() { var s = $('addrSugg'); if (s) { s.hidden = true; s.innerHTML = ''; } }
+    function clearGeo() { state.geo = null; var p = $('propSummary'); if (p) { p.hidden = true; p.innerHTML = ''; } }
+    function showPropSummary(geo) {
+      var p = $('propSummary'); if (!p) return;
+      var bits = [];
+      if (geo.city) bits.push(esc(geo.city));
+      if (geo.state) bits.push(esc(geo.state));
+      if (geo.postcode) bits.push(esc(geo.postcode));
+      p.innerHTML = '<b>Property found:</b> ' + esc(geo.display_name) +
+        (bits.length ? '<br>' + bits.join(', ') : '') +
+        ((geo.lat && geo.lon) ? '<br><span class="muted small">Map pin: ' + esc(geo.lat) + ', ' + esc(geo.lon) + '</span>' : '');
+      p.hidden = false;
+    }
+    function pickAddr(place) {
+      var input = $('addressInput'); if (!input) return;
+      var parts = addrParts(place.address || {});
+      input.value = place.display_name || '';
+      state.geo = { display_name: place.display_name || '', city: parts.city, state: parts.state, postcode: parts.postcode, lat: place.lat || '', lon: place.lon || '' };
+      hideAddrSugg();
+      showPropSummary(state.geo);
+    }
+    function searchAddr(q, seq) {
+      var wait = Math.max(0, 1000 - (Date.now() - addrLastReq));
+      setTimeout(function() {
+        if (seq !== addrSeq) return; // a newer keystroke superseded this search
+        addrLastReq = Date.now();
+        fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+          .then(function(r) { return r.ok ? r.json() : []; })
+          .then(function(list) {
+            if (seq !== addrSeq) return;
+            var s = $('addrSugg'); if (!s) return;
+            if (!list || !list.length) { hideAddrSugg(); return; }
+            s.innerHTML = list.map(function(p, i) { return '<button type="button" data-addr="' + i + '">' + esc(p.display_name || '') + '</button>'; }).join('');
+            s.hidden = false;
+            s.querySelectorAll('button').forEach(function(btn, i) { btn.addEventListener('click', function() { pickAddr(list[i]); }); });
+          })
+          .catch(function() { hideAddrSugg(); });
+      }, wait);
+    }
+    (function() {
+      var input = $('addressInput');
+      if (!input) return;
+      input.addEventListener('input', function() {
+        clearGeo(); // typing again invalidates the previous pick
+        var q = input.value.trim();
+        addrSeq++;
+        if (addrTimer) clearTimeout(addrTimer);
+        if (q.length < 3) { hideAddrSugg(); return; }
+        var seq = addrSeq;
+        addrTimer = setTimeout(function() { searchAddr(q, seq); }, 350);
+      });
+      input.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideAddrSugg(); });
+      document.addEventListener('click', function(e) {
+        var s = $('addrSugg');
+        if (s && !s.hidden && !s.contains(e.target) && e.target !== input) hideAddrSugg();
+      });
+    })();
 
     // Step 1
     $('startForm').addEventListener('submit', function(e) {
@@ -261,6 +504,7 @@
       Array.prototype.forEach.call(f.elements, function(el) { if (el.name && el.type !== 'checkbox') data[el.name] = el.value; });
       data.rooms = Array.prototype.map.call(f.querySelectorAll('input[name="rooms"]:checked'), function(el) { return el.value; });
       if (state.orgSlug) data.org = state.orgSlug;
+      if (state.geo) { data.city = state.geo.city; data.state = state.geo.state; data.postcode = state.geo.postcode; data.latitude = state.geo.lat; data.longitude = state.geo.lon; }
       if (!data.name.trim() || !/^\S+@\S+\.\S+$/.test(data.email)) { msg.textContent = 'Please enter your name and email so we can send your report.'; msg.hidden = false; return; }
       if (!data.rooms.length && !String(data.otherRooms || '').trim()) { msg.textContent = 'Pick at least one room to inspect.'; msg.hidden = false; return; }
       $('startBtn').disabled = true;
@@ -271,78 +515,134 @@
       }).catch(function(err) { msg.textContent = err.message; msg.hidden = false; $('startBtn').disabled = false; });
     });
 
-    // Step 2 — guided shot list: every room needs a wide shot and a close-up, and a close-up
-    // of anything the AI flags. The report can't be sent until the list is complete.
-    function roomStatus(room) {
-      var inRoom = state.items.filter(function(i) { return i.room === room; });
-      var wide = inRoom.some(function(i) { return i.shot === 'wide'; });
-      var close = inRoom.some(function(i) { return i.shot === 'closeup'; });
-      var flagNeeds = inRoom.filter(function(i) { return i.repair_needed; }).filter(function(f) {
-        if (f.shot === 'closeup' || !f.shot) return false;
-        return !state.items.some(function(i) { return i.shot === 'closeup' && i.for_item_id === f.id; });
+    // Step 2 — the shot list: every room is a dropdown of categories. Each
+    // category takes 3 photos from 3 different angles, plus its yes/no
+    // checks and a comment box. The report can't be sent until every
+    // category is covered: at least one photo (where the category takes
+    // photos), its checks answered, and its comment written. Detectors
+    // always gate; Systems gates only when the HVAC room was picked.
+    function catKey(room, key) { return room + '||' + key; }
+    function catState(room, key) {
+      var k = catKey(room, key);
+      if (!state.cats[k]) state.cats[k] = { floor_type: '', answers: {}, comment: '' };
+      return state.cats[k];
+    }
+    function catPhotos(room, key) {
+      return state.items.filter(function(i) { return i.room === room && (i.category || '') === key; });
+    }
+    function catMissing(room, cat) {
+      var st = catState(room, cat.key), parts = [];
+      if (cat.photo !== false && catPhotos(room, cat.key).length < 1) parts.push('a photo');
+      if (cat.floorType && !st.floor_type) parts.push('the floor type');
+      (cat.checks || []).forEach(function(ch) {
+        if (st.answers[ch.key] !== 'yes' && st.answers[ch.key] !== 'no') parts.push('the yes/no checks');
       });
-      return { wide: wide, close: close, flagNeeds: flagNeeds, done: wide && close && !flagNeeds.length };
+      if (!String(st.comment || '').trim()) parts.push('your comment');
+      if (!parts.length) {
+        // Tello flagged damage in this category: one more angle of it before the report can be sent.
+        var flagged = catPhotos(room, cat.key).filter(function(i) { return i.repair_needed; });
+        if (flagged.length && catPhotos(room, cat.key).length < 2) return 'one more angle of ' + (flagged[0].repair_item || 'the damage');
+        return null;
+      }
+      return parts.join(' + ');
+    }
+    function catDone(room, cat) { return !catMissing(room, cat); }
+    // Rooms that share one section: every exterior room collapses into a
+    // single Exterior section, and the HVAC room is the Systems section.
+    function sectionRoom(room) {
+      var t = templateFor(room);
+      if (t === TEMPLATES.exterior) return 'Exterior';
+      if (t === TEMPLATES.systems) return 'Systems';
+      return room;
+    }
+    function sections() {
+      var seen = {}, out = [];
+      state.rooms.forEach(function(room) {
+        var sr = sectionRoom(room);
+        if (seen[sr]) return; seen[sr] = true;
+        out.push({ id: 'room:' + sr, room: sr, label: templateFor(sr).label, cats: templateFor(sr).cats });
+      });
+      out.push({ id: 'detectors', room: 'Detectors', label: 'Detectors', cats: DETECTOR_CATS });
+      return out;
     }
     function missingList() {
       var out = [];
-      state.rooms.forEach(function(room) {
-        var s = roomStatus(room);
-        if (!s.wide) out.push(room + ': wide shot');
-        if (!s.close) out.push(room + ': close-up');
-        s.flagNeeds.forEach(function(f) { out.push(room + ': close-up of ' + (f.repair_item || 'the damage')); });
+      sections().forEach(function(sec) {
+        sec.cats.forEach(function(cat) {
+          var m = catMissing(sec.room, cat);
+          if (m) out.push(sec.label + ' — ' + cat.label + ': ' + m);
+        });
       });
       return out;
-    }
-    function nextSlot() {
-      var i, room, s, f;
-      for (i = 0; i < state.rooms.length; i++) {
-        room = state.rooms[i]; s = roomStatus(room);
-        if (!s.wide) return { room: room, shot: 'wide', forItem: null, label: 'Wide shot', hint: 'Stand in the doorway and capture the whole room in one photo.' };
-        if (s.flagNeeds.length) { f = s.flagNeeds[0]; return { room: room, shot: 'closeup', forItem: f.id, label: 'Close-up needed', hint: 'Close-up of: ' + (f.repair_item || 'the damage') + '.' }; }
-        if (!s.close) return { room: room, shot: 'closeup', forItem: null, label: 'Close-up', hint: 'Close-up of anything worn, stained or broken — or the room’s fixtures.' };
-      }
-      var flags = state.items.filter(function(x) { return x.repair_needed && x.shot && x.shot !== 'closeup' && !state.items.some(function(y) { return y.shot === 'closeup' && y.for_item_id === x.id; }); });
-      if (flags.length) { f = flags[0]; return { room: f.room, shot: 'closeup', forItem: f.id, label: 'Close-up needed', hint: 'Close-up of: ' + (f.repair_item || 'the damage') + '.' }; }
-      return null;
     }
     function openPhotos() {
       $('intro').hidden = true; $('startForm').hidden = true; $('photosStep').hidden = false;
       renderAll(); $('photosStep').scrollIntoView({ behavior: 'smooth' });
     }
-    function renderAll() { renderChecklist(); renderShotBox(); renderItems(); }
+    function renderAll() { renderChecklist(); renderShotBox(); updateFinish(); }
     function renderChecklist() {
       var el = $('checklist');
-      if (!state.rooms.length) { el.innerHTML = ''; return; }
-      el.innerHTML = '<div class="checklist">' + state.rooms.map(function(room) {
-        var s = roomStatus(room);
-        return '<div class="ck-room' + (s.done ? ' done' : '') + '"><strong>' + esc(room) + (s.done ? ' ✓' : '') + '</strong><ul>' +
-          '<li>' + (s.wide ? '✓' : '○') + ' Wide shot</li>' +
-          '<li>' + (s.close ? '✓' : '○') + ' Close-up</li>' +
-          s.flagNeeds.map(function(f) { return '<li class="flag">⚠ Close-up needed: ' + esc(f.repair_item || 'the damage') + '</li>'; }).join('') + '</ul></div>';
-      }).join('') + '</div>';
+      var secs = sections();
+      if (!secs.length) { el.innerHTML = ''; return; }
+      el.innerHTML = '<div class="checklist">' + secs.map(function(sec) {
+        var done = sec.cats.filter(function(c) { return catDone(sec.room, c); }).length;
+        var all = sec.cats.length;
+        return '<div class="ck-room' + (done === all ? ' done' : '') + '"><strong>' + esc(sec.label) + (done === all ? ' ✓' : '') + '</strong><ul><li>' + done + ' of ' + all + ' categories done</li></ul></div>';
+      }).join('') + '</div><p class="muted small">Photos: ' + state.items.length + ' of ' + MAX_PHOTOS + '.</p>';
     }
     var CAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
-    function renderShotBox() {
-      var box = $('shotBox'), slot = nextSlot();
-      if (!slot) {
-        if (!state.rooms.length) {
-          box.innerHTML = '<div class="slot"><h3>Add photos</h3><p>Pick a room, take or upload photos. Tello reads each one as it lands.</p>' +
-            '<div class="pick"><label>Room<select id="freeRoom">' + ROOMS.map(function(r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></label>' +
-            '<label id="freeOtherWrap" hidden>Room name<input id="freeOther" maxlength="60" placeholder="For example: Office" /></label></div>' +
-            '<label class="drop" data-drop="free">' + CAM_SVG + 'Take or choose photos<small>Up to 40 photos in total.</small><input type="file" data-free="1" accept="image/*" /></label></div>';
-          return;
-        }
-        box.innerHTML = '<div class="slot"><p class="done-note">All shots done — every room is covered. You can add extra close-ups or get your report.</p>' +
-          '<label class="drop" data-drop="extra">' + CAM_SVG + 'Add another close-up<small>Extra photos are still read by the AI.</small><input type="file" data-extra="1" data-room="' + esc(state.rooms[state.rooms.length - 1]) + '" accept="image/*" /></label></div>';
-        return;
+    function catCardHtml(room, cat) {
+      var st = catState(room, cat.key);
+      var done = catDone(room, cat);
+      var photos = catPhotos(room, cat.key);
+      var slots = '';
+      if (cat.photo !== false) {
+        slots = '<div class="slots">' + [1, 2, 3].map(function(n) {
+          var shot = 'angle' + n;
+          var it = null;
+          for (var i = 0; i < photos.length; i++) if (photos[i].shot === shot) { it = photos[i]; break; }
+          if (!it) {
+            return '<label class="drop slotdrop" data-drop="slot">' + CAM_SVG + 'Angle ' + n + '<small>Take or choose a photo</small><input type="file" data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" data-angle="' + shot + '" accept="image/*" /></label>';
+          }
+          return '<div class="slotcell"><img src="' + photoUrl(it) + '" alt="' + esc(cat.label) + ' angle ' + n + '" />' + badge(it.condition) +
+            (it.repair_needed ? ' <span class="repair">' + esc(it.repair_item || 'Repair') + '</span>' : '') +
+            (it.notes ? '<p>' + esc(it.notes) + '</p>' : '') +
+            '<button type="button" data-del="' + it.id + '">Remove photo</button></div>';
+        }).join('') + '</div>';
       }
-      var extra = slot.shot === 'closeup' || roomStatus(slot.room).wide;
-      box.innerHTML = '<div class="slot"><h3>' + esc(slot.room) + ' — ' + esc(slot.label) + '</h3><p>' + esc(slot.hint) + '</p>' +
-        '<label class="drop" data-drop="slot">' + CAM_SVG + (slot.shot === 'wide' ? 'Take the wide shot' : 'Take the close-up') + '<small>One photo. Blurry photos are sent back for a retake.</small><input type="file" data-room="' + esc(slot.room) + '" data-shot="' + slot.shot + '"' + (slot.forItem ? ' data-for-item="' + slot.forItem + '"' : '') + ' accept="image/*" /></label>' +
-        (extra ? '<label class="drop" data-drop="extra" style="margin-top:0.75rem">' + CAM_SVG + 'Add another close-up in ' + esc(slot.room) + '<small>Optional — extra photos are still read by the AI.</small><input type="file" data-extra="1" data-room="' + esc(slot.room) + '" accept="image/*" /></label>' : '') + '</div>';
+      var checksHtml = (cat.checks || []).map(function(ch) {
+        var a = st.answers[ch.key];
+        return '<div class="yn"><span>' + esc(ch.label) + '</span>' +
+          '<button type="button" data-check="' + esc(ch.key) + '" data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" data-val="yes" class="' + (a === 'yes' ? 'on-yes' : '') + '">Yes</button>' +
+          '<button type="button" data-check="' + esc(ch.key) + '" data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" data-val="no" class="' + (a === 'no' ? 'on-no' : '') + '">No</button></div>';
+      }).join('');
+      var floorHtml = cat.floorType
+        ? '<label class="fld">Floor type:<select data-floor data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '">' +
+          '<option value="">Pick one</option>' +
+          ['carpet', 'tile', 'wood'].map(function(f) { return '<option value="' + f + '"' + (st.floor_type === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select></label>'
+        : '';
+      return '<div class="cat' + (done ? ' done' : '') + '" data-cat-card="' + esc(room) + '||' + esc(cat.key) + '"><h4>' + esc(cat.label) + (done ? ' ✓' : '') + ' <span class="cat-prog">' + (cat.photo === false ? 'checks + comment' : photos.length + '/3 angles') + '</span></h4>' +
+        slots + checksHtml + floorHtml +
+        '<input class="comment-box" data-comment data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" maxlength="' + COMMENT_MAX + '" placeholder="Your comment — cleaning, damage, repair or replace" value="' + esc(st.comment || '') + '" /></div>';
     }
-    function renderItems() {
-      $('items').innerHTML = grouped(state.items, true);
+    function renderShotBox() {
+      var box = $('shotBox');
+      var secs = sections();
+      if (!secs.length) {
+        box.innerHTML = '<div class="slot"><h3>Add photos</h3><p>No rooms were picked for this check. Detectors are below — pick rooms on the first step to add more.</p></div>';
+      }
+      var firstOpen = null;
+      secs.forEach(function(sec) {
+        if (!firstOpen && sec.cats.some(function(c) { return !catDone(sec.room, c); })) firstOpen = sec.id;
+      });
+      box.innerHTML = secs.map(function(sec) {
+        var done = sec.cats.filter(function(c) { return catDone(sec.room, c); }).length;
+        var open = state.openSecs[sec.id] !== undefined ? state.openSecs[sec.id] : (sec.id === firstOpen);
+        return '<details class="room-sec" data-sec="' + esc(sec.id) + '"' + (open ? ' open' : '') + '><summary><span>' + esc(sec.label) + '</span><span class="prog">' + done + ' / ' + sec.cats.length + ' done</span></summary><div class="body">' +
+          sec.cats.map(function(c) { return catCardHtml(sec.room, c); }).join('') + '</div></details>';
+      }).join('');
+    }
+    function updateFinish() {
       var miss = missingList();
       $('finishBtn').disabled = !state.items.length || miss.length > 0;
       var tm = $('todoMsg'), bits = [];
@@ -350,14 +650,75 @@
       if (state.removed > 0) bits.push(state.removed + ' photo' + (state.removed > 1 ? 's' : '') + ' removed — the report will say so.');
       if (bits.length) { tm.textContent = bits.join(' '); tm.hidden = false; } else tm.hidden = true;
     }
-    $('items').addEventListener('click', function(e) {
-      var b = e.target.closest('[data-del]'); if (!b) return;
-      b.disabled = true;
-      api('/' + state.id + '/photos/' + b.getAttribute('data-del') + q(), { method: 'DELETE' }).then(function() {
-        state.items = state.items.filter(function(i) { return String(i.id) !== b.getAttribute('data-del'); });
-        state.removed++; renderAll();
-      }).catch(function(err) { alert(err.message); b.disabled = false; });
+    function saveCategory(room, key) {
+      var st = catState(room, key);
+      api('/' + state.id + '/categories' + q(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, category: key, floor_type: st.floor_type || '', answers: st.answers, comment: st.comment || '' }) })
+        .catch(function(err) { alert('Could not save that answer: ' + err.message); });
+    }
+    function refreshCard(room, key) {
+      var card = document.querySelector('[data-cat-card="' + CSS.escape(room + '||' + key) + '"]');
+      if (!card) return;
+      var cat = findCat(room, key);
+      if (!cat) return;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = catCardHtml(room, key);
+      card.replaceWith(tmp.firstChild);
+      renderChecklist(); updateFinish();
+    }
+    $('shotBox').addEventListener('toggle', function(e) {
+      var sec = e.target.closest('[data-sec]'); if (!sec) return;
+      state.openSecs[sec.getAttribute('data-sec')] = sec.open;
+    }, true);
+    $('shotBox').addEventListener('click', function(e) {
+      var del = e.target.closest('[data-del]');
+      if (del) {
+        del.disabled = true;
+        api('/' + state.id + '/photos/' + del.getAttribute('data-del') + q(), { method: 'DELETE' }).then(function() {
+          state.items = state.items.filter(function(i) { return String(i.id) !== del.getAttribute('data-del'); });
+          state.removed++; renderAll();
+        }).catch(function(err) { alert(err.message); del.disabled = false; });
+        return;
+      }
+      var chk = e.target.closest('[data-check]');
+      if (chk) {
+        var room = chk.getAttribute('data-room'), key = chk.getAttribute('data-category');
+        var st = catState(room, key);
+        st.answers[chk.getAttribute('data-check')] = chk.getAttribute('data-val');
+        saveCategory(room, key);
+        refreshCard(room, key);
+      }
     });
+    $('shotBox').addEventListener('change', function(e) {
+      var input = e.target.closest('input[type="file"]');
+      if (input && input.files.length) {
+        uploadOne(input.files[0], input.getAttribute('data-room'), input.getAttribute('data-category'), input.getAttribute('data-angle'));
+        input.value = '';
+        return;
+      }
+      var floor = e.target.closest('[data-floor]');
+      if (floor) {
+        var st = catState(floor.getAttribute('data-room'), floor.getAttribute('data-category'));
+        st.floor_type = floor.value;
+        saveCategory(floor.getAttribute('data-room'), floor.getAttribute('data-category'));
+        refreshCard(floor.getAttribute('data-room'), floor.getAttribute('data-category'));
+        return;
+      }
+      var cm = e.target.closest('[data-comment]');
+      if (cm) {
+        var st2 = catState(cm.getAttribute('data-room'), cm.getAttribute('data-category'));
+        st2.comment = cm.value.slice(0, COMMENT_MAX);
+        saveCategory(cm.getAttribute('data-room'), cm.getAttribute('data-category'));
+        refreshCard(cm.getAttribute('data-room'), cm.getAttribute('data-category'));
+      }
+    });
+    $('shotBox').addEventListener('dragover', function(e) { if (e.target.closest('.drop')) e.preventDefault(); });
+    $('shotBox').addEventListener('drop', function(e) {
+      var drop = e.target.closest('.drop'); if (!drop || !e.dataTransfer || !e.dataTransfer.files.length) return;
+      e.preventDefault();
+      var input = drop.querySelector('input[type="file"]'); if (!input) return;
+      uploadOne(e.dataTransfer.files[0], input.getAttribute('data-room'), input.getAttribute('data-category'), input.getAttribute('data-angle'));
+    });
+
     // Sharpness check: a Laplacian-variance score on a small copy of the photo. The threshold is
     // deliberately low — only clearly blurry photos are sent back for a retake.
     function blurScore(c) {
@@ -397,47 +758,25 @@
       while (feed.children.length > 8) feed.removeChild(feed.children[1]);
     }
     var uploading = false;
-    function uploadOne(file, room, shot, forItem) {
+    function uploadOne(file, room, category, angle) {
       if (!file || uploading) return;
       if (!/^image\//.test(file.type) && !/\.(jpe?g|png|webp|heic)$/i.test(file.name)) return;
       uploading = true; $('finishBtn').disabled = true;
       var busy = $('busy'); busy.hidden = false;
       busy.textContent = 'Tello is reading this photo for ' + room + '...';
       resize(file).then(function(blob) {
-        var extra = '&room=' + encodeURIComponent(room) + '&shot=' + shot + (forItem ? '&for_item=' + forItem : '');
+        var extra = '&room=' + encodeURIComponent(room) + '&category=' + encodeURIComponent(category || '') + '&angle=' + encodeURIComponent(angle || '') + '&shot=' + encodeURIComponent(angle || 'closeup');
         return api('/' + state.id + '/photos' + q(extra), { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
       }).then(function(r) {
         state.items.push(r.item);
         var it = r.item;
-        if (it.repair_needed) telloSay('I spotted something in this photo: ' + (it.repair_item || 'repair needed') + '. A close-up of it is now required before the report can be sent.', true);
-        else { var msg = room + ' \u2014 ' + (it.condition || 'looked over'); if (it.notes) msg += '. ' + it.notes; telloSay(msg); }
+        var where = room + (category ? ' · ' + catLabel(room, category) : '');
+        if (it.repair_needed) telloSay('I spotted something in this photo: ' + (it.repair_item || 'repair needed') + '. Add another angle of it in ' + where + ' before the report can be sent.', true);
+        else { var msg = where + ' \u2014 ' + (it.condition || 'looked over'); if (it.notes) msg += '. ' + it.notes; telloSay(msg); }
       }).catch(function(err) { alert(err.message); }).then(function() {
         uploading = false; busy.hidden = true; renderAll();
       });
     }
-    function uploadFromInput(input, file) {
-      if (input.getAttribute('data-free')) {
-        var roomSel = $('freeRoom');
-        var room = roomSel.value === 'Other' ? (($('freeOther').value || '').trim() || 'Other') : roomSel.value;
-        uploadOne(file, room, 'closeup', null);
-      } else if (input.getAttribute('data-extra')) {
-        uploadOne(file, input.getAttribute('data-room'), 'closeup', null);
-      } else {
-        uploadOne(file, input.getAttribute('data-room'), input.getAttribute('data-shot') || 'closeup', input.getAttribute('data-for-item') ? Number(input.getAttribute('data-for-item')) : null);
-      }
-    }
-    $('shotBox').addEventListener('change', function(e) {
-      if (e.target.id === 'freeRoom') { var w = $('freeOtherWrap'); if (w) w.hidden = e.target.value !== 'Other'; return; }
-      var input = e.target.closest('input[type="file"]'); if (!input || !input.files.length) return;
-      uploadFromInput(input, input.files[0]); input.value = '';
-    });
-    $('shotBox').addEventListener('dragover', function(e) { if (e.target.closest('.drop')) e.preventDefault(); });
-    $('shotBox').addEventListener('drop', function(e) {
-      var drop = e.target.closest('.drop'); if (!drop || !e.dataTransfer || !e.dataTransfer.files.length) return;
-      e.preventDefault();
-      var input = drop.querySelector('input[type="file"]'); if (!input) return;
-      uploadFromInput(input, e.dataTransfer.files[0]);
-    });
 
     // Step 3
     $('finishBtn').addEventListener('click', function() {
