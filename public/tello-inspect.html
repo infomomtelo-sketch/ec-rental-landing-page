@@ -129,8 +129,24 @@
     .progressbar .grow { flex: 1; min-width: 180px; font-weight: 700; color: var(--primary); }
     .edit-note { background: #fdf3d7; border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.9rem; margin: 0 0 0.75rem; }
     .clear-cat { background: none; border: none; color: #9b2c1c; cursor: pointer; font-size: 0.82rem; padding: 0.3rem 0; }
+    /* Per-unit report: one section per space, picked with a checkbox. */
+    .room-report { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.1rem; margin-bottom: 0.9rem; }
+    .room-report > h2 { margin: 0 0 0.75rem; color: var(--primary); font-size: 1.1rem; display: flex; align-items: center; gap: 0.55rem; }
+    .room-report > h2 input { width: 1.15rem; height: 1.15rem; accent-color: var(--primary); flex: none; }
+    .room-report > h2 .r-count { color: var(--gray); font-weight: 400; font-size: 0.85rem; }
+    .room-report .catbox { box-shadow: none; border: 1px solid #e5e7eb; margin-bottom: 0.6rem; }
+    .room-report .catbox:last-child { margin-bottom: 0; }
+    .unit-bar { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.1rem; margin-bottom: 0.9rem; }
+    .unit-bar p { margin: 0 0 0.75rem; }
+    .unit-bar .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+    .unit-bar #unitMsg { margin: 0.6rem 0 0; font-size: 0.9rem; }
+    .unit-bar #unitMsg.err { color: #9b2c1c; }
+    .unit-bar #unitMsg.ok { color: #166534; }
+    .linklike { background: none; border: none; color: var(--primary); font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer; padding: 0.4rem 0.2rem; }
+    .room-report.reveal-in { animation: unitIn 0.45s ease-out; }
+    @keyframes unitIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 560px) { .item img { width: 90px; height: 72px; } }
-    @media print { header, .cta, .no-print { display: none !important; } .item, .summary, .catbox { box-shadow: none; border: 1px solid #ddd; } }
+    @media print { header, .cta, .no-print { display: none !important; } .item, .summary, .catbox { box-shadow: none; border: 1px solid #ddd; } body.printing-unit .room-report:not(.unit-checked) { display: none !important; } body.printing-unit .summary, body.printing-unit h1 { display: none !important; } }
   </style>
 </head>
 <body>
@@ -389,7 +405,12 @@
         if (!boxes[k]) { boxes[k] = { room: c.room, category: c.category, items: [] }; order.push(k); }
         boxes[k].cat = c;
       });
-      var boxesHtml = order.map(function(k) {
+      // Per-unit report: one section per space, each with a checkbox. The
+      // landlord ticks the spaces of one rental (a room plus its kitchen
+      // and bathroom, say); Print and Email act on the ticked spaces
+      // together. All ticked is the whole property.
+      var catHtml = {};
+      order.forEach(function(k) {
         var b = boxes[k], c = b.cat, label = catLabel(b.room, b.category);
         var checksHtml = '';
         if (c && c.answers) {
@@ -402,12 +423,22 @@
           if (c.floor_type) bits.push('Floor type: ' + esc(c.floor_type));
           if (bits.length) checksHtml = '<p class="checks">' + bits.join(' · ') + '</p>';
         }
-        return '<div class="catbox"><h3>' + esc(b.room) + ' — ' + esc(label) + '</h3>' +
+        var html = '<div class="catbox"><h3>' + esc(b.room) + ' — ' + esc(label) + '</h3>' +
           (c && c.comment ? '<p class="human"><b>Your comment:</b> ' + esc(c.comment) + '</p>' : '') +
           checksHtml +
           b.items.map(function(it) { return itemHtml(it, false); }).join('') +
           (b.items.length ? '' : '<p class="muted small">No photos — checks and comment only.</p>') + '</div>';
+        (catHtml[b.room] = catHtml[b.room] || []).push(html);
+      });
+      var roomOrder = [];
+      order.forEach(function(k) { var rm = boxes[k].room; if (roomOrder.indexOf(rm) === -1) roomOrder.push(rm); });
+      var roomsHtml = roomOrder.map(function(rm) {
+        var n = d.items.filter(function(it) { return it.room === rm; }).length;
+        return '<section class="room-report unit-checked" data-room="' + esc(rm) + '" hidden><h2><input type="checkbox" class="unit-pick no-print" data-room="' + esc(rm) + '" checked /> ' + esc(rm) + ' <span class="r-count">' + n + ' photo' + (n === 1 ? '' : 's') + '</span></h2>' + catHtml[rm].join('') + '</section>';
       }).join('');
+      var unitBarHtml = '<div class="unit-bar no-print"><p><strong>Renting by the room?</strong> Tick the spaces that belong to one rental — for example Bedroom 2, the kitchen and the bathroom — and print or email just those together as one report. All spaces ticked is the whole property.</p>' +
+        '<div class="row"><button type="button" class="ghost-btn" id="printUnitBtn">Print selected rooms</button><button type="button" class="ghost-btn" id="emailUnitBtn">Email selected rooms</button><button type="button" class="linklike" id="unitSelectAll">Select all</button></div>' +
+        '<p id="unitMsg" hidden></p></div>';
       r.innerHTML = '<h1>Tello Inspect report</h1><div class="summary"><h2>' + esc(TYPES[i.type] || 'Routine') + ' check' + (i.address ? ': ' + esc(i.address) : '') + '</h2>' +
         '<p class="muted small">For ' + esc(i.name) + ' · ' + esc((i.finished_at || i.created_at || '').slice(0, 10)) + ' · ' + d.items.length + ' photos</p>' +
         '<p class="overall ' + cls + '">Overall: ' + esc(i.overall || 'In progress') + '</p><p>' + esc(i.summary) + '</p>' +
@@ -415,10 +446,13 @@
         '<p class="disclaimer">This is an AI review of the photos sent, not a licensed or certified home inspection. It can only describe what the photos show and can make mistakes.</p>' +
         (state.org && state.org.brand_name ? '<div class="report-brand">' + (state.org.brand_logo_url ? '<img src="' + esc(state.org.brand_logo_url) + '" alt="" />' : '') + '<span><strong>' + esc(state.org.brand_name) + '</strong>' + (state.org.support_email ? '<br><span class="muted small">' + esc(state.org.support_email) + '</span>' : '') + '</span></div>' : '') +
         (state.org ? '<span class="powered">Powered by Tello Inspect</span>' : '') +
-        '<div class="cta"><button type="button" class="ghost-btn" id="editBtn">Edit inspection</button><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
-        boxesHtml +
+        '<div class="cta"><button type="button" class="ghost-btn" id="editBtn">Edit inspection</button><button type="button" class="ghost-btn" id="printAllBtn">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
+        unitBarHtml + roomsHtml +
         '';
       var eb = $('editBtn'); if (eb) eb.addEventListener('click', editInspection);
+      var pab = $('printAllBtn'); if (pab) pab.addEventListener('click', printWholeReport);
+      wireUnitBar();
+      revealRooms();
       window.scrollTo(0, 0);
     }
     var params = new URLSearchParams(location.search);
@@ -908,6 +942,106 @@
           renderAll();
         })
         .catch(function(err) { alert(err.message); if (btn) btn.disabled = false; });
+    }
+
+    // Per-unit report: pick the spaces of one rental, print or email just
+    // those. The checkboxes live on each room section; the section keeps
+    // a unit-checked class so the print stylesheet can hide the rest.
+    var unitTimer = null;
+    function unitPicked() {
+      var out = [];
+      Array.prototype.forEach.call(document.querySelectorAll('.unit-pick:checked'), function(cb) { out.push(cb.getAttribute('data-room')); });
+      return out;
+    }
+    function syncUnitChecked() {
+      Array.prototype.forEach.call(document.querySelectorAll('.room-report'), function(sec) {
+        var cb = sec.querySelector('.unit-pick');
+        if (cb) sec.classList.toggle('unit-checked', cb.checked);
+      });
+      var n = unitPicked().length;
+      var pb = $('printUnitBtn'); if (pb) pb.textContent = 'Print selected rooms' + (n ? ' (' + n + ')' : '');
+      var eb2 = $('emailUnitBtn'); if (eb2) eb2.textContent = 'Email selected rooms' + (n ? ' (' + n + ')' : '');
+    }
+    function wireUnitBar() {
+      syncUnitChecked();
+      Array.prototype.forEach.call(document.querySelectorAll('.unit-pick'), function(cb) {
+        cb.addEventListener('change', syncUnitChecked);
+      });
+      var sa = $('unitSelectAll');
+      if (sa) sa.addEventListener('click', function() {
+        Array.prototype.forEach.call(document.querySelectorAll('.unit-pick'), function(cb) { cb.checked = true; });
+        syncUnitChecked();
+      });
+      var pb = $('printUnitBtn');
+      if (pb) pb.addEventListener('click', printSelectedRooms);
+      var eb2 = $('emailUnitBtn');
+      if (eb2) eb2.addEventListener('click', emailSelectedRooms);
+    }
+    // Reveal the report space by space with Tello's reading animation
+    // (the same gold orb + scan bar as the writing animation), instead of
+    // the whole report landing at once. "Show all" skips the wait, and
+    // printing reveals everything first so nothing prints half-hidden.
+    function revealRooms() {
+      if (unitTimer) { clearTimeout(unitTimer); unitTimer = null; }
+      var secs = Array.prototype.slice.call(document.querySelectorAll('.room-report'));
+      if (!secs.length) return;
+      var bar = document.createElement('div');
+      bar.className = 'reading no-print'; bar.id = 'unitReading';
+      bar.innerHTML = '<div class="r-top"><span class="orb"></span><span id="unitReadingText"></span></div><div class="scan"><i></i></div><p class="r-note">Tello is presenting your report room by room. <button type="button" class="linklike" id="unitShowAll">Show all</button></p>';
+      secs[0].parentNode.insertBefore(bar, secs[0]);
+      var i = 0;
+      function finish() {
+        if (unitTimer) { clearTimeout(unitTimer); unitTimer = null; }
+        secs.forEach(function(s) { s.hidden = false; s.classList.add('reveal-in'); });
+        if (bar.parentNode) bar.parentNode.removeChild(bar);
+      }
+      var showAll = $('unitShowAll');
+      if (showAll) showAll.addEventListener('click', finish);
+      var txt0 = $('unitReadingText');
+      if (txt0) txt0.textContent = 'Tello is reading the ' + secs[0].getAttribute('data-room') + '…';
+      function step() {
+        if (i >= secs.length) { finish(); return; }
+        secs[i].hidden = false; secs[i].classList.add('reveal-in');
+        i++;
+        var txt = $('unitReadingText');
+        if (i < secs.length) {
+          if (txt) txt.textContent = 'Tello is reading the ' + secs[i].getAttribute('data-room') + '…';
+          unitTimer = setTimeout(step, 650);
+        } else {
+          unitTimer = setTimeout(finish, 650);
+        }
+      }
+      unitTimer = setTimeout(step, 650);
+    }
+    function revealAllRooms() {
+      if (unitTimer) { clearTimeout(unitTimer); unitTimer = null; }
+      var bar = $('unitReading'); if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+      Array.prototype.forEach.call(document.querySelectorAll('.room-report'), function(s) { s.hidden = false; });
+    }
+    function printWholeReport() { revealAllRooms(); window.print(); }
+    function printSelectedRooms() {
+      var picked = unitPicked();
+      var msg = $('unitMsg');
+      if (!picked.length) { if (msg) { msg.textContent = 'Tick at least one room first — untick the rooms that are not part of this rental.'; msg.className = 'err'; msg.hidden = false; } return; }
+      if (msg) msg.hidden = true;
+      revealAllRooms();
+      document.body.classList.add('printing-unit');
+      function done() { document.body.classList.remove('printing-unit'); window.removeEventListener('afterprint', done); }
+      window.addEventListener('afterprint', done);
+      setTimeout(function() { document.body.classList.remove('printing-unit'); }, 5000);
+      window.print();
+    }
+    function emailSelectedRooms() {
+      var picked = unitPicked();
+      var msg = $('unitMsg');
+      if (!picked.length) { if (msg) { msg.textContent = 'Tick at least one room first.'; msg.className = 'err'; msg.hidden = false; } return; }
+      if (!confirm('Email the report for ' + picked.join(', ') + ' to the landlord\u2019s email on file?')) return;
+      var btn = $('emailUnitBtn'); if (btn) btn.disabled = true;
+      if (msg) { msg.textContent = 'Sending…'; msg.className = ''; msg.hidden = false; }
+      api('/' + state.id + '/email-unit' + q(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rooms: picked }) })
+        .then(function() { if (msg) { msg.textContent = 'Sent to the landlord\u2019s email on file.'; msg.className = 'ok'; } })
+        .catch(function(err) { if (msg) { msg.textContent = err.message; msg.className = 'err'; } })
+        .then(function() { if (btn) btn.disabled = false; });
     }
 
     // Step 3
