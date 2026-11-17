@@ -32,10 +32,10 @@ export const PLANS: Record<string, { name: string; price: number; limit: number 
   manager: { name: "Property Manager", price: 79, limit: 25 },
   portfolio: { name: "Portfolio", price: 199, limit: 999999 },
 };
-/** The launch intro offer: one payment of `price` dollars covers the first `months` months of `plan`, for sign ups through `endsOn`. */
-export const INTRO = { plan: "solo", price: 3, months: 3, endsOn: "2026-12-31" };
-/** True while new customers can still get the intro offer (until the end of `endsOn`, California time). */
-export function introOpen(now = Date.now()): boolean { return now < Date.parse(INTRO.endsOn + "T23:59:59-08:00"); }
+/** The launch intro offer: one payment of `price` dollars covers the first `months` months of `plan`. No end date. */
+export const INTRO = { plan: "solo", price: 3, months: 3 };
+/** True while new customers can still get the intro offer. The offer has no end date. */
+export function introOpen(): boolean { return true; }
 /** Days before a trial or the intro period ends that the "your plan starts on" reminder goes out. */
 const REMINDER_DAYS = 7;
 const LOOKUP_PREFIX = "ecrental_";
