@@ -289,7 +289,7 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
     return json({ success: true, id, token, rooms });
   }
 
-  const m = path.match(/^\/api\/public\/ai-inspections\/(\d+)(\/finish|\/categories|\/photos(?:\/(\d+))?)?$/);
+  const m = path.match(/^\/api\/public\/ai-inspections\/(\d+)(\/finish|\/categories|\/photos(?:\/(\d+))?|\/email-unit)?$/);
   if (!m) return json({ error: "Not found" }, 404);
   const insp = await env.DB.prepare("SELECT * FROM remote_inspections WHERE id = ?").bind(parseInt(m[1])).first<RemoteRow>();
   if (!insp || !sameToken(url.searchParams.get("t") || "", insp.token)) return json({ error: "This report link isn't valid." }, 404);
@@ -382,6 +382,82 @@ export async function handleRemoteInspections(request: Request, env: RemoteEnv, 
       await env.DB.prepare("DELETE FROM remote_inspection_items WHERE id = ?").bind(item.id).run();
       return json({ success: true });
     }
+  }
+
+  // Email one rental unit's report: the landlord ticks the spaces of one
+  // rental (a room plus its kitchen and bathroom, say) and this sends just
+  // those spaces to the landlord's email on file — never to a tenant
+  // address. No signup row, no status change, no full-report email, and
+  // the whole-property summary is left out: it describes rooms that are
+  // not in this unit. Only a finished inspection has a report to send.
+  if (m[2] === "/email-unit" && request.method === "POST") {
+    if (insp.status !== "done") return json({ error: "Finish the inspection first — there's no report to send yet." }, 400);
+    if (!(await allow())) return json({ error: "Too many requests. Please wait a minute and try again." }, 429);
+    if (!notify) return json({ error: "Email isn't set up yet." }, 503);
+    const b = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const wanted = Array.isArray(b.rooms) ? b.rooms : [];
+    const rooms = await requiredRooms(env, insp.id);
+    const sections = new Set<string>();
+    for (const r of rooms) sections.add(sectionRoom(r));
+    sections.add("Detectors");
+    const picked: string[] = [];
+    for (const r of wanted) {
+      const s = sectionRoom(str(r, 60));
+      if (s && sections.has(s) && !picked.includes(s)) picked.push(s);
+    }
+    if (!picked.length) return json({ error: "Pick at least one room to send." }, 400);
+    if (picked.length > 12) return json({ error: "Too many rooms picked." }, 400);
+    // The landlord's email: the owner on file when the landlord sent this
+    // inspection (then the requester's email is the tenant's), otherwise
+    // the requester's own email — the self-serve landlord case.
+    const owner = await env.DB.prepare("SELECT u.email FROM users u JOIN remote_inspection_owners o ON o.owner_user_id = u.id WHERE o.inspection_id = ?").bind(insp.id).first<{ email: string }>();
+    const landlordEmail = owner && owner.email ? owner.email : insp.email;
+    if (!/^\S+@\S+\.\S+$/.test(landlordEmail)) return json({ error: "There's no landlord email on file for this inspection." }, 400);
+    const cats = await loadCategories(env, insp.id);
+    const catByKey = new Map(cats.map((c) => [c.room + "||" + c.category, c]));
+    const catLabel = (room: string, key: string): string => {
+      const found = findCategory(room, key);
+      return found ? found.label : (key ? key.replace(/_/g, " ") : "Photos");
+    };
+    const all = await loadItemsWithCategory(env, insp.id);
+    const lines: string[] = [];
+    for (const room of picked) {
+      lines.push(`${room}:`);
+      const roomCats = cats.filter((c) => c.room === room);
+      const roomItems = all.filter((i) => i.room === room);
+      const keys = new Set<string>();
+      for (const c of roomCats) keys.add(c.category);
+      for (const i of roomItems) keys.add(i.category || "");
+      if (!keys.size) { lines.push("  No categories recorded."); continue; }
+      for (const key of keys) {
+        const rec = catByKey.get(room + "||" + key);
+        lines.push(`  ${catLabel(room, key)}:`);
+        if (rec) {
+          if (rec.floor_type) lines.push(`    Floor type: ${rec.floor_type}`);
+          const cat = findCategory(room, key);
+          for (const ch of cat?.checks || []) {
+            const a = rec.answers[ch.key];
+            if (a === "yes" || a === "no") lines.push(`    ${ch.label} ${a === "yes" ? "Yes" : "No"}`);
+          }
+          if (rec.comment) lines.push(`    Person's comment: ${rec.comment}`);
+        }
+        for (const i of roomItems.filter((x) => (x.category || "") === key)) {
+          lines.push(`    Photo (${i.shot || "photo"}): ${i.condition || "not rated"}${i.notes ? ", " + i.notes : ""}${i.repair_needed ? " (repair: " + (i.repair_item || "yes") + ")" : ""}`);
+        }
+      }
+    }
+    const reportUrl = `https://${url.host}/tello-inspect?id=${insp.id}&t=${insp.token}`;
+    const roomList = picked.join(", ");
+    const subject = `Tello Inspect report: ${roomList}`;
+    const text = [`Hi,`, "", `Here is the Tello Inspect report for ${roomList}${insp.address ? " at " + insp.address : ""}.`, "", ...lines, "", `See the full report with photos: ${reportUrl}`, "", "This is an AI review of the photos sent, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.", "", "EC Rental Property Management"].join("\n");
+    const html = `<p>Hi,</p><p>Here is the Tello Inspect report for <strong>${esc(roomList)}</strong>${insp.address ? " at " + esc(insp.address) : ""}.</p><pre style="font: inherit; white-space: pre-wrap">${esc(lines.join("\n"))}</pre><p><a href="${esc(reportUrl)}">See the full report with photos</a></p><p style="color:#6b7280;font-size:13px">This is an AI review of the photos sent, not a licensed home inspection. For anything serious, such as structural, water or electrical concerns, hire a licensed home inspector.</p><p>EC Rental Property Management</p>`;
+    try {
+      await notify(landlordEmail, subject, html, text);
+    } catch (err) {
+      console.error("[remote-inspection] email unit", err);
+      return json({ error: "The email couldn't be sent. Please try again." }, 502);
+    }
+    return json({ success: true });
   }
 
   // Finish: overall rating, AI summary, lead for EC Rental, report link emailed to the requester.
