@@ -120,6 +120,15 @@
     .catbox .human { font-size: 0.92rem; margin: 0.25rem 0; }
     .catbox .human b { color: var(--primary); }
     .catbox .checks { font-size: 0.88rem; color: #374151; margin: 0.25rem 0 0.6rem; }
+    /* Action buttons: save proof, progress + Continue, edit note, clear category. */
+    .savebar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .savebar #saveState { flex: 1; min-width: 180px; }
+    .savebar #saveLinkBox { flex-basis: 100%; }
+    #saveLink { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.88rem; padding: 0.5rem 0.6rem; border: 1px solid #c9d6cd; border-radius: 8px; margin: 0.25rem 0 0.5rem; }
+    .progressbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .progressbar .grow { flex: 1; min-width: 180px; font-weight: 700; color: var(--primary); }
+    .edit-note { background: #fdf3d7; border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.9rem; margin: 0 0 0.75rem; }
+    .clear-cat { background: none; border: none; color: #9b2c1c; cursor: pointer; font-size: 0.82rem; padding: 0.3rem 0; }
     @media (max-width: 560px) { .item img { width: 90px; height: 72px; } }
     @media print { header, .cta, .no-print { display: none !important; } .item, .summary, .catbox { box-shadow: none; border: 1px solid #ddd; } }
   </style>
@@ -179,6 +188,18 @@
     <section id="photosStep" hidden>
       <div class="app-form"><fieldset>
         <legend>Add photos room by room</legend>
+        <p id="editNote" class="edit-note" hidden>This report is finished. You can review your photos and answers here — changing them and getting a new report needs reopening, which is a small server change not in this update.</p>
+        <div class="savebar">
+          <span id="saveState" class="muted small">Answers and photos save as you go.</span>
+          <button type="button" class="ghost-btn" id="saveLaterBtn">Save &amp; continue later</button>
+          <div id="saveLinkBox" hidden>
+            <label class="muted small" for="saveLink">Your return link — it reopens this same inspection:</label>
+            <input id="saveLink" readonly />
+            <button type="button" class="ghost-btn" id="copyLinkBtn">Copy link</button>
+            <p class="muted small">Your photos and answers are kept on the server. This link reopens this same inspection.</p>
+          </div>
+        </div>
+        <div class="progressbar"><span id="progressLine" class="grow">0 of 0 categories done · 0 of 40 photos</span><button type="button" class="ghost-btn" id="continueBtn">Continue</button></div>
         <div id="telloFeed" class="feed"><div class="feed-line"><span class="dot"></span><span>Hi, I'm Tello — I'll read each photo as you take it, and tell you what I see.</span></div></div>
         <div id="checklist"></div>
         <div id="shotBox"></div>
@@ -304,7 +325,7 @@
       return null;
     }
 
-    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null, cats: {}, openSecs: {}, geo: null };
+    var state = { id: null, t: null, items: [], rooms: [], removed: 0, org: null, orgSlug: null, cats: {}, openSecs: {}, geo: null, editingFinished: false, lastReport: null };
     var $ = function(id) { return document.getElementById(id); };
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
     function api(path, opts) {
@@ -350,6 +371,7 @@
     // Inside each box: the category's photos, what Tello saw in each photo,
     // and the person's comment.
     function showReport(d) {
+      state.lastReport = d;
       var i = d.inspection, cls = i.overall === 'Good' ? 'o-good' : i.overall === 'Fair' ? 'o-fair' : 'o-attn';
       var repairs = d.items.filter(function(x) { return x.repair_needed; });
       $('intro').hidden = true; $('startForm').hidden = true; $('photosStep').hidden = true;
@@ -393,9 +415,10 @@
         '<p class="disclaimer">This is an AI review of the photos sent, not a licensed or certified home inspection. It can only describe what the photos show and can make mistakes.</p>' +
         (state.org && state.org.brand_name ? '<div class="report-brand">' + (state.org.brand_logo_url ? '<img src="' + esc(state.org.brand_logo_url) + '" alt="" />' : '') + '<span><strong>' + esc(state.org.brand_name) + '</strong>' + (state.org.support_email ? '<br><span class="muted small">' + esc(state.org.support_email) + '</span>' : '') + '</span></div>' : '') +
         (state.org ? '<span class="powered">Powered by Tello Inspect</span>' : '') +
-        '<div class="cta"><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
+        '<div class="cta"><button type="button" class="ghost-btn" id="editBtn">Edit inspection</button><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
         boxesHtml +
         '';
+      var eb = $('editBtn'); if (eb) eb.addEventListener('click', editInspection);
       window.scrollTo(0, 0);
     }
     var params = new URLSearchParams(location.search);
@@ -579,7 +602,7 @@
       $('intro').hidden = true; $('startForm').hidden = true; $('photosStep').hidden = false;
       renderAll(); $('photosStep').scrollIntoView({ behavior: 'smooth' });
     }
-    function renderAll() { renderChecklist(); renderShotBox(); updateFinish(); }
+    function renderAll() { renderChecklist(); renderShotBox(); updateFinish(); updateProgress(); updateContinue(); }
     function renderChecklist() {
       var el = $('checklist');
       var secs = sections();
@@ -623,7 +646,8 @@
         : '';
       return '<div class="cat' + (done ? ' done' : '') + '" data-cat-card="' + esc(room) + '||' + esc(cat.key) + '"><h4>' + esc(cat.label) + (done ? ' ✓' : '') + ' <span class="cat-prog">' + (cat.photo === false ? 'checks + comment' : photos.length + '/3 angles') + '</span></h4>' +
         slots + checksHtml + floorHtml +
-        '<input class="comment-box" data-comment data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" maxlength="' + COMMENT_MAX + '" placeholder="Your comment — cleaning, damage, repair or replace" value="' + esc(st.comment || '') + '" /></div>';
+        '<input class="comment-box" data-comment data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '" maxlength="' + COMMENT_MAX + '" placeholder="Your comment — cleaning, damage, repair or replace" value="' + esc(st.comment || '') + '" />' +
+        '<button type="button" class="clear-cat" data-clear data-room="' + esc(room) + '" data-category="' + esc(cat.key) + '">Clear this category</button></div>';
     }
     function renderShotBox() {
       var box = $('shotBox');
@@ -642,17 +666,67 @@
           sec.cats.map(function(c) { return catCardHtml(sec.room, c); }).join('') + '</div></details>';
       }).join('');
     }
+    // Progress + Continue: how far through the shot list this inspection is,
+    // and the next category that still needs a photo.
+    function updateProgress() {
+      var el = $('progressLine'); if (!el) return;
+      var total = 0, done = 0;
+      sections().forEach(function(sec) {
+        sec.cats.forEach(function(c) { total++; if (catDone(sec.room, c)) done++; });
+      });
+      el.textContent = done + ' of ' + total + ' categories done · ' + state.items.length + ' of ' + MAX_PHOTOS + ' photos';
+    }
+    function nextPhotoCat() {
+      var secs = sections(), s, c;
+      for (s = 0; s < secs.length; s++) {
+        for (c = 0; c < secs[s].cats.length; c++) {
+          var cat = secs[s].cats[c];
+          if (cat.photo !== false && catPhotos(secs[s].room, cat.key).length < 1) return { sec: secs[s], cat: cat };
+        }
+      }
+      return null;
+    }
+    function updateContinue() {
+      var btn = $('continueBtn'); if (!btn) return;
+      var next = nextPhotoCat();
+      btn.textContent = next ? 'Continue: ' + next.sec.label + ' — ' + next.cat.label : 'Review & finish';
+    }
     function updateFinish() {
+      var btn = $('finishBtn');
+      if (state.editingFinished) {
+        // Reviewing a finished report: the finish button is the way back.
+        btn.disabled = false; btn.textContent = 'Back to my report';
+        $('todoMsg').hidden = true;
+        return;
+      }
       var miss = missingList();
-      $('finishBtn').disabled = !state.items.length || miss.length > 0;
+      btn.disabled = !state.items.length || miss.length > 0;
+      btn.textContent = btn.disabled ? 'Get my report' : 'Finished — get my report';
       var tm = $('todoMsg'), bits = [];
-      if (miss.length) bits.push('Still needed: ' + miss.join('; ') + '.');
+      if (miss.length) {
+        var names = [];
+        sections().forEach(function(sec) {
+          sec.cats.forEach(function(cat) {
+            var m = catMissing(sec.room, cat);
+            if (m) names.push(sec.label + ' — ' + cat.label + ' (' + m + ')');
+          });
+        });
+        bits.push('Still needed (' + names.length + ' categor' + (names.length === 1 ? 'y' : 'ies') + '): ' + names.join('; ') + '.');
+      }
       if (state.removed > 0) bits.push(state.removed + ' photo' + (state.removed > 1 ? 's' : '') + ' removed — the report will say so.');
       if (bits.length) { tm.textContent = bits.join(' '); tm.hidden = false; } else tm.hidden = true;
+    }
+    // Save proof: a visible "Saved ✓ HH:MM" that updates on every auto-save
+    // and every finished photo upload.
+    function markSaved() {
+      var el = $('saveState'); if (!el) return;
+      var d = new Date();
+      el.textContent = 'Saved \u2713 ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
     }
     function saveCategory(room, key) {
       var st = catState(room, key);
       api('/' + state.id + '/categories' + q(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, category: key, floor_type: st.floor_type || '', answers: st.answers, comment: st.comment || '' }) })
+        .then(function() { markSaved(); })
         .catch(function(err) { alert('Could not save that answer: ' + err.message); });
     }
     function refreshCard(room, key) {
@@ -663,15 +737,22 @@
       var tmp = document.createElement('div');
       tmp.innerHTML = catCardHtml(room, key);
       card.replaceWith(tmp.firstChild);
-      renderChecklist(); updateFinish();
+      renderChecklist(); updateFinish(); updateProgress(); updateContinue();
     }
     $('shotBox').addEventListener('toggle', function(e) {
       var sec = e.target.closest('[data-sec]'); if (!sec) return;
       state.openSecs[sec.getAttribute('data-sec')] = sec.open;
     }, true);
     $('shotBox').addEventListener('click', function(e) {
+      var clr = e.target.closest('[data-clear]');
+      if (clr) {
+        if (editingFinished()) { blockEdit(); return; }
+        clearCategory(clr.getAttribute('data-room'), clr.getAttribute('data-category'), clr);
+        return;
+      }
       var del = e.target.closest('[data-del]');
       if (del) {
+        if (editingFinished()) { blockEdit(); return; }
         del.disabled = true;
         api('/' + state.id + '/photos/' + del.getAttribute('data-del') + q(), { method: 'DELETE' }).then(function() {
           state.items = state.items.filter(function(i) { return String(i.id) !== del.getAttribute('data-del'); });
@@ -681,6 +762,7 @@
       }
       var chk = e.target.closest('[data-check]');
       if (chk) {
+        if (editingFinished()) { blockEdit(); return; }
         var room = chk.getAttribute('data-room'), key = chk.getAttribute('data-category');
         var st = catState(room, key);
         st.answers[chk.getAttribute('data-check')] = chk.getAttribute('data-val');
@@ -689,6 +771,7 @@
       }
     });
     $('shotBox').addEventListener('change', function(e) {
+      if (editingFinished()) { blockEdit(); return; }
       var input = e.target.closest('input[type="file"]');
       if (input && input.files.length) {
         uploadOne(input.files[0], input.getAttribute('data-room'), input.getAttribute('data-category'), input.getAttribute('data-angle'));
@@ -713,6 +796,7 @@
     });
     $('shotBox').addEventListener('dragover', function(e) { if (e.target.closest('.drop')) e.preventDefault(); });
     $('shotBox').addEventListener('drop', function(e) {
+      if (editingFinished()) { blockEdit(); return; }
       var drop = e.target.closest('.drop'); if (!drop || !e.dataTransfer || !e.dataTransfer.files.length) return;
       e.preventDefault();
       var input = drop.querySelector('input[type="file"]'); if (!input) return;
@@ -773,13 +857,72 @@
         var where = room + (category ? ' · ' + catLabel(room, category) : '');
         if (it.repair_needed) telloSay('I spotted something in this photo: ' + (it.repair_item || 'repair needed') + '. Add another angle of it in ' + where + ' before the report can be sent.', true);
         else { var msg = where + ' \u2014 ' + (it.condition || 'looked over'); if (it.notes) msg += '. ' + it.notes; telloSay(msg); }
+        markSaved();
       }).catch(function(err) { alert(err.message); }).then(function() {
         uploading = false; busy.hidden = true; renderAll();
       });
     }
 
+    // Editing a finished report: the shot list can be reviewed with all
+    // photos, answers and comments intact, but the server refuses changes
+    // once the inspection is finished (400 "This report is already
+    // finished"), and finishing again returns the existing report instead
+    // of re-running it. So Edit is review-only until a reopen/re-finish
+    // server change lands — the banner above the shot list says so.
+    function editingFinished() { return !!state.editingFinished; }
+    function blockEdit() {
+      var n = $('editNote'); if (n) n.hidden = false;
+    }
+    function editInspection() {
+      var d = state.lastReport;
+      if (d) {
+        state.items = d.items || [];
+        state.rooms = d.rooms || [];
+        state.removed = d.removed || 0;
+        state.cats = {};
+        (d.categories || []).forEach(function(c) { state.cats[c.room + '||' + c.category] = { floor_type: c.floor_type || '', answers: c.answers || {}, comment: c.comment || '' }; });
+      }
+      state.editingFinished = true;
+      $('report').hidden = true;
+      openPhotos();
+    }
+    // Clear one category: confirm first, reset its answers on the server,
+    // then delete its photos. Reset first so a failure leaves the photos
+    // (the part that can't be retaken) untouched.
+    function clearCategory(room, key, btn) {
+      var label = catLabel(room, key);
+      var n = catPhotos(room, key).length;
+      var msg = 'Clear ' + room + ' — ' + label + '? ' + (n ? 'This removes its ' + n + ' photo' + (n === 1 ? '' : 's') + ' and resets its answers and comment.' : 'This resets its answers and comment.');
+      if (!confirm(msg)) return;
+      if (btn) btn.disabled = true;
+      api('/' + state.id + '/categories' + q(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, category: key, floor_type: '', answers: {}, comment: '' }) })
+        .then(function() {
+          var dels = catPhotos(room, key).map(function(it) { return api('/' + state.id + '/photos/' + it.id + q(), { method: 'DELETE' }); });
+          return Promise.all(dels);
+        })
+        .then(function() {
+          state.items = state.items.filter(function(i) { return !(i.room === room && (i.category || '') === key); });
+          state.removed += n;
+          state.cats[catKey(room, key)] = { floor_type: '', answers: {}, comment: '' };
+          markSaved();
+          renderAll();
+        })
+        .catch(function(err) { alert(err.message); if (btn) btn.disabled = false; });
+    }
+
     // Step 3
     $('finishBtn').addEventListener('click', function() {
+      if (state.editingFinished) {
+        // Back to the finished report: no re-run (the server returns the
+        // existing report for a finished inspection), just reload and show it.
+        var backBtn = $('finishBtn'); backBtn.disabled = true; backBtn.textContent = 'Loading your report...';
+        api('/' + state.id + q()).then(function(d) {
+          state.editingFinished = false;
+          if (d.organization) applyBranding(d.organization);
+          showReport(d);
+        }).catch(function(err) { var m = $('finishMsg'); m.textContent = err.message; m.hidden = false; backBtn.disabled = false; updateFinish(); });
+        return;
+      }
       var btn = $('finishBtn'), msg = $('finishMsg'); msg.hidden = true; btn.disabled = true; btn.textContent = 'Writing your report...';
       var reading = $('reading'); reading.hidden = false;
       var steps = ['Reading your photos...', 'Checking every room for repairs...', 'Writing your report...'];
@@ -795,7 +938,48 @@
         var promo = document.createElement('div'); promo.className = 'feed-line no-print'; promo.style.marginBottom = '1rem';
         promo.innerHTML = '<span class="dot"></span><span>Your report is ready. Want me on your website too, talking to your customers? That is Tello Live \u2014 an optional add-on. <a href="https://tello.live">Try it free at tello.live</a>.</span>';
         $('report').insertBefore(promo, note.nextSibling);
-      }).catch(function(err) { clearInterval(timer); reading.hidden = true; msg.textContent = err.message; msg.hidden = false; btn.disabled = false; btn.textContent = 'Get my report'; });
+      }).catch(function(err) { clearInterval(timer); reading.hidden = true; msg.textContent = err.message; msg.hidden = false; btn.disabled = false; updateFinish(); });
+    });
+
+    // Save & continue later: show the return link and copy it to the
+    // clipboard. The link is this page's URL, which carries ?id=...&t=...
+    // and reopens this same inspection.
+    $('saveLaterBtn').addEventListener('click', function() {
+      var box = $('saveLinkBox'), input = $('saveLink'), btn = $('saveLaterBtn');
+      input.value = location.href;
+      box.hidden = false;
+      input.focus(); input.select();
+      function done(ok) {
+        btn.textContent = ok ? 'Link copied ✓' : 'Link shown — copy it below';
+        setTimeout(function() { btn.textContent = 'Save & continue later'; }, 3000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(location.href).then(function() { done(true); }, function() { done(false); });
+      } else {
+        try { document.execCommand('copy'); done(true); } catch (err) { done(false); }
+      }
+    });
+    $('copyLinkBtn').addEventListener('click', function() {
+      var input = $('saveLink'), btn = $('copyLinkBtn');
+      input.value = location.href;
+      input.focus(); input.select();
+      function done() { btn.textContent = 'Copied ✓'; setTimeout(function() { btn.textContent = 'Copy link'; }, 2500); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(location.href).then(done, function() { input.select(); });
+      } else {
+        try { document.execCommand('copy'); done(); } catch (err) { input.select(); }
+      }
+    });
+    // Continue: jump to the next category still missing a photo. When every
+    // photo category has at least one photo, this becomes Review & finish
+    // and scrolls to the finish button instead.
+    $('continueBtn').addEventListener('click', function() {
+      var next = nextPhotoCat();
+      if (!next) { var fb = $('finishBtn'); fb.scrollIntoView({ behavior: 'smooth', block: 'center' }); fb.focus(); return; }
+      state.openSecs[next.sec.id] = true;
+      renderShotBox();
+      var card = document.querySelector('[data-cat-card="' + CSS.escape(next.sec.room + '||' + next.cat.key) + '"]');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   })();
   </script>
