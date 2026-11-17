@@ -76,6 +76,8 @@
     .feed-line.flag { border-left: 3px solid #9b2c1c; }
     .feed-line.flag .dot { background: #9b2c1c; }
     .feed-line a { color: var(--primary); font-weight: 700; }
+    .hear-toggle { display: inline-flex; align-items: center; gap: 0.4rem; background: none; border: 1.5px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 0.35rem 0.85rem; font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem; }
+    .hear-toggle.on { background: var(--primary); color: #fff; }
     .summary { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1rem; }
     .summary h2 { margin: 0 0 0.25rem; color: var(--primary); }
     .overall { font-size: 1.2rem; font-weight: 800; }
@@ -201,6 +203,7 @@
         </div>
         <div class="progressbar"><span id="progressLine" class="grow">0 of 0 categories done · 0 of 40 photos</span><button type="button" class="ghost-btn" id="continueBtn">Continue</button></div>
         <div id="telloFeed" class="feed"><div class="feed-line"><span class="dot"></span><span>Hi, I'm Tello — I'll read each photo as you take it, and tell you what I see.</span></div></div>
+        <button type="button" class="hear-toggle" id="hearToggle" aria-pressed="false" title="Hear Tello read each photo aloud">🔊 Hear Tello: off</button>
         <div id="checklist"></div>
         <div id="shotBox"></div>
         <p id="busy" class="busy" hidden></p>
@@ -415,11 +418,68 @@
         '<p class="disclaimer">This is an AI review of the photos sent, not a licensed or certified home inspection. It can only describe what the photos show and can make mistakes.</p>' +
         (state.org && state.org.brand_name ? '<div class="report-brand">' + (state.org.brand_logo_url ? '<img src="' + esc(state.org.brand_logo_url) + '" alt="" />' : '') + '<span><strong>' + esc(state.org.brand_name) + '</strong>' + (state.org.support_email ? '<br><span class="muted small">' + esc(state.org.support_email) + '</span>' : '') + '</span></div>' : '') +
         (state.org ? '<span class="powered">Powered by Tello Inspect</span>' : '') +
-        '<div class="cta"><button type="button" class="ghost-btn" id="editBtn">Edit inspection</button><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
+        '<div class="cta"><button type="button" class="ghost-btn" id="editBtn">Edit inspection</button><button type="button" class="ghost-btn" onclick="window.print()">Print or save as PDF</button><button type="button" class="ghost-btn" id="hearReportBtn">🔊 Hear the report</button><a class="primary-btn" href="/#subscribe">Manage your rentals with EC Rental</a></div></div>' +
         boxesHtml +
         '';
       var eb = $('editBtn'); if (eb) eb.addEventListener('click', editInspection);
+      var hb = $('hearReportBtn'); if (hb) hb.addEventListener('click', function() { hearReport(d); });
       window.scrollTo(0, 0);
+    }
+    // Reads the report aloud in order: summary, then each category box
+    // (room, label, comment, checks, per-photo condition + notes + repair
+    // flags) — the same words as on screen, nothing extra. One part at a
+    // time, chained on playback end, so a long report is read whole instead
+    // of being cut off. Tapping the button again restarts from the top.
+    function hearReport(d) {
+      var run = ++hearRun;
+      var i = d.inspection, parts = [];
+      parts.push((TYPES[i.type] || 'Routine') + ' check' + (i.address ? ' at ' + i.address : '') + '. Overall: ' + (i.overall || 'In progress') + '.');
+      if (i.summary) parts.push(i.summary);
+      var repairs = d.items.filter(function(x) { return x.repair_needed; });
+      if (repairs.length) parts.push('May need repair: ' + repairs.map(function(x) { return x.room + ': ' + (x.repair_item || 'repair needed'); }).join('. ') + '.');
+      // Same grouping as showReport: one box per room + category, in photo order.
+      var catByKey = {};
+      (d.categories || []).forEach(function(c) { catByKey[c.room + '||' + c.category] = c; });
+      var order = [], boxes = {};
+      d.items.forEach(function(it) {
+        var k = it.room + '||' + (it.category || '');
+        if (!boxes[k]) { boxes[k] = { room: it.room, category: it.category || '', items: [] }; order.push(k); }
+        boxes[k].items.push(it);
+      });
+      (d.categories || []).forEach(function(c) {
+        var k = c.room + '||' + c.category;
+        if (!boxes[k]) { boxes[k] = { room: c.room, category: c.category, items: [] }; order.push(k); }
+        boxes[k].cat = c;
+      });
+      order.forEach(function(k) {
+        var b = boxes[k], c = b.cat, bits = [b.room + ' — ' + catLabel(b.room, b.category) + '.'];
+        if (c && c.comment) bits.push('Your comment: ' + c.comment);
+        if (c && c.answers) {
+          var cat = findCat(b.room, b.category), ab = [];
+          (cat && cat.checks ? cat.checks : []).forEach(function(ch) {
+            var a = c.answers[ch.key];
+            if (a === 'yes' || a === 'no') ab.push(ch.label + ' ' + (a === 'yes' ? 'Yes' : 'No'));
+          });
+          if (c.floor_type) ab.push('Floor type: ' + c.floor_type);
+          if (ab.length) bits.push(ab.join('. ') + '.');
+        }
+        b.items.forEach(function(it) {
+          var p = (it.condition || 'not rated') + '.';
+          if (it.notes) p += ' ' + it.notes;
+          if (it.repair_needed) p += ' Repair needed: ' + (it.repair_item || 'repair needed') + '.';
+          bits.push(p);
+        });
+        if (!b.items.length) bits.push('No photos — checks and comment only.');
+        parts.push(bits.join(' '));
+      });
+      var idx = 0;
+      (function nextPart() {
+        if (run !== hearRun) return;
+        if (idx >= parts.length) return;
+        var text = parts[idx++];
+        if (window.ECTelloTalk) ECTelloTalk.speak(text, '', { onEnd: function() { if (run === hearRun) nextPart(); } });
+        else nextPart();
+      })();
     }
     var params = new URLSearchParams(location.search);
     // Partner entry points: /inspect/<slug> (rewritten to this page by the Worker)
@@ -832,6 +892,19 @@
         img.src = url;
       });
     }
+    // Voice: Tello reads her photo notes and the report aloud, only when
+    // turned on. Off by default, no autoplay. Public page, so the shared
+    // /api/public/video-voice route (no sign-in). Same words as on screen.
+    // Same 'ec_tello_chat_voice' key as the homepage chat and /tello, so one
+    // "hear Tello" choice follows the visitor across the site.
+    var HEAR_KEY = 'ec_tello_chat_voice';
+    var hearRun = 0; // report readings: bumping it stops the queued parts
+    function hearOn() { try { return localStorage.getItem(HEAR_KEY) === 'on'; } catch (e) { return false; } }
+    function hearSay(text) { if (window.ECTelloTalk) ECTelloTalk.speak(text, ''); }
+    var hearBtn = $('hearToggle');
+    function syncHearBtn() { if (!hearBtn) return; var on = hearOn(); hearBtn.classList.toggle('on', on); hearBtn.setAttribute('aria-pressed', String(on)); hearBtn.textContent = on ? '🔊 Hear Tello: on' : '🔊 Hear Tello: off'; }
+    if (hearBtn) hearBtn.addEventListener('click', function() { var on = !hearOn(); try { localStorage.setItem(HEAR_KEY, on ? 'on' : 'off'); } catch (e) {} hearRun++; syncHearBtn(); if (!on && window.ECTelloTalk) ECTelloTalk.stop(); });
+    syncHearBtn();
     // Tello talks while you photograph: one line per photo, in her voice.
     function telloSay(text, flag) {
       var feed = $('telloFeed'); if (!feed) return;
@@ -840,6 +913,7 @@
       var span = document.createElement('span'); span.textContent = text; line.appendChild(span);
       feed.appendChild(line);
       while (feed.children.length > 8) feed.removeChild(feed.children[1]);
+      if (hearOn()) hearSay(text);
     }
     var uploading = false;
     function uploadOne(file, room, category, angle) {
@@ -983,6 +1057,7 @@
     });
   })();
   </script>
+<script src="/js/tello-talk.js" defer></script>
 <script src="/js/track.js" defer></script>
 </body>
 </html>

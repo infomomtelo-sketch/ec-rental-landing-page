@@ -120,6 +120,7 @@ function chatImage(value: unknown): number[] | null {
 import { handleRentReminderRoutes, runRentReminders } from "./rent-reminders";
 import { CA_RENTAL_GUIDE } from "./ca-rental-law";
 import { accountGuide, buildBriefing, handleTelloRoutes, runTelloBriefings } from "./tello";
+import { handlePublicVideoVoice } from "./video-voice";
 import { handleTelloActionRoutes } from "./tello-actions";
 import { handleListingRoutes, handlePublicListingRoutes } from "./listings";
 import { handleLandlordLeadRoute, handleZillowLeadRoute } from "./leads";
@@ -221,6 +222,12 @@ export default {
     if (request.method === "OPTIONS") { return new Response(null, { headers: corsHeaders() }); }
 
     const visit = await handleVisits(request, env, url); if (visit) return visit;
+
+    // Public voice: Tello reads a reply aloud on anonymous pages (homepage chat, Tello Inspect, /tello signed out).
+    // Same Kokoro af_heart voice as /api/tello/voice, no sign-in, per-IP limit. Must run before the signed-in API gate below.
+    if (url.pathname === "/api/public/video-voice") {
+      try { const res = await handlePublicVideoVoice(request, env, url); if (res) return res; } catch (err) { console.error("[video-voice]", err instanceof Error ? err.message : err); return json({ error: "Something went wrong." }, 500); }
+    }
 
     // Chat API
     if (url.pathname === "/api/chat" && request.method === "POST") {
@@ -417,7 +424,7 @@ export default {
     const user = await getUserFromRequest(request, env);
     // Emails in the ADMIN_EMAILS secret count as admins everywhere (Chat Leads, /admin).
     if (user && isAdmin(env, user)) user.role = "admin";
-    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) return json({ error: "Unauthorized" }, 401);
+    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/public/video-voice" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) return json({ error: "Unauthorized" }, 401);
 
     // Tenants only reach their portal; every other API route is for landlords.
     if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
@@ -515,4 +522,4 @@ export default {
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
