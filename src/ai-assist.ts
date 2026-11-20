@@ -100,10 +100,20 @@ export async function handleAiAssistRoutes(request: Request, env: AiAssistEnv, u
   if (url.pathname === "/api/ai/inquiry-reply") {
     const body = await request.json() as Record<string, unknown>;
     const leadId = Math.floor(num(body.leadId));
-    const lead = leadId ? await env.DB.prepare("SELECT s.name, s.message, l.* FROM signups s JOIN listings l ON l.id = (CASE WHEN json_valid(s.message) THEN json_extract(s.message, '$.listingId') END) WHERE s.id = ? AND s.plan = 'tenant_application' AND l.user_id = ?")
-      .bind(leadId, user.id).first<Record<string, unknown> & { name: string; message: string; id: number; street: string; unit: string; city: string; contact_name: string; contact_phone: string }>() : null;
+    // New inquiries live in listing_inquiries; rows from before the move still live in signups.
+    let lead: (Record<string, unknown> & { name: string; message: string; id: number; street: string; unit: string; city: string; contact_name: string; contact_phone: string }) | null = null;
+    let d: Record<string, unknown> = {};
+    if (leadId) {
+      const fresh = await env.DB.prepare("SELECT i.name, i.message, i.move_in_date, i.lead_type, l.* FROM listing_inquiries i JOIN listings l ON l.id = i.listing_id WHERE i.id = ? AND i.landlord_user_id = ?")
+        .bind(leadId, user.id).first<Record<string, unknown> & { name: string; message: string; id: number; street: string; unit: string; city: string; contact_name: string; contact_phone: string; move_in_date: string; lead_type: string }>();
+      if (fresh) { lead = fresh; d = { message: fresh.message, moveIn: fresh.move_in_date, leadType: fresh.lead_type }; }
+      else {
+        const old = await env.DB.prepare("SELECT s.name, s.message, l.* FROM signups s JOIN listings l ON l.id = (CASE WHEN json_valid(s.message) THEN json_extract(s.message, '$.listingId') END) WHERE s.id = ? AND s.plan = 'tenant_application' AND l.user_id = ?")
+          .bind(leadId, user.id).first<Record<string, unknown> & { name: string; message: string; id: number; street: string; unit: string; city: string; contact_name: string; contact_phone: string }>();
+        if (old) { lead = old; try { d = JSON.parse(old.message); } catch { /* keep empty */ } }
+      }
+    }
     if (!lead) return json({ error: "Inquiry not found." }, 404);
-    let d: Record<string, unknown> = {}; try { d = JSON.parse(lead.message); } catch { /* keep empty */ }
     const question = str(d.message, 2000) || "(no message, just asked to be contacted)";
     const kind = ({ tourRequest: "a tour request", applicationRequest: "a request to apply", question: "a question" } as Record<string, string>)[str(d.leadType)] || "an inquiry";
     const signer = str(lead.contact_name, 100) || str(user.company, 100) || str(user.name, 100) || "EC Rental Property Management";

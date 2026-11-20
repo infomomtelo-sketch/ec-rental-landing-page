@@ -56,7 +56,11 @@ function json(data: unknown, status = 200): Response { return new Response(JSON.
 export function billingEnabled(env: BillingEnv): boolean { return !!env.STRIPE_SECRET_KEY; }
 /** Test and live keys get separate webhook and portal settings, so switching keys just works. */
 export function keyMode(env: BillingEnv): string { return env.STRIPE_SECRET_KEY!.includes("_live_") ? "live" : "test"; }
-function trialDays(env: BillingEnv): number { const n = parseInt(env.STRIPE_TRIAL_DAYS ?? "14"); return Number.isFinite(n) && n > 0 ? Math.min(n, 90) : 0; }
+/** Free-trial length in days for the Manager and Portfolio plans (Solo gets the $3 intro instead).
+ *  Set by the Worker when the Checkout session is created: no Stripe price carries a trial, so
+ *  this number is the whole trial rule. STRIPE_TRIAL_DAYS overrides it. */
+const DEFAULT_TRIAL_DAYS = 14;
+function trialDays(env: BillingEnv): number { const n = parseInt(env.STRIPE_TRIAL_DAYS ?? String(DEFAULT_TRIAL_DAYS)); return Number.isFinite(n) && n > 0 ? Math.min(n, 90) : 0; }
 const isoFromUnix = (t: unknown) => (typeof t === "number" && t > 0 ? new Date(t * 1000).toISOString() : null);
 
 /** Flattens {a: {b: 1}, c: [x, y]} into Stripe's form encoding: a[b]=1&c[0]=x&c[1]=y */
@@ -250,10 +254,15 @@ async function applySubscription(env: BillingEnv, sub: StripeObject, fallbackUse
   if (current?.subscription_id && current.subscription_id !== sub.id && GOOD_STATUSES.includes(current.status) && !GOOD_STATUSES.includes(sub.status)) return;
   const plan = planFromSubscription(sub);
   const periodEnd = sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
+  // The recurring amount Stripe will charge, from the subscription's first price item. The $3 Solo
+  // intro is a one-time invoice line, not a subscription item, so it is not recorded here.
+  const price = sub.items?.data?.[0]?.price;
+  const amountCents = typeof price?.unit_amount === "number" ? price.unit_amount : null;
+  const currency = typeof price?.currency === "string" ? price.currency : "";
   await env.DB.prepare(
-    "INSERT INTO billing (user_id, customer_id, subscription_id, status, plan, trial_end, period_end, cancel_at_period_end, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)" +
-    " ON CONFLICT(user_id) DO UPDATE SET customer_id = excluded.customer_id, subscription_id = excluded.subscription_id, status = excluded.status, plan = excluded.plan, trial_end = excluded.trial_end, period_end = excluded.period_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = excluded.updated_at"
-  ).bind(userId, String(sub.customer || current?.customer_id || ""), sub.id, sub.status, plan, isoFromUnix(sub.trial_end), isoFromUnix(periodEnd), sub.cancel_at_period_end ? 1 : 0, new Date().toISOString()).run();
+    "INSERT INTO billing (user_id, customer_id, subscription_id, status, plan, trial_end, period_end, cancel_at_period_end, amount_cents, currency, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" +
+    " ON CONFLICT(user_id) DO UPDATE SET customer_id = excluded.customer_id, subscription_id = excluded.subscription_id, status = excluded.status, plan = excluded.plan, trial_end = excluded.trial_end, period_end = excluded.period_end, cancel_at_period_end = excluded.cancel_at_period_end, amount_cents = excluded.amount_cents, currency = excluded.currency, updated_at = excluded.updated_at"
+  ).bind(userId, String(sub.customer || current?.customer_id || ""), sub.id, sub.status, plan, isoFromUnix(sub.trial_end), isoFromUnix(periodEnd), sub.cancel_at_period_end ? 1 : 0, amountCents, currency, new Date().toISOString()).run();
   if (plan && GOOD_STATUSES.includes(sub.status)) {
     // Never below the homes already in the account, so a smaller plan limit doesn't strand anyone's properties.
     await env.DB.prepare("UPDATE users SET plan = ?, property_limit = MAX(?, (SELECT COUNT(*) FROM properties WHERE user_id = ?)) WHERE id = ? AND role != 'tenant'").bind(plan, PLANS[plan].limit, userId, userId).run();
