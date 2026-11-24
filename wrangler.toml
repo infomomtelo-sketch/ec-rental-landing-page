@@ -61,3 +61,17 @@ simple = { limit = 10, period = 60 }
 name = "CHAT_LIMITER"
 namespace_id = "1002"
 simple = { limit = 20, period = 60 }
+
+# Dedicated per-IP limit for the four public inquiry POSTs (/api/tenant-application,
+# /api/quote-request, /api/maintenance-request, /api/subscribe): 5 submissions a minute.
+# namespace_id 1003: 1001 is AUTH_LIMITER and 1002 is CHAT_LIMITER — sharing a namespace
+# would share the quota, so this one gets its own.
+[[ratelimits]]
+name = "INQUIRY_LIMITER"
+namespace_id = "1003"
+simple = { limit = 5, period = 60 }
+
+# Turnstile bot protection for the same four POSTs. Create the widget in the Cloudflare
+# dashboard (Turnstile), then set the secret (npx wrangler secret put TURNSTILE_SECRET_KEY)
+# and the site key as TURNSTILE_SITE_KEY in [vars] below. Until BOTH are set the forms
+# submit exactly as today; set both together, or the check will reject submissions.

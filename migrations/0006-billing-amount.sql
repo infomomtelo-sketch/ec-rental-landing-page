@@ -1,0 +1,2 @@
+ALTER TABLE billing ADD COLUMN amount_cents INTEGER;
+ALTER TABLE billing ADD COLUMN currency TEXT DEFAULT '';
