@@ -19,12 +19,13 @@
     if (/exterior|yard/i.test(room)) return ['wide_a', 'wide_b'];
     return ['wall_a', 'wall_b', 'wall_c', 'wall_d', 'floor'];
   }
-  // Upgrade / credit-pack link slots for the audit usage gate (UPGRADE_REQUIRED modal).
-  // Owner-confirmed pricing (Nov 14): EC Rental PM Solo Landlord launch offer and the two
-  // credit packs. The Stripe payment links do not exist yet — the owner creates them after
-  // the D1 migrations run and pastes the URLs here. While a slot is empty, its button
-  // renders disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
-  var ECPM_UPGRADE_URL = 'https://buy.stripe.com/dRmfZbbSP55S6362SF8Ra07?prefilled_promo_code=LAUNCH3';
+  // Purchase paths for the audit usage gate (UPGRADE_REQUIRED modal). The plan button is NOT a
+  // payment link: it starts the same server-side Checkout as Plan & Billing (POST
+  // /api/billing/checkout, src/billing.ts), so the intro offer and the double-billing guards
+  // apply. (The old LAUNCH3 payment link here died at Stripe and duplicated that flow, so it
+  // was removed.) The two credit packs stay on their Stripe payment links — the webhook grants
+  // the credits when the payment completes. While a link slot is empty, its button renders
+  // disabled with an "— opening soon" suffix. Never hard-code a guessed checkout URL.
   var STRIPE_LINK_CREDITS_10 = 'https://buy.stripe.com/6oU7sF5ureGs4Z28cZ8Ra04';
   var STRIPE_LINK_CREDITS_50 = 'https://buy.stripe.com/fZu7sFe0X9m877a0Kx8Ra05';
   var list = [], current = null, imageUrls = {};
@@ -385,13 +386,14 @@
     }
     renderGate();
     // Upgrade modal for the usage gate: shown when the audit endpoint answers
-    // 402 UPGRADE_REQUIRED (3 free audits used, no credits, no paid plan). Each
-    // purchase path is a link slot — empty slots render disabled "opening soon"
-    // buttons instead of dead checkout doors.
+    // 402 UPGRADE_REQUIRED (3 free audits used, no credits, no paid plan). The plan
+    // button starts the billing checkout flow; the credit packs are link slots —
+    // empty slots render disabled "opening soon" buttons instead of dead doors.
     function upgradeBtn(url, label) {
       if (url) return '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">' + esc(label) + '</a>';
       return '<button type="button" class="btn" disabled style="opacity:0.55;cursor:not-allowed">' + esc(label) + ' — opening soon</button>';
     }
+    var PLAN_BTN_LABEL = 'Upgrade to EC Rental PM — Solo Landlord: $3 for 3 months, then $29/mo';
     function showUpgradeModal() {
       var old = document.getElementById('inspUpgradeModal'); if (old) old.remove();
       var wrap = document.createElement('div');
@@ -401,12 +403,22 @@
         '<h3 style="font-size:1.05rem;color:var(--primary);margin-bottom:0.4rem">You\'ve used your 3 free photo audits</h3>' +
         '<p style="font-size:0.9rem;color:var(--gray);margin-bottom:0.9rem">Keep going with a plan, or buy inspection credits — one credit covers one full audit of up to 100 photos, and credits never expire.</p>' +
         '<div style="display:flex;flex-direction:column;gap:0.5rem">' +
-        upgradeBtn(ECPM_UPGRADE_URL, 'Upgrade to EC Rental PM — Solo Landlord: $3 for 3 months, then $29/mo') +
+        '<button type="button" class="btn" id="inspUpgradePlan" style="text-align:center">' + esc(PLAN_BTN_LABEL) + '</button>' +
         upgradeBtn(STRIPE_LINK_CREDITS_10, 'Buy inspection credits — 10 Inspections — $19 one-time') +
         upgradeBtn(STRIPE_LINK_CREDITS_50, 'Buy inspection credits — 50 Inspections — $75 one-time') +
         '<button type="button" class="btn btn-secondary" id="inspUpgradeClose">Not now</button>' +
         '</div></div>';
       document.body.appendChild(wrap);
+      // Same flow as the Plan & Billing card (public/js/billing-dashboard.js): POST to the
+      // checkout endpoint and follow the Stripe URL it returns.
+      var planBtn = wrap.querySelector('#inspUpgradePlan');
+      planBtn.addEventListener('click', function() {
+        planBtn.disabled = true; planBtn.textContent = 'Opening Stripe...';
+        api('/billing/checkout', 'POST', { plan: 'solo' }).then(function(d) {
+          if (d.url) { location.href = d.url; return; }
+          planBtn.disabled = false; planBtn.textContent = PLAN_BTN_LABEL;
+        }).catch(function(err) { planBtn.disabled = false; planBtn.textContent = PLAN_BTN_LABEL; alert(err.message); });
+      });
       wrap.querySelector('#inspUpgradeClose').addEventListener('click', function() { wrap.remove(); });
       wrap.addEventListener('click', function(e) { if (e.target === wrap) wrap.remove(); });
     }
