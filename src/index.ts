@@ -322,6 +322,19 @@ export default {
           if (/UNIQUE constraint failed/i.test(err instanceof Error ? err.message : String(err))) return json({ success: false, error: "You've already inquired about this listing today." }, 409);
           throw err;
         }
+        // The lead is already stored above; a failed email must never lose it.
+        const inquiryLines: [string, string][] = [["Name", name], ["Email", email], ["Phone", phone], ["Home", area || (listingId > 0 ? "Listing #" + listingId : "")], ["Bedrooms", bedrooms], ["Budget", budget], ["Move-in", moveIn]].filter((pair): pair is [string, string] => !!pair[1]);
+        const inquiryHtml = "<p>New renter inquiry from the website chat:</p><ul>" + inquiryLines.map(([k, v]) => "<li><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(v) + "</li>").join("") + "</ul><p><a href=\"https://ecrentalpm.com/dashboard\">Open your dashboard</a> (Chat Leads)</p>";
+        const inquiryText = "New renter inquiry from the website chat:\n\n" + inquiryLines.map(([k, v]) => k + ": " + v).join("\n") + "\n\nOpen your dashboard: https://ecrentalpm.com/dashboard (Chat Leads)";
+        const inquirySubject = "New renter inquiry: " + name;
+        const inquiryRecipients = ["info@ecrentalpm.com", "eli@ecrentalpm.com"];
+        try {
+          if (listingId > 0) {
+            const listing = await env.DB.prepare("SELECT contact_email FROM listings WHERE id = ?").bind(listingId).first<{ contact_email: string }>();
+            if (listing?.contact_email && !inquiryRecipients.includes(listing.contact_email)) inquiryRecipients.push(listing.contact_email);
+          }
+        } catch (err) { console.error("[tenant-application] listing contact", err instanceof Error ? err.message : err); }
+        for (const to of inquiryRecipients) { try { await sendEmail(env, to, inquirySubject, inquiryHtml, inquiryText); } catch (err) { console.error("[tenant-application] email", err instanceof Error ? err.message : err); } }
         return json({ success: true });
       } catch { return json({ success: false, error: "Something went wrong." }, 500); }
     }
@@ -333,6 +346,12 @@ export default {
         const guard = await inquiryGuard(env, request, String(body.turnstile_token || "")); if (guard) return guard;
         if (!body.name || !body.address || !body.description) return json({ success: false, error: "Name, address, and description required" }, 400);
         await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", "", "", "maintenance", "maintenance_request", JSON.stringify({ address: body.address, description: body.description, priority: body.priority }), "pending", new Date().toISOString()).run();
+        // The request is already stored above; a failed email must never lose it.
+        const maintLines: [string, string][] = [["Name", String(body.name)], ["Address", String(body.address)], ["Description", String(body.description)], ["Priority", String(body.priority || "normal")]].filter((pair): pair is [string, string] => !!pair[1]);
+        const maintHtml = "<p>New maintenance request from the website chat:</p><ul>" + maintLines.map(([k, v]) => "<li><strong>" + escapeHtml(k) + ":</strong> " + escapeHtml(v) + "</li>").join("") + "</ul><p><a href=\"https://ecrentalpm.com/dashboard\">Open your dashboard</a> (Chat Leads)</p>";
+        const maintText = "New maintenance request from the website chat:\n\n" + maintLines.map(([k, v]) => k + ": " + v).join("\n") + "\n\nOpen your dashboard: https://ecrentalpm.com/dashboard (Chat Leads)";
+        const maintSubject = "New maintenance request: " + String(body.name);
+        for (const to of ["info@ecrentalpm.com", "eli@ecrentalpm.com"]) { try { await sendEmail(env, to, maintSubject, maintHtml, maintText); } catch (err) { console.error("[maintenance-request] email", err instanceof Error ? err.message : err); } }
         return json({ success: true });
       } catch { return json({ success: false, error: "Something went wrong." }, 500); }
     }
@@ -481,9 +500,9 @@ export default {
     // Partner branding is public by design, so it is dispatched here, before the auth wall below.
     try { const orgRes = await handleOrgBranding(request, env, url); if (orgRes) return orgRes; } catch (err) { return dbErrorResponse("org-branding", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
-    try { const publicRes = await handlePublicListingRoutes(request, env, url, notify, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
+    try { const publicRes = await handlePublicListingRoutes(request, env, url, notify, () => underLimit(env.INQUIRY_LIMITER, ["ip:" + clientIp(request)])); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
-    try { const applyRes = await handlePublicApplicationRoutes(request, env, url, notify, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
+    try { const applyRes = await handlePublicApplicationRoutes(request, env, url, notify, () => underLimit(env.INQUIRY_LIMITER, ["ip:" + clientIp(request)])); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
     try { const inviteRes = await handlePublicTenantRoutes(request, env, url, tenantHelpers(env)); if (inviteRes) return inviteRes; } catch (err) { return dbErrorResponse("tenant-invite", err); }
 
     const user = await getUserFromRequest(request, env);
@@ -504,7 +523,7 @@ export default {
     if (user && url.pathname.startsWith("/api/documents")) { try { const res = await handleDocumentRoutes(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("documents", err); } }
     if (user && url.pathname.startsWith("/api/applications")) { try { const res = await handleApplicationRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("applications", err); } }
     if (user && url.pathname.startsWith("/api/ai/")) { try { const res = await handleAiAssistRoutes(request, env, url, user, () => underLimit(env.CHAT_LIMITER, ["user:" + user.id])); if (res) return res; } catch (err) { return dbErrorResponse("ai-assist", err); } }
-    if (user && url.pathname === "/api/listings/leads") { try { const res = await handleLandlordLeadRoute(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listing-leads", err); } }
+    if (user && url.pathname === "/api/listings/leads") { try { const res = await handleLandlordLeadRoute(request, env, url, user); if (res) return res; } catch (err) { console.error("[listing-leads]", err instanceof Error ? err.message : err); return json({ error: "Renter Inquiries aren't available right now. Please try again later or contact us." }, 500); } }
     if (user && url.pathname.startsWith("/api/listings")) { try { const res = await handleListingRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("listings", err); } }
 
     // Site owner admin page (src/admin.ts)
@@ -561,11 +580,15 @@ export default {
     // Chat Leads API (admin only): tenant applications, maintenance requests and quote requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
     if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403);
-      const signed = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, assigned_to, last_contacted_at, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string; [k: string]: unknown }>();
-      const inquired = await env.DB.prepare("SELECT id, listing_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, assigned_to, last_contacted_at, created_at FROM listing_inquiries ORDER BY created_at DESC LIMIT 500").all<{ [k: string]: unknown }>();
+      // Each table is read on its own, so a missing listing_inquiries table
+      // (or signups problem) degrades to half a list instead of killing Chat Leads.
+      // No type annotation here on purpose: the results keep the same type the
+      // direct queries had, so the merge/sort below type-checks exactly as before.
+      const signedResults = await (async () => { try { const signed = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, assigned_to, last_contacted_at, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string; [k: string]: unknown }>(); return signed.results; } catch (err) { console.error("[leads] signups", err instanceof Error ? err.message : err); return []; } })();
+      const inquiredResults = await (async () => { try { const inquired = await env.DB.prepare("SELECT id, listing_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, assigned_to, last_contacted_at, created_at FROM listing_inquiries ORDER BY created_at DESC LIMIT 500").all<{ [k: string]: unknown }>(); return inquired.results; } catch (err) { console.error("[leads] listing_inquiries", err instanceof Error ? err.message : err); return []; } })();
       const rows = [
-        ...signed.results.map(({ message, ...lead }) => ({ ...lead, source: "signups", details: parseLeadDetails(message) })),
-        ...inquired.results.map((r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, type: "tenant_application", status: r.status, assigned_to: r.assigned_to, last_contacted_at: r.last_contacted_at, created_at: r.created_at as string, source: "listing_inquiries", details: { area: r.listing_address, bedrooms: r.bedrooms, budget: r.budget, moveIn: r.move_in_date, message: r.message, leadType: r.lead_type, source: r.source, listingId: r.listing_id, ...(typeof r.extra === "string" ? parseLeadDetails(r.extra) : {}) } })),
+        ...signedResults.map(({ message, ...lead }) => ({ ...lead, source: "signups", details: parseLeadDetails(message) })),
+        ...inquiredResults.map((r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, type: "tenant_application", status: r.status, assigned_to: r.assigned_to, last_contacted_at: r.last_contacted_at, created_at: r.created_at as string, source: "listing_inquiries", details: { area: r.listing_address, bedrooms: r.bedrooms, budget: r.budget, moveIn: r.move_in_date, message: r.message, leadType: r.lead_type, source: r.source, listingId: r.listing_id, ...(typeof r.extra === "string" ? parseLeadDetails(r.extra) : {}) } })),
       ].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0)).slice(0, 500);
       return json(rows); }
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
