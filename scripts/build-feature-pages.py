@@ -100,12 +100,12 @@ PAGES = {
        ("Can renters use it?", "Yes. Renters can chat on any listing page or at ecrentalpm.com/tello.")],
  ),
  "listings": dict(
-  title="Rental listings with a Zillow-ready feed | EC Rental",
-  desc="List a rental once and share it everywhere: a listing page with photos and map, a Zillow-ready feed, a ready-made post for Facebook and Marketplace, and 24/7 renter chat.",
-  eyebrow="Listings", h1='List once. <span class="grad">Get seen everywhere.</span>',
+  title="Rental listings with a Zillow-format feed | EC Rental",
+  desc="List a rental once: a listing page with photos and map, a feed built in Zillow's format (Zillow has paused new-feed onboarding, so listings are not on Zillow yet), a ready-made post for Facebook and Marketplace, and 24/7 renter chat.",
+  eyebrow="Listings", h1='List once. <span class="grad">Share it anywhere.</span>',
   lede="Every home gets its own fast listing page with photos, a map and an Apply button. Tello writes the description, checks your rent and answers renters around the clock.",
   cta=("List a rental", "/dashboard"),
-  stats=[("1 tap", "to share on Facebook"), ("24/7", "renter chat"), ("Zillow", "-ready feed")],
+  stats=[("1 tap", "to share on Facebook"), ("24/7", "renter chat"), ("Zillow", "-format feed")],
   mock="""<div class="row"><div><b>123 Maple Ave · Studio 1</b><small>Sample listing · Studio / 1 ba</small></div><span class="pill p-green">Active</span></div>
 <div class="row"><div><small>Rent</small><b>$1,200/mo</b></div><span class="pill p-green">Feed ready</span></div>
 <div class="row"><div><b>Write with AI</b><small>Reads your photos and drafts the description</small></div></div>
@@ -117,7 +117,7 @@ PAGES = {
    ("pen", "Write with AI", "Tello reads up to three photos and your facts and writes a description you can edit."),
    ("chart", "Check my rent", "Compares your rent with similar EC Rental listings nearby when there are enough to compare."),
    ("megaphone", "Share anywhere", "A ready-to-post caption for Facebook, Marketplace and texts, plus a share preview with your first photo."),
-   ("link", "Zillow-ready feed", "Switch a listing on for the feed. A checklist shows exactly what's missing before it goes out."),
+   ("link", "Zillow-format feed", "Switch a listing on for the feed. A checklist shows exactly what's missing before it goes out."),
   ],
   steps=[("Add the home", "Address, rent, beds, baths and your photos."), ("Let Tello write", "Edit the AI description and check your rent."),
          ("Publish", "Go live on ecrentalpm.com and switch on the Zillow feed."), ("Answer leads", "Inquiries land in your dashboard with a drafted reply.")],
@@ -147,7 +147,7 @@ PAGES = {
    ("scale", "Fair by design", "Every applicant answers the same questions and is reviewed the same way."),
    ("check", "Track status", "Move each application through reviewing, approved or denied, and track the screening step."),
   ],
-  steps=[("Renter finds a home", "From your listing, Zillow or a shared post."), ("Applies online", "Contact, income, employment and rental history."),
+  steps=[("Renter finds a home", "From your listing page or a shared post."), ("Applies online", "Contact, income, employment and rental history."),
          ("You review", "Read the application and the AI summary."), ("Decide", "Set the status and reach out.")],
   split=("Privacy first", "Collect what you need. Nothing more.", "The application asks for what a landlord needs to review a renter, and leaves out the most sensitive identifiers.",
          ["No Social Security numbers", "No dates of birth", "Applications visible only to the listing's landlord", "Equal Housing Opportunity on every page"]),
@@ -434,7 +434,7 @@ def page(slug, p):
 def index():
     url = f"{SITE}/features/"
     title = "Features | EC Rental Property Management"
-    desc = "Everything EC Rental does for landlords and renters: Tello AI, listings with a Zillow-ready feed, online applications, AI inspections, maintenance, tenant portal, documents and tax reports."
+    desc = "Everything EC Rental does for landlords and renters: Tello AI, listings with a Zillow-format feed, online applications, AI inspections, maintenance, tenant portal, documents and tax reports."
     cards = "".join(f'<a class="card" href="/features/{s}" style="text-decoration:none"><div class="ic">{icon(i)}</div><h3>{esc(l)}</h3><p>{esc(PAGES[s]["lede"])}</p></a>' for s, l, i in NAV)
     return f'''{head(title, desc, url)}
 <body>
