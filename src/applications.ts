@@ -1,7 +1,8 @@
 /**
  * Rental applications for listings: a public apply endpoint and landlord review routes.
- * We deliberately don't collect SSN, date of birth, or protected-class information;
- * credit and background checks happen with a screening partner that collects its own data.
+ * We deliberately don't collect SSN, date of birth, or protected-class information.
+ * Credit and background checks are the landlord's own step, run with their own screening provider;
+ * the dashboard only tracks the screening status (not_started / invited / complete).
  */
 
 export interface ApplicationsEnv { DB: D1Database; }

@@ -11,7 +11,7 @@ Company info:
 - AI-powered property management software for independent landlords and property managers anywhere. The company is based in Fresno, CA.
 - EC Rental is software only. It does not manage properties, collect rent, or place tenants for owners; landlords run their own rentals and collect rent into their own accounts. Never say or imply otherwise.
 - Software features: listings & online applications, maintenance tracking, rent tracking (tenants can pay online through the landlord's own Stripe account), lease documents, financial/tax reporting, AI home inspections.
-- Pricing: Solo Landlord launch offer: $3 for the first 3 months (one $3 payment on Stripe at sign up), then $29/mo, for 1-3 properties. A reminder email goes out 7 days before the first $29 charge, and "Cancel plan" in Settings, Plan & Billing cancels in one tap; cancel before the 3 months end and nothing more is charged. Property Manager $79/mo (up to 25 properties) and Portfolio $199/mo (unlimited). Every plan includes the landlord's own business landing page at ecrentalpm.com/rentals/their-business-name, with their listings, a contact form and a tenant login. The 14-day free trial is real, but only for the Property Manager ($79/mo) plan — you may mention it there. Solo has no free trial ($3 for the first 3 months, then $29/mo), and Portfolio has no free trial either.
+- Pricing: Solo Landlord launch offer: $3 for the first 3 months (one $3 payment on Stripe at sign up), then $29/mo, for 1-3 properties. A reminder email goes out 7 days before the first $29 charge, and "Cancel plan" in Settings, Plan & Billing cancels in one tap; cancel before the 3 months end and nothing more is charged. Property Manager $79/mo (up to 25 properties) and Portfolio $199/mo (unlimited). Every plan includes the landlord's own business landing page at ecrentalpm.com/rentals/their-business-name, with their listings, a contact form and a tenant login. The 14-day free trial is real for the Property Manager ($79/mo) and Portfolio ($199/mo) plans — you may mention it there. Solo has no free trial ($3 for the first 3 months, then $29/mo).
 - Contact: info@ecrentalpm.com, (559) 825-3038.
 - AI Home Inspections: remote, photo-based move-in, move-out and routine inspections done by the landlord from a phone; AI reads each photo to note condition, flag repairs and compare move-out with move-in, and owners get a printable photo report. It is an AI review of photos, not a licensed home inspection. EC Rental offers no in-person inspections. Tello Inspect (ecrentalpm.com/tello-inspect) is a free remote AI inspection anyone can try without an account. Solo Landlord includes 1 inspection credit a month. Need more? Extra credits are 10 inspections for $19 or 50 for $75, both one-time.
 Rules:
@@ -37,7 +37,7 @@ Selling — the EC Rental sales flow. This is for a public visitor who is shoppi
 - "Can you get me on Zillow?": the honest Zillow answer above. No syndication promise, ever.
 - "Just looking": "No problem. Want me to send you the link so you have it when you're ready?" — then take the email with the quote form.
 - If they say stop, no thanks, or not now: stop gracefully, no pressure, no repeated asks. "No problem — I'll be here whenever you want."
-- The 14-day free trial is real only for the Property Manager ($79/mo) plan — you may mention it there. Never offer or mention a free trial for Solo ($3 for the first 3 months, then $29/mo) or for Portfolio ($199/mo — no free trial). Never promise Zillow syndication. Never promise a listing is posted or a draft is already made. Never ask for bank details, passwords or ID numbers.
+- The 14-day free trial is real for the Property Manager ($79/mo) and Portfolio ($199/mo) plans — you may mention it there. Never offer or mention a free trial for Solo ($3 for the first 3 months, then $29/mo). Never promise Zillow syndication. Never promise a listing is posted or a draft is already made. Never ask for bank details, passwords or ID numbers.
 Special actions — include these tags in your response to trigger UI elements:
 - If asked about applying as tenant, renting, available properties, or becoming a renter: include [SHOW_TENANT_FORM] in your response.
 - If asked about pricing, cost, plans, or subscription: include [SHOW_PRICING] and [SHOW_QUOTE_FORM] in your response, and offer in words to have someone call or email them about a plan.
@@ -167,13 +167,40 @@ function normalizeEmail(email: string): string { return String(email).trim().toL
 // Logs the real error (visible in `wrangler tail`) and gives the visitor a message that says what to do.
 function dbErrorResponse(route: string, err: unknown): Response { const msg = err instanceof Error ? err.message : String(err); console.error(`[${route}]`, msg); if (/no such table/i.test(msg)) return json({ success: false, error: "Sign up isn't available yet: the site's database hasn't been set up. Please try again later or contact us." }, 503); if (/UNIQUE constraint failed: users\.email/i.test(msg)) return json({ success: false, error: "An account with this email already exists." }, 409); return json({ success: false, error: "Something went wrong. Please try again or contact us." }, 500); }
 async function ownsProperty(env: Env, userId: number, propertyId: unknown): Promise<boolean> { const id = Number(propertyId); if (!Number.isInteger(id)) return false; const row = await env.DB.prepare("SELECT id FROM properties WHERE id = ? AND user_id = ?").bind(id, userId).first(); return !!row; }
-const LEAD_STATUSES = ["pending", "contacted", "closed"];
+// Lead pipeline vocabulary (admin Chat Leads page). Existing rows keep their meaning:
+// pending = new, not yet touched; contacted = someone reached out; converted = became a
+// tenant/customer; won = a quote/sale closed; lost = no longer pursuing; closed = done, no outcome.
+const LEAD_STATUSES = ["pending", "contacted", "converted", "won", "lost", "closed"];
+// Moving a lead to any of these means contact happened, so last_contacted_at is stamped.
+const CONTACTED_STATUSES = ["contacted", "converted", "won", "lost", "closed"];
 function parseLeadDetails(message: string): Record<string, unknown> { try { const parsed = JSON.parse(message || "{}"); return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; } }
 async function sha256Hex(value: string): Promise<string> { return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 function clientIp(request: Request): string { return request.headers.get("CF-Connecting-IP") || "unknown"; }
 // Returns true when every key is under its limit. A missing binding (e.g. older local setups) never blocks.
 async function underLimit(limiter: RateLimit | undefined, keys: string[]): Promise<boolean> { if (!limiter) return true; for (const key of keys) { const { success } = await limiter.limit({ key }); if (!success) return false; } return true; }
 const tooManyRequests = () => json({ error: "Too many requests. Please wait a minute and try again." }, 429);
+/** Verifies a Turnstile token with Cloudflare. Skipped (with a warning) until Eli creates the
+ *  Turnstile widget and sets TURNSTILE_SECRET_KEY, so the forms keep working before setup. */
+async function verifyTurnstile(env: Env, request: Request, token: string): Promise<boolean> {
+  if (!env.TURNSTILE_SECRET_KEY) { console.warn("[turnstile] TURNSTILE_SECRET_KEY not set; bot check skipped"); return true; }
+  if (!token) return false;
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token, remoteip: clientIp(request) }),
+    });
+    const data = await res.json() as { success?: boolean };
+    return !!data.success;
+  } catch (err) { console.error("[turnstile] verify failed", err instanceof Error ? err.message : err); return false; }
+}
+/** Shared guard for the four public POSTs: dedicated per-IP limit (5/min) + Turnstile when configured.
+ *  Returns a failure Response, or null when the submission may proceed. */
+async function inquiryGuard(env: Env, request: Request, token: string): Promise<Response | null> {
+  if (!(await underLimit(env.INQUIRY_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
+  if (!(await verifyTurnstile(env, request, token))) return json({ success: false, error: "Please confirm you're not a robot and try again." }, 403);
+  return null;
+}
 function escapeHtml(str: string): string { return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 async function sendEmail(env: Env, to: string, subject: string, html: string, text: string, from?: string, replyTo?: string): Promise<boolean> {
@@ -197,6 +224,11 @@ export default {
     const url = new URL(request.url);
     // Send plain http visits to https so the site never shows "Not Secure".
     if (url.protocol === "http:" && /(^|\.)(ecrentalpm\.com|tello\.live)$/.test(url.hostname) && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
+    // www.ecrentalpm.com is served by this Worker too, but the bare address is canonical:
+    // send www to the apex, keeping the path and query. The www custom domain stays in wrangler.toml.
+    if (url.hostname === "www.ecrentalpm.com" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "ecrentalpm.com"; return Response.redirect(url.toString(), 301); }
+    // /listing is the detail page and needs an id; without one it is the rentals index.
+    if (url.pathname === "/listing" && !url.searchParams.get("id") && (request.method === "GET" || request.method === "HEAD")) { url.pathname = "/listings"; return Response.redirect(url.toString(), 301); }
     // tello.live is the Tello video page: www goes to the bare address, and its front door is the /videos page.
     if (url.hostname === "www.tello.live" && (request.method === "GET" || request.method === "HEAD")) { url.hostname = "tello.live"; return Response.redirect(url.toString(), 301); }
     // tello.live: the chat (public/hub.html) is the front page; the business page is at /business. /ask and the old
@@ -250,14 +282,46 @@ export default {
       } catch { return json({ error: "Something went wrong." }, 500); }
     }
 
-    // Tenant Application API (from chat)
+    // Public Turnstile site key for the chat/signup forms (the secret stays server-side).
+    if (url.pathname === "/api/public/turnstile-key" && request.method === "GET") return json({ siteKey: env.TURNSTILE_SITE_KEY || null });
+
+    // Tenant Application API (from chat). General renter inquiries go to `listing_inquiries`
+    // (migration 0004); when the chat names a listing, the landlord comes from that listing
+    // and the same email can't inquire about the same home twice in one day.
     if (url.pathname === "/api/tenant-application" && request.method === "POST") {
       try {
-        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as Record<string, unknown>;
-        if (!body.name || !body.email || !body.phone) return json({ success: false, error: "Name, email, and phone required" }, 400);
-        if (!/^\S+@\S+\.\S+$/.test(String(body.email).trim())) return json({ success: false, error: "That email doesn't look right" }, 400);
-        await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", body.email, body.phone, "tenant", "tenant_application", JSON.stringify({ area: body.area, bedrooms: body.bedrooms, budget: body.budget, moveIn: body.moveIn }), "pending", new Date().toISOString()).run();
+        const guard = await inquiryGuard(env, request, String(body.turnstile_token || "")); if (guard) return guard;
+        const name = String(body.name || "").trim().slice(0, 100);
+        const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
+        const phone = String(body.phone || "").trim().slice(0, 30);
+        if (!name || !email || !phone) return json({ success: false, error: "Name, email, and phone required" }, 400);
+        if (!/^\S+@\S+\.\S+$/.test(email)) return json({ success: false, error: "That email doesn't look right" }, 400);
+        const area = String(body.area || "").trim().slice(0, 250);
+        const bedrooms = String(body.bedrooms || "").trim().slice(0, 20);
+        const budget = String(body.budget || "").trim().slice(0, 40);
+        const moveIn = String(body.moveIn || "").trim().slice(0, 20);
+        const listingId = Math.floor(Number(body.listing_id ?? body.listingId) || 0);
+        const today = new Date().toISOString().slice(0, 10);
+        const now = new Date().toISOString();
+        try {
+          if (listingId > 0) {
+            const res = await env.DB.prepare(
+              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
+              "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ? FROM listings l WHERE l.id = ? AND l.status = 'active'")
+              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now, listingId).run();
+            if ((res.meta.changes || 0) === 0) return json({ success: false, error: "This home is no longer available." }, 404);
+          } else {
+            // No home named (homepage chat): kept for the admin, with no landlord attached.
+            await env.DB.prepare(
+              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
+              "VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?)")
+              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now).run();
+          }
+        } catch (err) {
+          if (/UNIQUE constraint failed/i.test(err instanceof Error ? err.message : String(err))) return json({ success: false, error: "You've already inquired about this listing today." }, 409);
+          throw err;
+        }
         return json({ success: true });
       } catch { return json({ success: false, error: "Something went wrong." }, 500); }
     }
@@ -265,8 +329,8 @@ export default {
     // Maintenance Request API (from chat)
     if (url.pathname === "/api/maintenance-request" && request.method === "POST") {
       try {
-        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as Record<string, unknown>;
+        const guard = await inquiryGuard(env, request, String(body.turnstile_token || "")); if (guard) return guard;
         if (!body.name || !body.address || !body.description) return json({ success: false, error: "Name, address, and description required" }, 400);
         await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, "", "", "", "maintenance", "maintenance_request", JSON.stringify({ address: body.address, description: body.description, priority: body.priority }), "pending", new Date().toISOString()).run();
         return json({ success: true });
@@ -278,8 +342,8 @@ export default {
     // emailed to EC Rental right away. A failed email never loses the lead: it is already stored above.
     if (url.pathname === "/api/quote-request" && request.method === "POST") {
       try {
-        if (!(await underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as Record<string, unknown>;
+        const guard = await inquiryGuard(env, request, String(body.turnstile_token || "")); if (guard) return guard;
         const name = String(body.name || "").trim().slice(0, 100);
         const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
         const phone = String(body.phone || "").trim().slice(0, 30);
@@ -304,8 +368,8 @@ export default {
     // Subscribe API
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
       try {
-        if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request)]))) return tooManyRequests();
         const body = await request.json() as SubscribeRequest;
+        const guard = await inquiryGuard(env, request, String((body as unknown as Record<string, unknown>).turnstile_token || "")); if (guard) return guard;
         const viaGoogle = !!body.google_ticket;
         if (!body.name || (!viaGoogle && !body.email) || !body.phone || !body.propertyCount || !body.plan || (!viaGoogle && !body.password)) return json({ success: false, error: "Please fill in all required fields." }, 400);
         if (!viaGoogle && body.password!.length < MIN_PASSWORD_LENGTH) return json({ success: false, error: "Password must be at least " + MIN_PASSWORD_LENGTH + " characters" }, 400);
@@ -496,9 +560,27 @@ export default {
 
     // Chat Leads API (admin only): tenant applications, maintenance requests and quote requests sent through the website chat.
     // These belong to EC Rental itself, not to any one landlord account, so only admins can see them.
-    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); const results = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string }>(); return json(results.results.map(({ message, ...lead }) => ({ ...lead, details: parseLeadDetails(message) }))); }
+    if (url.pathname === "/api/leads" && request.method === "GET") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403);
+      const signed = await env.DB.prepare("SELECT id, name, email, phone, plan AS type, message, status, assigned_to, last_contacted_at, created_at FROM signups WHERE plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator') ORDER BY created_at DESC LIMIT 500").all<{ message: string; [k: string]: unknown }>();
+      const inquired = await env.DB.prepare("SELECT id, listing_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, assigned_to, last_contacted_at, created_at FROM listing_inquiries ORDER BY created_at DESC LIMIT 500").all<{ [k: string]: unknown }>();
+      const rows = [
+        ...signed.results.map(({ message, ...lead }) => ({ ...lead, source: "signups", details: parseLeadDetails(message) })),
+        ...inquired.results.map((r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, type: "tenant_application", status: r.status, assigned_to: r.assigned_to, last_contacted_at: r.last_contacted_at, created_at: r.created_at as string, source: "listing_inquiries", details: { area: r.listing_address, bedrooms: r.bedrooms, budget: r.budget, moveIn: r.move_in_date, message: r.message, leadType: r.lead_type, source: r.source, listingId: r.listing_id, ...(typeof r.extra === "string" ? parseLeadDetails(r.extra) : {}) } })),
+      ].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0)).slice(0, 500);
+      return json(rows); }
     const leadMatch = url.pathname.match(/^\/api\/leads\/(\d+)$/);
-    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try { const body = await request.json() as { status?: string }; if (!body.status || !LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); const result = await env.DB.prepare("UPDATE signups SET status = ? WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(body.status, parseInt(leadMatch[1])).run(); return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
+    if (leadMatch && request.method === "PUT") { if (user!.role !== "admin") return json({ error: "Admins only" }, 403); try {
+      const body = await request.json() as { status?: string; assigned_to?: string; source?: string };
+      const id = parseInt(leadMatch[1]);
+      const sets: string[] = []; const vals: unknown[] = [];
+      if (body.status !== undefined) { if (!LEAD_STATUSES.includes(body.status)) return json({ error: "Status must be one of: " + LEAD_STATUSES.join(", ") }, 400); sets.push("status = ?"); vals.push(body.status); if (CONTACTED_STATUSES.includes(body.status)) { sets.push("last_contacted_at = ?"); vals.push(new Date().toISOString()); } }
+      if (body.assigned_to !== undefined) { sets.push("assigned_to = ?"); vals.push(String(body.assigned_to).trim().slice(0, 100)); }
+      if (!sets.length) return json({ error: "Nothing to update" }, 400);
+      // New renter inquiries live in listing_inquiries; everything else (and old inquiries) in signups.
+      const result = body.source === "listing_inquiries"
+        ? await env.DB.prepare("UPDATE listing_inquiries SET " + sets.join(", ") + " WHERE id = ?").bind(...vals, id).run()
+        : await env.DB.prepare("UPDATE signups SET " + sets.join(", ") + " WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(...vals, id).run();
+      return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
     if (user && url.pathname === "/api/inspections/remote") { try { const res = await handleLandlordRemote(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("remote-inspection", err); } }
@@ -523,4 +605,4 @@ export default {
       .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
   },
 };
-interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; RESEND_API_KEY?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }
+interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; INQUIRY_LIMITER?: RateLimit; TURNSTILE_SECRET_KEY?: string; TURNSTILE_SITE_KEY?: string; RESEND_API_KEY?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }

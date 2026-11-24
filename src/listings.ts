@@ -220,8 +220,9 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
     const body = await request.json() as Record<string, unknown>;
     const name = str(body.name, 100), email = str(body.email, 200), phone = str(body.phone, 30), message = str(body.message, 2000), moveIn = str(body.moveIn, 20);
     if (!name || !/^\S+@\S+\.\S+$/.test(email) || !phone) return json({ success: false, error: "Please enter your name, email and phone." }, 400);
-    // Saved as a tenant_application so it shows on the landlord's Listings page and the admin Leads page.
-    await saveListingLead(env, l, { source: "listing", name, email, phone, moveIn, message }, notify, origin);
+    // Saved as a listing inquiry so it shows on the landlord's Listings page and the admin Leads page.
+    const saved = await saveListingLead(env, l, { source: "listing", name, email, phone, moveIn, message }, notify, origin);
+    if (saved === "duplicate") return json({ success: false, error: "You've already inquired about this listing today." }, 409);
     return json({ success: true });
   }
 
