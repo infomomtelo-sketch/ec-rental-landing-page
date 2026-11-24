@@ -296,6 +296,7 @@ export default {
         const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
         const phone = String(body.phone || "").trim().slice(0, 30);
         if (!name || !email || !phone) return json({ success: false, error: "Name, email, and phone required" }, 400);
+        if (!/^\S+@\S+\.\S+$/.test(email)) return json({ success: false, error: "That email doesn't look right" }, 400);
         const area = String(body.area || "").trim().slice(0, 250);
         const bedrooms = String(body.bedrooms || "").trim().slice(0, 20);
         const budget = String(body.budget || "").trim().slice(0, 40);
@@ -480,9 +481,9 @@ export default {
     // Partner branding is public by design, so it is dispatched here, before the auth wall below.
     try { const orgRes = await handleOrgBranding(request, env, url); if (orgRes) return orgRes; } catch (err) { return dbErrorResponse("org-branding", err); }
     try { const pageRes = await handlePublicBusinessPages(request, env, url, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)]), notify); if (pageRes) return pageRes; } catch (err) { return dbErrorResponse("business-page", err); }
-    try { const publicRes = await handlePublicListingRoutes(request, env, url, notify); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
+    try { const publicRes = await handlePublicListingRoutes(request, env, url, notify, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (publicRes) return publicRes; } catch (err) { return dbErrorResponse("public-listings", err); }
     try { const zillowRes = await handleZillowLeadRoute(request, env, url, notify); if (zillowRes) return zillowRes; } catch (err) { console.error("[zillow-leads]", err); return json({ error: "Something went wrong." }, 500); }
-    try { const applyRes = await handlePublicApplicationRoutes(request, env, url); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
+    try { const applyRes = await handlePublicApplicationRoutes(request, env, url, notify, () => underLimit(env.CHAT_LIMITER, ["ip:" + clientIp(request)])); if (applyRes) return applyRes; } catch (err) { return dbErrorResponse("apply", err); }
     try { const inviteRes = await handlePublicTenantRoutes(request, env, url, tenantHelpers(env)); if (inviteRes) return inviteRes; } catch (err) { return dbErrorResponse("tenant-invite", err); }
 
     const user = await getUserFromRequest(request, env);

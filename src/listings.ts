@@ -193,7 +193,7 @@ export async function handleListingRoutes(request: Request, env: ListingsEnv, ur
 }
 
 /** Public routes: /api/public/listings, /photos/*, /feeds/zillow.xml. Returns null when not matched. */
-export async function handlePublicListingRoutes(request: Request, env: ListingsEnv, url: URL, notify?: Notify): Promise<Response | null> {
+export async function handlePublicListingRoutes(request: Request, env: ListingsEnv, url: URL, notify?: Notify, allow?: () => Promise<boolean>): Promise<Response | null> {
   const path = url.pathname;
   const origin = url.origin;
 
@@ -214,6 +214,7 @@ export async function handlePublicListingRoutes(request: Request, env: ListingsE
 
   const inquiry = path.match(/^\/api\/public\/listings\/(\d+)\/inquiry$/);
   if (inquiry && request.method === "POST") {
+    if (allow && !(await allow())) return json({ success: false, error: "Too many requests. Please wait a minute and try again." }, 429);
     const id = parseInt(inquiry[1]);
     const l = await env.DB.prepare("SELECT id, street, unit, city, bedrooms, rent, contact_email FROM listings WHERE id = ? AND status = 'active'").bind(id).first<{ id: number; street: string; unit: string; city: string; bedrooms: number; rent: number; contact_email: string }>();
     if (!l) return json({ success: false, error: "This listing is no longer available." }, 404);
