@@ -1,8 +1,7 @@
 /**
  * Rental applications for listings: a public apply endpoint and landlord review routes.
- * We deliberately don't collect SSN, date of birth, or protected-class information.
- * Credit and background checks are the landlord's own step, run with their own screening provider;
- * the dashboard only tracks the screening status (not_started / invited / complete).
+ * We deliberately don't collect SSN, date of birth, or protected-class information;
+ * credit and background checks happen with a screening partner that collects its own data.
  */
 
 export interface ApplicationsEnv { DB: D1Database; }
@@ -41,12 +40,16 @@ function parseApplication(b: Record<string, unknown>) {
   return { data };
 }
 
+type Notify = (to: string, subject: string, html: string, text: string) => Promise<unknown>;
+function esc(s: string): string { return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
+
 /** POST /api/public/listings/:id/apply */
-export async function handlePublicApplicationRoutes(request: Request, env: ApplicationsEnv, url: URL): Promise<Response | null> {
+export async function handlePublicApplicationRoutes(request: Request, env: ApplicationsEnv, url: URL, notify?: Notify, allow?: () => Promise<boolean>): Promise<Response | null> {
   const m = url.pathname.match(/^\/api\/public\/listings\/(\d+)\/apply$/);
   if (!m || request.method !== "POST") return null;
+  if (allow && !(await allow())) return json({ success: false, error: "Too many requests. Please wait a minute and try again." }, 429);
   const listingId = parseInt(m[1]);
-  const listing = await env.DB.prepare("SELECT id, user_id FROM listings WHERE id = ? AND status = 'active'").bind(listingId).first<{ id: number; user_id: number }>();
+  const listing = await env.DB.prepare("SELECT id, user_id, street, unit, city, state, zip, contact_email FROM listings WHERE id = ? AND status = 'active'").bind(listingId).first<{ id: number; user_id: number; street: string; unit: string; city: string; state: string; zip: string; contact_email: string }>();
   if (!listing) return json({ success: false, error: "This home is no longer accepting applications." }, 404);
   const parsed = parseApplication(await request.json() as Record<string, unknown>);
   if ("error" in parsed) return json({ success: false, error: parsed.error }, 400);
@@ -57,7 +60,29 @@ export async function handlePublicApplicationRoutes(request: Request, env: Appli
   const now = new Date().toISOString();
   const result = await env.DB.prepare(`INSERT INTO applications (listing_id, landlord_user_id, status, screening_status, ${FIELDS.join(", ")}, signed_at, signer_ip, created_at, updated_at) VALUES (?, ?, 'new', 'not_started', ${FIELDS.map(() => "?").join(", ")}, ?, ?, ?, ?)`)
     .bind(listing.id, listing.user_id, ...FIELDS.map((f) => d[f]), now, request.headers.get("CF-Connecting-IP") || "", now, now).run();
-  return json({ success: true, reference: "APP-" + String(result.meta.last_row_id).padStart(5, "0") });
+  const reference = "APP-" + String(result.meta.last_row_id).padStart(5, "0");
+  // A submitted application used to reach nobody: tell the listing contact it arrived and give the
+  // applicant a written receipt with their reference. Only on a fresh insert (the 24h duplicate
+  // returned 409 above), and a failed email never fails the application — it is already stored.
+  if (notify) {
+    const address = [listing.street + (listing.unit ? " #" + listing.unit : ""), listing.city, listing.state + " " + listing.zip].filter(Boolean).join(", ");
+    const applicant = d.first_name + " " + d.last_name;
+    if (listing.contact_email) {
+      const lines: [string, string][] = [["Applicant", applicant], ["Email", d.email], ["Phone", d.phone], ["Move-in date", d.move_in_date], ["Occupants", String(d.occupants)], ["Reference", reference]];
+      const shown = lines.filter(([, v]) => v);
+      try {
+        await notify(listing.contact_email, "New rental application for " + address,
+          "<p>A new rental application came in from your website for <strong>" + esc(address) + "</strong>:</p><ul>" + shown.map(([k, v]) => "<li><strong>" + k + ":</strong> " + esc(v) + "</li>").join("") + "</ul><p><a href=\"" + url.origin + "/dashboard\">Open your dashboard</a> (Applications)</p>",
+          "A new rental application came in from your website for " + address + ":\n\n" + shown.map(([k, v]) => k + ": " + v).join("\n") + "\n\nOpen your dashboard: " + url.origin + "/dashboard (Applications)");
+      } catch (err) { console.error("[apply] contact email", err instanceof Error ? err.message : err); }
+    }
+    try {
+      await notify(d.email, "We received your application for " + address,
+        "<p>Hi " + esc(d.first_name) + ",</p><p>We received your rental application for <strong>" + esc(address) + "</strong>.</p><p>Your reference number is <strong>" + reference + "</strong>. Keep it for your records — if you contact us about this application, mention the reference so we can find it quickly.</p><p>We'll review it and contact you by email or phone with next steps.</p>",
+        "Hi " + d.first_name + ",\n\nWe received your rental application for " + address + ".\n\nYour reference number is " + reference + ". Keep it for your records — if you contact us about this application, mention the reference so we can find it quickly.\n\nWe'll review it and contact you by email or phone with next steps.");
+    } catch (err) { console.error("[apply] applicant email", err instanceof Error ? err.message : err); }
+  }
+  return json({ success: true, reference });
 }
 
 /** Landlord routes under /api/applications. */
