@@ -93,6 +93,7 @@ export function zillowIssues(l: ListingRow, photoCount: number): string[] {
   const issues: string[] = [];
   if (!l.syndicate_zillow) issues.push("Zillow is switched off");
   if (l.status !== "active") issues.push("Status isn't Active");
+  if (!(l.title || "").trim()) issues.push("Add a listing title");
   if (photoCount < 1) issues.push("Add at least 1 photo");
   if (l.description.trim().length < 50) issues.push("Write a description (50+ characters)");
   if (!l.date_available) issues.push("Set the date available");

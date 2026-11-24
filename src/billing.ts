@@ -45,6 +45,11 @@ const WEBHOOK_EVENTS = ["checkout.session.completed", "customer.subscription.cre
 const GOOD_STATUSES = ["active", "trialing"];
 /** Subscriptions that still exist in Stripe and can still bill the card: the good ones plus a failed-payment one that is being retried. */
 const LIVE_STATUSES = [...GOOD_STATUSES, "past_due", "unpaid"];
+/** Stripe statuses after which a subscription is gone for good: the account drops back to the free baseline. */
+const TERMINAL_STATUSES = ["canceled", "incomplete_expired"];
+/** The free baseline an account falls back to when its subscription ends: plan_tier 'free' (the column
+ *  default from migration 0002, where every account starts) and the schema-default plan at its PLANS limit. */
+const FREE_PLAN = "solo";
 
 /** True when the landlord has a paid-up or trialing plan. */
 export async function hasActivePlan(env: BillingEnv, userId: number): Promise<boolean> {
@@ -265,8 +270,62 @@ async function applySubscription(env: BillingEnv, sub: StripeObject, fallbackUse
   ).bind(userId, String(sub.customer || current?.customer_id || ""), sub.id, sub.status, plan, isoFromUnix(sub.trial_end), isoFromUnix(periodEnd), sub.cancel_at_period_end ? 1 : 0, amountCents, currency, new Date().toISOString()).run();
   if (plan && GOOD_STATUSES.includes(sub.status)) {
     // Never below the homes already in the account, so a smaller plan limit doesn't strand anyone's properties.
-    await env.DB.prepare("UPDATE users SET plan = ?, property_limit = MAX(?, (SELECT COUNT(*) FROM properties WHERE user_id = ?)) WHERE id = ? AND role != 'tenant'").bind(plan, PLANS[plan].limit, userId, userId).run();
+    // plan_tier is the inspection gate's source of truth (src/inspection-audit-routes.ts) and takes the
+    // same plan value; without this the gate keeps treating a paying landlord as free.
+    await env.DB.prepare("UPDATE users SET plan = ?, plan_tier = ?, property_limit = MAX(?, (SELECT COUNT(*) FROM properties WHERE user_id = ?)) WHERE id = ? AND role != 'tenant'").bind(plan, plan, PLANS[plan].limit, userId, userId).run();
+  } else if (TERMINAL_STATUSES.includes(sub.status) && (!current?.subscription_id || current.subscription_id === sub.id)) {
+    // The account's own subscription is over (deleted, or lapsed for good): drop the account back to the
+    // free baseline, with the same MAX guard as the raise so existing properties are never stranded.
+    // past_due/unpaid never land here — those subscriptions are still live and being retried, and
+    // hasActivePlan already closes the paid gates for them while they run.
+    await env.DB.prepare("UPDATE users SET plan = ?, plan_tier = 'free', property_limit = MAX(?, (SELECT COUNT(*) FROM properties WHERE user_id = ?)) WHERE id = ? AND role != 'tenant'").bind(FREE_PLAN, PLANS[FREE_PLAN].limit, userId, userId).run();
   }
+}
+
+/** Credit packs by Stripe amount (cents), for when the product name doesn't say the count. */
+const CREDIT_PACK_AMOUNTS: Record<number, number> = { 1900: 10, 7500: 50 };
+
+/** How many inspection credits one checkout line item carries: the product's own `credits` metadata or
+ *  its name ("Tello Inspect — 10 Inspection Credits"), falling back to the pack price. 0 = not a pack. */
+function creditsForLineItem(item: StripeObject): number {
+  const product = item?.price?.product;
+  const meta = typeof product === "object" && product ? parseInt(product.metadata?.credits) : NaN;
+  if (Number.isFinite(meta) && meta > 0) return meta;
+  const named = parseInt(((typeof product === "object" && product ? String(product.name || "") : "") + " " + String(item?.description || "")).match(/(\d+)\s+inspection credits/i)?.[1] || "");
+  if (Number.isFinite(named) && named > 0) return named;
+  return CREDIT_PACK_AMOUNTS[Number(item?.price?.unit_amount)] || 0;
+}
+
+/**
+ * A credit-pack purchase (checkout.session.completed with mode "payment"): add the pack's credits to the
+ * buyer's users.inspection_credits — until now no code granted them, so every pack sale owed a manual fix.
+ * The packs are sold through plain Stripe payment links, so the buyer is resolved from the session itself:
+ * user metadata when present, else the Stripe customer on the billing row, else the email paid with.
+ * Idempotent per checkout session: the app_settings marker (the same pattern as the trial reminders)
+ * makes a redelivered event a no-op. The marker is written only after the credit lands, so a failed
+ * grant is retried by Stripe's next redelivery instead of being swallowed.
+ */
+async function grantCreditPack(env: BillingEnv, session: StripeObject): Promise<void> {
+  if (session.payment_status !== "paid") return;
+  const grantKey = "credit_grant:" + session.id;
+  if (await getSetting(env, grantKey)) return;
+  const items = await stripe(env, "GET", "checkout/sessions/" + session.id + "/line_items", { expand: ["data.price.product"] });
+  let credits = 0;
+  for (const item of items.data || []) credits += creditsForLineItem(item) * (Number(item.quantity) || 1);
+  if (!credits) { console.warn("[stripe] payment checkout " + session.id + " is not a credit pack; nothing granted"); return; }
+  let userId = parseInt(session.metadata?.user_id) || parseInt(session.client_reference_id) || 0;
+  if (!userId && session.customer) {
+    const row = await env.DB.prepare("SELECT user_id FROM billing WHERE customer_id = ?").bind(String(session.customer)).first<{ user_id: number }>();
+    userId = row?.user_id || 0;
+  }
+  const email = session.customer_details?.email || session.customer_email;
+  if (!userId && email) {
+    const row = await env.DB.prepare("SELECT id FROM users WHERE lower(email) = lower(?) AND role != 'tenant'").bind(String(email)).first<{ id: number }>();
+    userId = row?.id || 0;
+  }
+  if (!userId) { console.warn("[stripe] credit pack " + session.id + " has no matching account; nothing granted"); return; }
+  await env.DB.prepare("UPDATE users SET inspection_credits = COALESCE(inspection_credits, 0) + ? WHERE id = ?").bind(credits, userId).run();
+  await setSetting(env, grantKey, JSON.stringify({ user_id: userId, credits, at: new Date().toISOString() }));
 }
 
 export async function verifySignature(payload: string, header: string, secret: string): Promise<boolean> {
@@ -295,6 +354,9 @@ export async function handleStripeWebhook(request: Request, env: BillingEnv, onE
     // Read the subscription back from Stripe so a replayed or out-of-order event can't set a stale state.
     const sub = await stripe(env, "GET", "subscriptions/" + obj.subscription);
     await applySubscription(env, sub, parseInt(obj.client_reference_id) || undefined);
+  } else if (event.type === "checkout.session.completed" && obj.mode === "payment") {
+    // A one-time purchase, not a plan: the Tello Inspect credit packs.
+    await grantCreditPack(env, obj);
   } else if (event.type?.startsWith("customer.subscription.")) {
     const sub = event.type === "customer.subscription.deleted" ? obj : await stripe(env, "GET", "subscriptions/" + obj.id);
     await applySubscription(env, sub);
