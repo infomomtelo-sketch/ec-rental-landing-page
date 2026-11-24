@@ -2,7 +2,13 @@
 
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company TEXT DEFAULT '', email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, plan TEXT DEFAULT 'solo', property_limit INTEGER DEFAULT 5, role TEXT DEFAULT 'landlord', created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS signups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company TEXT DEFAULT '', email TEXT NOT NULL, phone TEXT NOT NULL, property_count TEXT NOT NULL, plan TEXT NOT NULL, message TEXT DEFAULT '', status TEXT DEFAULT 'pending', created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS signups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company TEXT DEFAULT '', email TEXT NOT NULL, phone TEXT NOT NULL, property_count TEXT NOT NULL, plan TEXT NOT NULL, message TEXT DEFAULT '', status TEXT DEFAULT 'pending', assigned_to TEXT DEFAULT '', last_contacted_at TEXT, created_at TEXT NOT NULL);
+-- Renter inquiries about a listing (listing page, Zillow, and the website chat). One row per renter per
+-- listing per day: UNIQUE(listing_id, email, inquiry_date). listing_id/landlord_user_id are NULL for
+-- general chat inquiries that name no home yet; those show on the admin Chat Leads page only.
+CREATE TABLE IF NOT EXISTS listing_inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, listing_id INTEGER, landlord_user_id INTEGER, name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT DEFAULT '', listing_address TEXT DEFAULT '', bedrooms TEXT DEFAULT '', budget TEXT DEFAULT '', move_in_date TEXT DEFAULT '', message TEXT DEFAULT '', extra TEXT DEFAULT '', lead_type TEXT DEFAULT '', source TEXT NOT NULL DEFAULT 'listing', status TEXT NOT NULL DEFAULT 'pending', assigned_to TEXT DEFAULT '', last_contacted_at TEXT, inquiry_date TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(listing_id, email, inquiry_date));
+CREATE INDEX IF NOT EXISTS idx_listing_inquiries_landlord ON listing_inquiries(landlord_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_listing_inquiries_listing ON listing_inquiries(listing_id, created_at);
 CREATE TABLE IF NOT EXISTS properties (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, address TEXT NOT NULL, city TEXT DEFAULT '', state TEXT DEFAULT 'CA', zip TEXT DEFAULT '', rent_amount REAL DEFAULT 0, tenant_name TEXT DEFAULT '', tenant_email TEXT DEFAULT '', tenant_phone TEXT DEFAULT '', lease_start TEXT DEFAULT '', lease_end TEXT DEFAULT '', status TEXT DEFAULT 'vacant', notes TEXT DEFAULT '', created_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL, description TEXT DEFAULT '', date TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY (property_id) REFERENCES properties(id));
 CREATE TABLE IF NOT EXISTS maintenance_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, property_id INTEGER NOT NULL, tenant_name TEXT DEFAULT '', description TEXT NOT NULL, priority TEXT DEFAULT 'normal', status TEXT DEFAULT 'open', created_at TEXT NOT NULL, FOREIGN KEY (property_id) REFERENCES properties(id));
@@ -46,7 +52,7 @@ CREATE TABLE IF NOT EXISTS inspection_items (id INTEGER PRIMARY KEY AUTOINCREMEN
 CREATE INDEX IF NOT EXISTS idx_inspection_items_inspection ON inspection_items(inspection_id);
 
 -- Stripe billing (src/billing.ts): one row per landlord account, kept in step by the Stripe webhook.
-CREATE TABLE IF NOT EXISTS billing (user_id INTEGER PRIMARY KEY, customer_id TEXT, subscription_id TEXT, status TEXT NOT NULL DEFAULT 'none', plan TEXT, trial_end TEXT, period_end TEXT, cancel_at_period_end INTEGER DEFAULT 0, updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
+CREATE TABLE IF NOT EXISTS billing (user_id INTEGER PRIMARY KEY, customer_id TEXT, subscription_id TEXT, status TEXT NOT NULL DEFAULT 'none', plan TEXT, trial_end TEXT, period_end TEXT, cancel_at_period_end INTEGER DEFAULT 0, amount_cents INTEGER, currency TEXT DEFAULT '', updated_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id));
 CREATE INDEX IF NOT EXISTS idx_billing_customer ON billing(customer_id);
 -- Small site-wide settings the Worker saves for itself (e.g. the Stripe webhook signing secret it created).
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);

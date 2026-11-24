@@ -1,7 +1,8 @@
 /**
  * Renter leads for listings: Zillow's Lead Delivery HTTP POST callback, the landlord's view of
  * inquiries on their own listings, and the email that tells the listing contact about a new lead.
- * Leads are stored in `signups` as plan 'tenant_application' (same as website listing inquiries).
+ * Leads are stored in `listing_inquiries` (migration 0004), one row per renter per listing per day.
+ * Rows already in `signups` as plan 'tenant_application' are history and are never deleted.
  */
 
 export interface LeadsEnv { DB: D1Database; ZILLOW_LEAD_KEY?: string; }
@@ -14,24 +15,47 @@ function json(data: unknown, status = 200): Response { return new Response(JSON.
 function str(v: unknown, max = 500): string { return v === undefined || v === null ? "" : String(v).trim().slice(0, max); }
 function esc(s: string): string { return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
 function address(l: LeadListing): string { return [l.street + (l.unit ? " #" + l.unit : ""), l.city].filter(Boolean).join(", "); }
+function parseExtra(s: string): Record<string, string> { try { const p = JSON.parse(s || "{}"); return p && typeof p === "object" ? p : {}; } catch { return {}; } }
 // Constant-time compare so the lead key can't be guessed byte by byte from response timing.
 function sameSecret(a: string, b: string): boolean { if (!a || a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
 
 const LEAD_TYPES: Record<string, string> = { question: "Question", tourRequest: "Tour request", applicationRequest: "Application request" };
 
-/** Stores a lead for a listing and emails the listing's contact. */
-export async function saveListingLead(env: LeadsEnv, listing: LeadListing, lead: Lead, notify?: Notify, origin = ""): Promise<void> {
-  const details = { source: lead.source, listingId: listing.id, area: address(listing), bedrooms: listing.bedrooms, budget: "$" + Math.round(listing.rent) + "/mo listing", moveIn: lead.moveIn, message: lead.message, leadType: lead.leadType || "", ...(lead.extra || {}) };
-  await env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, status, created_at) VALUES (?, '', ?, ?, 'tenant', 'tenant_application', ?, 'pending', ?)")
-    .bind(lead.name || lead.email, lead.email, lead.phone, JSON.stringify(details), new Date().toISOString()).run();
-  if (!notify || !listing.contact_email) return;
+/** Stores a lead for a listing and emails the listing's contact. Returns "duplicate" when the same
+ *  email already inquired about this listing today (the UNIQUE on listing_inquiries); the caller
+ *  decides what to tell the sender. */
+export async function saveListingLead(env: LeadsEnv, listing: LeadListing, lead: Lead, notify?: Notify, origin = ""): Promise<"ok" | "duplicate"> {
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  const addressText = address(listing);
+  const bedrooms = String(listing.bedrooms || "");
+  const budget = listing.rent ? "$" + Math.round(listing.rent) + "/mo listing" : "";
+  const values = [lead.name || lead.email, lead.email, lead.phone, addressText, bedrooms, budget, lead.moveIn, lead.message, Object.keys(lead.extra || {}).length ? JSON.stringify(lead.extra) : "", lead.leadType || "", lead.source] as const;
+  try {
+    const res = await env.DB.prepare(
+      "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
+      "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ? FROM listings l WHERE l.id = ?")
+      .bind(...values, today, now, listing.id).run();
+    if ((res.meta.changes || 0) === 0) {
+      // Unknown or removed listing (Zillow sends these too): keep the lead for the admin, with no landlord.
+      await env.DB.prepare(
+        "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
+        "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
+        .bind(listing.id, ...values, today, now).run();
+    }
+  } catch (err) {
+    if (/UNIQUE constraint failed/i.test(err instanceof Error ? err.message : String(err))) return "duplicate";
+    throw err;
+  }
+  if (!notify || !listing.contact_email) return "ok";
   const from = lead.source === "zillow" ? "Zillow" : "your website";
   const kind = lead.leadType && LEAD_TYPES[lead.leadType] ? LEAD_TYPES[lead.leadType] + " " : "";
   const lines: [string, string][] = [["Name", lead.name], ["Email", lead.email], ["Phone", lead.phone], ["Move-in", lead.moveIn], ["Message", lead.message]];
   const shown = lines.filter(([, v]) => v);
-  await notify(listing.contact_email, "New renter " + (kind ? kind.toLowerCase() : "inquiry ") + "for " + address(listing),
-    "<p>New " + esc(kind.toLowerCase() || "inquiry ") + "from " + from + " for <strong>" + esc(address(listing)) + "</strong>:</p><ul>" + shown.map(([k, v]) => "<li><strong>" + k + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" + (origin ? "<p><a href=\"" + origin + "/dashboard\">Open your dashboard</a></p>" : ""),
-    "New " + (kind.toLowerCase() || "inquiry ") + "from " + from + " for " + address(listing) + ":\n\n" + shown.map(([k, v]) => k + ": " + v).join("\n") + (origin ? "\n\n" + origin + "/dashboard" : "")).catch(() => false);
+  await notify(listing.contact_email, "New renter " + (kind ? kind.toLowerCase() : "inquiry ") + "for " + addressText,
+    "<p>New " + esc(kind.toLowerCase() || "inquiry ") + "from " + from + " for <strong>" + esc(addressText) + "</strong>:</p><ul>" + shown.map(([k, v]) => "<li><strong>" + k + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" + (origin ? "<p><a href=\"" + origin + "/dashboard\">Open your dashboard</a></p>" : ""),
+    "New " + (kind.toLowerCase() || "inquiry ") + "from " + from + " for " + addressText + ":\n\n" + shown.map(([k, v]) => k + ": " + v).join("\n") + (origin ? "\n\n" + origin + "/dashboard" : "")).catch(() => false);
+  return "ok";
 }
 
 /** POST /api/zillow/leads?key=... : Zillow Lead Delivery HTTP POST callback (form-encoded). */
@@ -66,7 +90,7 @@ export async function handleZillowLeadRoute(request: Request, env: LeadsEnv, url
 /** GET /api/listings/leads : inquiries (website and Zillow) on the signed-in landlord's listings. */
 export async function handleLandlordLeadRoute(request: Request, env: LeadsEnv, url: URL, user: { id: number }): Promise<Response | null> {
   if (url.pathname !== "/api/listings/leads" || request.method !== "GET") return null;
-  const rows = await env.DB.prepare("SELECT s.id, s.name, s.email, s.phone, s.message, s.created_at FROM signups s JOIN listings l ON l.id = (CASE WHEN json_valid(s.message) THEN json_extract(s.message, '$.listingId') END) WHERE s.plan = 'tenant_application' AND l.user_id = ? ORDER BY s.created_at DESC LIMIT 200")
-    .bind(user.id).all<{ id: number; name: string; email: string; phone: string; message: string; created_at: string }>();
-  return json(rows.results.map((r) => { let d: Record<string, unknown> = {}; try { d = JSON.parse(r.message); } catch { /* keep empty */ } return { id: r.id, name: r.name, email: r.email, phone: r.phone, created_at: r.created_at, source: d.source || "listing", listingId: d.listingId, home: d.area, moveIn: d.moveIn || "", message: d.message || "", leadType: d.leadType || "" }; }));
+  const rows = await env.DB.prepare("SELECT id, listing_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, created_at FROM listing_inquiries WHERE landlord_user_id = ? ORDER BY created_at DESC LIMIT 200")
+    .bind(user.id).all<{ id: number; listing_id: number | null; name: string; email: string; phone: string; listing_address: string; bedrooms: string; budget: string; move_in_date: string; message: string; extra: string; lead_type: string; source: string; status: string; created_at: string }>();
+  return json(rows.results.map((r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, created_at: r.created_at, source: r.source, listingId: r.listing_id, home: r.listing_address, bedrooms: r.bedrooms, budget: r.budget, moveIn: r.move_in_date, message: r.message, leadType: r.lead_type, status: r.status, extra: parseExtra(r.extra) })));
 }

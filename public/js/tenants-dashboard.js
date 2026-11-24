@@ -34,7 +34,7 @@
       if (!list.length) { body.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="icon"><svg class="ico" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg></div>No tenants invited yet. Invite one above so they can see their lease and send maintenance requests.</td></tr>'; return; }
       body.innerHTML = list.map(function(t) {
         var status = t.status === 'active' ? '<span class="badge badge-green">Active</span><br><small style="color:var(--gray)">since ' + date(t.accepted_at) + '</small>' : '<span class="badge badge-yellow">Invited</span><br><small style="color:var(--gray)">link expires ' + date(t.invite_expires_at) + '</small>';
-        var actions = (t.status === 'invited' ? '<button class="btn btn-sm" data-resend="' + t.id + '" data-email="' + esc(t.email) + '">Resend</button> ' : '') + '<button class="btn btn-sm btn-danger" data-end="' + t.id + '">Remove</button>';
+        var actions = (t.status === 'invited' ? '<button class="btn btn-sm" data-resend="' + t.id + '" data-email="' + esc(t.email) + '">Resend</button> ' : '') + '<button class="btn btn-sm" data-rent="1">Rent</button> ' + '<button class="btn btn-sm btn-danger" data-end="' + t.id + '">Remove</button>';
         return '<tr><td>' + esc(t.address) + '</td><td>' + (t.tenant_name ? '<strong>' + esc(t.tenant_name) + '</strong><br>' : '') + '<small style="color:var(--gray)">' + esc(t.email) + '</small></td><td>' + status + '</td><td>' + actions + '</td></tr>';
       }).join('');
     }).catch(function(err) { body.innerHTML = '<tr><td colspan="4" class="empty-state">' + esc(err.message) + '</td></tr>'; });
@@ -53,7 +53,17 @@
   });
 
   body.addEventListener('click', function(e) {
-    var resend = e.target.getAttribute('data-resend'), end = e.target.getAttribute('data-end');
+    var resend = e.target.getAttribute('data-resend'), end = e.target.getAttribute('data-end'), rent = e.target.getAttribute('data-rent');
+    if (rent) {
+      // Online rent collection lives on the Settings page ("Online rent payments" card):
+      // connect the landlord's Stripe account there; invited tenants then see Pay rent online.
+      if (typeof showPage === 'function') showPage('settings');
+      setTimeout(function() {
+        var target = document.getElementById('payoutsCard') || document.getElementById('billingCard') || document.getElementById('page-settings');
+        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 250);
+      return;
+    }
     if (resend) api('/tenancies/' + resend + '/resend', 'POST').then(function(res) { showLink(res, e.target.getAttribute('data-email')); load(); }).catch(function(err) { alert(err.message); });
     if (end && confirm('Remove this tenant\'s portal access? Their past requests stay in your Maintenance list.')) api('/tenancies/' + end, 'DELETE').then(load).catch(function(err) { alert(err.message); });
   });
