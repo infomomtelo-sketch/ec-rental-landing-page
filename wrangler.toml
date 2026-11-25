@@ -2,6 +2,21 @@ name = "ec-rental-landing-page"
 main = "src/index.ts"
 compatibility_date = "2026-09-25"
 compatibility_flags = ["nodejs_compat"]
+upload_source_maps = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+  [observability.logs]
+  enabled = true
+  invocation_logs = true
+  persist = true
+  head_sampling_rate = 1
+
+  [observability.traces]
+  enabled = true
+  head_sampling_rate = 0.1
 
 # Serve the site on ecrentalpm.com (Cloudflare creates the DNS records and certificate on deploy).
 # The workers.dev address keeps working too.
