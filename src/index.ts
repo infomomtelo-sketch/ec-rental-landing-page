@@ -406,11 +406,20 @@ export default {
           env.DB.prepare("INSERT INTO signups (name, company, email, phone, property_count, plan, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(body.name, body.company || "", email, body.phone, body.propertyCount, planNames[body.plan], body.message || "", now),
         ]);
         const newUserId = Number(results[0].meta.last_row_id);
-        // With Stripe switched on, the new landlord goes straight to checkout. If Stripe fails they still have their account.
+        // With Stripe switched on, the new landlord goes straight to checkout. If checkout can't be
+        // started, the account still exists — but no payment was taken, so say so in the response
+        // instead of a plain success, or the landlord walks away believing they paid.
         let checkoutUrl: string | undefined;
-        if (billingEnabled(env)) { try { checkoutUrl = await createCheckout(env, { id: newUserId, name: body.name, email, plan: body.plan, role: "landlord" }, body.plan, url.origin); } catch (err) { console.error("[billing] signup checkout", err instanceof Error ? err.message : err); } }
-        if (viaGoogle) return json({ success: true, message: "Account created", token: await createSession(env, newUserId), checkoutUrl });
-        return json({ success: true, message: "Account created", checkoutUrl });
+        let checkoutError = false;
+        if (billingEnabled(env)) {
+          try { checkoutUrl = await createCheckout(env, { id: newUserId, name: body.name, email, plan: body.plan, role: "landlord" }, body.plan, url.origin); }
+          catch (err) { checkoutError = true; console.error("[billing] signup checkout", err instanceof Error ? err.message : err); }
+        } else {
+          checkoutError = true;
+          console.error("[billing] signup checkout: billing is not switched on (STRIPE_SECRET_KEY is not set)");
+        }
+        if (viaGoogle) return json({ success: true, message: "Account created", token: await createSession(env, newUserId), checkoutUrl, checkoutError });
+        return json({ success: true, message: "Account created", checkoutUrl, checkoutError });
       } catch (err) { return dbErrorResponse("subscribe", err); }
     }
 
