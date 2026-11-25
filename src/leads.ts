@@ -33,15 +33,15 @@ export async function saveListingLead(env: LeadsEnv, listing: LeadListing, lead:
   const values = [lead.name || lead.email, lead.email, lead.phone, addressText, bedrooms, budget, lead.moveIn, lead.message, Object.keys(lead.extra || {}).length ? JSON.stringify(lead.extra) : "", lead.leadType || "", lead.source] as const;
   try {
     const res = await env.DB.prepare(
-      "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
-      "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ? FROM listings l WHERE l.id = ?")
-      .bind(...values, today, now, listing.id).run();
+      "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at, updated_at) " +
+      "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ? FROM listings l WHERE l.id = ?")
+      .bind(...values, today, now, now, listing.id).run();
     if ((res.meta.changes || 0) === 0) {
       // Unknown or removed listing (Zillow sends these too): keep the lead for the admin, with no landlord.
       await env.DB.prepare(
-        "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
-        "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
-        .bind(listing.id, ...values, today, now).run();
+        "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at, updated_at) " +
+        "VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)")
+        .bind(listing.id, ...values, today, now, now).run();
     }
   } catch (err) {
     if (/UNIQUE constraint failed/i.test(err instanceof Error ? err.message : String(err))) return "duplicate";

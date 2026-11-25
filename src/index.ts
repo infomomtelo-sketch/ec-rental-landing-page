@@ -307,16 +307,18 @@ export default {
         try {
           if (listingId > 0) {
             const res = await env.DB.prepare(
-              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
-              "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ? FROM listings l WHERE l.id = ? AND l.status = 'active'")
-              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now, listingId).run();
+              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at, updated_at) " +
+              "SELECT l.id, l.user_id, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?, ? FROM listings l WHERE l.id = ? AND l.status = 'active'")
+              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now, now, listingId).run();
             if ((res.meta.changes || 0) === 0) return json({ success: false, error: "This home is no longer available." }, 404);
           } else {
             // No home named (homepage chat): kept for the admin, with no landlord attached.
+            // The live table declares listing_id and landlord_user_id NOT NULL, so 0 is bound
+            // for both (same treatment as the saveListingLead fallback), instead of NULL.
             await env.DB.prepare(
-              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at) " +
-              "VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?)")
-              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now).run();
+              "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at, updated_at) " +
+              "VALUES (0, 0, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?, ?)")
+              .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now, now).run();
           }
         } catch (err) {
           if (/UNIQUE constraint failed/i.test(err instanceof Error ? err.message : String(err))) return json({ success: false, error: "You've already inquired about this listing today." }, 409);
