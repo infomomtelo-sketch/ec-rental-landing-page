@@ -127,7 +127,11 @@
     if (!canVoice || !voiceOn()) return;
     var today = new Date().toDateString(), seen = false;
     try { seen = localStorage.getItem('ec_tello_brief_day') === today; localStorage.setItem('ec_tello_brief_day', today); } catch (e) {}
-    load(token).then(function (d) { if (voiceOn()) say(seen ? 'Welcome back.' : speech(d), clipList(d, seen)); }).catch(function () {});
+    load(token).then(function (d) {
+      if (!voiceOn()) return;
+      var items = (d && d.items) || [], needs = items.some(function (i) { return i.urgency !== 'info'; }), short = seen && !needs;
+      say(short ? 'Welcome back.' : speech(d), clipList(d, short));
+    }).catch(function () {});
   }
 
   function render(el, data, onNav, opts) {
