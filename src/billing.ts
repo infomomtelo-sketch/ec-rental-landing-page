@@ -12,6 +12,7 @@
  * This must be EC Rental's own Stripe account, never Title 22's.
  */
 import { isAdmin } from "./admin";
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, UPSTREAM_TIMEOUT_MS } from "./outbound";
 
 export interface BillingEnv {
   DB: D1Database;
@@ -85,11 +86,17 @@ export async function stripe(env: BillingEnv, method: "GET" | "POST" | "DELETE",
   const base = env.STRIPE_API_BASE || "https://api.stripe.com";
   const body = formEncode(params).toString();
   const target = method === "GET" && body ? `${base}/v1/${path}?${body}` : `${base}/v1/${path}`;
-  const res = await fetch(target, {
-    method,
-    headers: { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded", ...(account ? { "Stripe-Account": account } : {}) },
-    body: method === "GET" ? undefined : body,
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(target, {
+      method,
+      headers: { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded", ...(account ? { "Stripe-Account": account } : {}) },
+      body: method === "GET" ? undefined : body,
+    });
+  } catch (err) {
+    if (isTimeoutError(err)) logUpstreamTimeout("stripe", UPSTREAM_TIMEOUT_MS, { path: "/v1/" + path });
+    throw err;
+  }
   const data = await res.json().catch(() => ({})) as StripeObject;
   if (!res.ok) throw new Error(`Stripe ${method} ${path} ${res.status}: ${data?.error?.message || "unknown error"}`);
   return data;

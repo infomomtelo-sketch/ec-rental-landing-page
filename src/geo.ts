@@ -3,6 +3,7 @@
  * geocoder (no API key) the first time a listing is shown on the map, then cached in listing_geo.
  * A listing whose address changes is looked up again; one that can't be found is retried weekly.
  */
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, UPSTREAM_TIMEOUT_MS } from "./outbound";
 
 export interface GeoEnv { DB: D1Database; }
 
@@ -19,9 +20,12 @@ export function geoAddress(l: { street: string; city: string; state: string; zip
   return [l.street, l.city, [l.state, l.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 }
 
+/** Default fetcher for the Census geocoder: the 5s timeout helper (the old AbortSignal.timeout(5000) cap, kept). */
+const censusFetcher: typeof fetch = (input, init) => fetchWithTimeout(input, init);
+
 /** Returns [lat, lng] for a US street address, or null when the Census geocoder has no match. */
-export async function geocode(address: string, fetcher: typeof fetch = fetch): Promise<[number, number] | null> {
-  const res = await fetcher(CENSUS_URL + "?benchmark=Public_AR_Current&format=json&address=" + encodeURIComponent(address), { signal: AbortSignal.timeout(5000) });
+export async function geocode(address: string, fetcher: typeof fetch = censusFetcher): Promise<[number, number] | null> {
+  const res = await fetcher(CENSUS_URL + "?benchmark=Public_AR_Current&format=json&address=" + encodeURIComponent(address));
   if (!res.ok) throw new Error("Geocoder returned " + res.status);
   const body = await res.json() as { result?: { addressMatches?: { coordinates?: { x?: number; y?: number } }[] } };
   const c = body.result?.addressMatches?.[0]?.coordinates;
@@ -29,7 +33,7 @@ export async function geocode(address: string, fetcher: typeof fetch = fetch): P
 }
 
 /** GET /api/public/listings/map : [{ id, lat, lng }] for active listings that have been located. */
-export async function handleMapRoute(request: Request, env: GeoEnv, url: URL, fetcher: typeof fetch = fetch): Promise<Response | null> {
+export async function handleMapRoute(request: Request, env: GeoEnv, url: URL, fetcher: typeof fetch = censusFetcher): Promise<Response | null> {
   if (url.pathname !== "/api/public/listings/map" || request.method !== "GET") return null;
   const rows = (await env.DB.prepare("SELECT l.id, l.street, l.city, l.state, l.zip, g.address AS geo_address, g.lat, g.lng, g.updated_at AS geo_updated FROM listings l LEFT JOIN listing_geo g ON g.listing_id = l.id WHERE l.status = 'active' ORDER BY l.updated_at DESC LIMIT 200").all<Row>()).results;
 
@@ -38,7 +42,7 @@ export async function handleMapRoute(request: Request, env: GeoEnv, url: URL, fe
   await Promise.all(stale.map(async (r) => {
     const address = geoAddress(r);
     let point: [number, number] | null;
-    try { point = await geocode(address, fetcher); } catch (err) { console.error("[geocode]", address, err instanceof Error ? err.message : err); return; }
+    try { point = await geocode(address, fetcher); } catch (err) { if (isTimeoutError(err)) logUpstreamTimeout("census", UPSTREAM_TIMEOUT_MS); console.error("[geocode]", address, err instanceof Error ? err.message : err); return; }
     r.lat = point ? point[0] : null; r.lng = point ? point[1] : null;
     await env.DB.prepare("INSERT INTO listing_geo (listing_id, address, lat, lng, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(listing_id) DO UPDATE SET address = excluded.address, lat = excluded.lat, lng = excluded.lng, updated_at = excluded.updated_at")
       .bind(r.id, address, r.lat, r.lng, new Date().toISOString()).run();

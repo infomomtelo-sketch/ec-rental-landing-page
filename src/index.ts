@@ -150,6 +150,8 @@ import { handleFinanceRoutes } from "./finance";
 import { handleConnectWebhook, handleLandlordRentPayments, handleTenantRentPayments } from "./rent-payments";
 import { handlePublicTenantRoutes, handleTenancyRoutes, handleTenantPortalRoutes, tenantMayUse, type TenantHelpers } from "./tenants";
 import { textRun } from "./ai-text";
+import { fetchWithTimeout, isTimeoutError, logJson, logUpstreamTimeout, STATUS_TIMEOUT_MS, UPSTREAM_TIMEOUT_MS } from "./outbound";
+import { guardedDB } from "./db-guard";
 
 
 function corsHeaders(): Record<string, string> { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
@@ -176,6 +178,19 @@ const CONTACTED_STATUSES = ["contacted", "converted", "won", "lost", "closed"];
 function parseLeadDetails(message: string): Record<string, unknown> { try { const parsed = JSON.parse(message || "{}"); return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; } }
 async function sha256Hex(value: string): Promise<string> { return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 function clientIp(request: Request): string { return request.headers.get("CF-Connecting-IP") || "unknown"; }
+/** Google OAuth token exchange through the timeout helper; a timeout is logged and rethrown (google.ts turns it into "Couldn't reach Google"). */
+const googleFetcher: typeof fetch = async (input, init) => {
+  try { return await fetchWithTimeout(input, init); }
+  catch (err) { if (isTimeoutError(err)) logUpstreamTimeout("google-oauth", UPSTREAM_TIMEOUT_MS, { path: "/api/auth/google/callback" }); throw err; }
+};
+/** Paths that legitimately fall through to the static-asset binding. Anything else 404s at the tail of fetch(). */
+const STATIC_EXT = /\.(html|js|css|png|jpe?g|gif|svg|webp|ico|mp3|mp4|webmanifest|xml|txt|json|map|woff2?|ttf|pdf)$/i;
+const KNOWN_PAGE = /^\/(dashboard|listings|listing|apply|tenant|admin|tello|tello-inspect|hub|business|videos|make|website|meeting|models|partners|privacy|terms|install|document|inspection-report|rent-review|rental-calculator|ai-inspection|ai-chatbot-for-small-business|free-ai-video-maker|fresno-property-management|fresno-rental-inspections|california-rent-increase-calculator|cap-rate-calculator|cash-on-cash-calculator|how-to-answer-customers-when-your-business-is-closed|how-to-follow-up-with-new-leads|how-to-make-a-short-business-video|small-business-website-faq-page|social-setup|blog|features|brand|vendor|b|m)$/;
+const KNOWN_PREFIX = /^\/(blog|business|features|brand|vendor|rentals|v|photos|feeds|embed|js|css|media|inspect|b|m)\//;
+function isKnownPath(pathname: string): boolean {
+  const p = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+  return p === "/" || KNOWN_PAGE.test(p) || KNOWN_PREFIX.test(p) || STATIC_EXT.test(p);
+}
 // Returns true when every key is under its limit. A missing binding (e.g. older local setups) never blocks.
 async function underLimit(limiter: RateLimit | undefined, keys: string[]): Promise<boolean> { if (!limiter) return true; for (const key of keys) { const { success } = await limiter.limit({ key }); if (!success) return false; } return true; }
 const tooManyRequests = () => json({ error: "Too many requests. Please wait a minute and try again." }, 429);
@@ -185,14 +200,14 @@ async function verifyTurnstile(env: Env, request: Request, token: string): Promi
   if (!env.TURNSTILE_SECRET_KEY) { console.warn("[turnstile] TURNSTILE_SECRET_KEY not set; bot check skipped"); return true; }
   if (!token) return false;
   try {
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    const res = await fetchWithTimeout("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token, remoteip: clientIp(request) }),
-    });
+    }, STATUS_TIMEOUT_MS);
     const data = await res.json() as { success?: boolean };
     return !!data.success;
-  } catch (err) { console.error("[turnstile] verify failed", err instanceof Error ? err.message : err); return false; }
+  } catch (err) { if (isTimeoutError(err)) logUpstreamTimeout("turnstile", STATUS_TIMEOUT_MS, { path: new URL(request.url).pathname }); console.error("[turnstile] verify failed", err instanceof Error ? err.message : err); return false; }
 }
 /** Shared guard for the four public POSTs: dedicated per-IP limit (5/min) + Turnstile when configured.
  *  Returns a failure Response, or null when the submission may proceed. */
@@ -205,7 +220,14 @@ function escapeHtml(str: string): string { return str.replace(/[&<>"']/g, (c) =>
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 async function sendEmail(env: Env, to: string, subject: string, html: string, text: string, from?: string, replyTo?: string): Promise<boolean> {
   if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY not set; email to " + to + " not sent"); return false; }
-  const res = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: from || env.EMAIL_FROM, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }) });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: from || env.EMAIL_FROM, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }) });
+  } catch (err) {
+    if (isTimeoutError(err)) logUpstreamTimeout("resend", UPSTREAM_TIMEOUT_MS);
+    console.error("Resend send failed", err instanceof Error ? err.message : err);
+    return false;
+  }
   if (!res.ok) console.error("Resend " + res.status + ": " + (await res.text()));
   return res.ok;
 }
@@ -221,6 +243,8 @@ interface User { id: number; name: string; company: string; email: string; plan:
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Phase 2: every D1 query in this request runs through the timing guard (src/db-guard.ts).
+    env = { ...env, DB: guardedDB(env.DB) };
     const url = new URL(request.url);
     // Send plain http visits to https so the site never shows "Not Secure".
     if (url.protocol === "http:" && /(^|\.)(ecrentalpm\.com|tello\.live)$/.test(url.hostname) && (request.method === "GET" || request.method === "HEAD")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
@@ -241,9 +265,9 @@ export default {
     // owners never leave tello.live. Not indexed: ownsite.app is the original. If OwnSite cannot be reached, go there.
     if (url.hostname === "tello.live" && url.pathname === "/build" && (request.method === "GET" || request.method === "HEAD")) {
       try {
-        const r = await fetch("https://ownsite.app/", { cf: { cacheTtl: 300, cacheEverything: true } } as RequestInit);
+        const r = await fetchWithTimeout("https://ownsite.app/", { cf: { cacheTtl: 300, cacheEverything: true } } as RequestInit);
         if (r.ok) return new Response(request.method === "HEAD" ? null : r.body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300", "X-Robots-Tag": "noindex" } });
-      } catch (err) { console.error("[build]", err instanceof Error ? err.message : err); }
+      } catch (err) { if (isTimeoutError(err)) logUpstreamTimeout("ownsite", UPSTREAM_TIMEOUT_MS, { path: "/build" }); console.error("[build]", err instanceof Error ? err.message : err); }
       return Response.redirect("https://ownsite.app/" + url.search, 302);
     }
     if (/^\/b\/[a-f0-9]{10}$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD") && env.ASSETS) { return env.ASSETS.fetch(new Request(new URL("/b", url).toString(), request)); }
@@ -279,7 +303,7 @@ export default {
           ? await env.AI.run(CHAT_VISION_MODEL as Parameters<Ai["run"]>[0], { messages, image, max_tokens: 700 } as never)
           : await runChatModel(env, messages);
         return json({ response: ((aiResponse as { response?: string }).response || "").replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").trim() || "I'm sorry, I couldn't generate a response right now." });
-      } catch { return json({ error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Something went wrong." }, 500); }
     }
 
     // Public Turnstile site key for the chat/signup forms (the secret stays server-side).
@@ -338,7 +362,7 @@ export default {
         } catch (err) { console.error("[tenant-application] listing contact", err instanceof Error ? err.message : err); }
         for (const to of inquiryRecipients) { try { await sendEmail(env, to, inquirySubject, inquiryHtml, inquiryText); } catch (err) { console.error("[tenant-application] email", err instanceof Error ? err.message : err); } }
         return json({ success: true });
-      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ success: false, error: "Something went wrong." }, 500); }
     }
 
     // Maintenance Request API (from chat)
@@ -355,7 +379,7 @@ export default {
         const maintSubject = "New maintenance request: " + String(body.name);
         for (const to of ["info@ecrentalpm.com", "eli@ecrentalpm.com"]) { try { await sendEmail(env, to, maintSubject, maintHtml, maintText); } catch (err) { console.error("[maintenance-request] email", err instanceof Error ? err.message : err); } }
         return json({ success: true });
-      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ success: false, error: "Something went wrong." }, 500); }
     }
 
     // Quote / callback request API (from chat): a visitor who asked about pricing and wants someone to call or
@@ -383,7 +407,7 @@ export default {
         const subject = kind === "vacancy" ? "New vacancy lead: " + name : kind === "human" ? "New callback request: " + name : "New quote request: " + name;
         for (const to of ["info@ecrentalpm.com", "eli@ecrentalpm.com"]) { try { await sendEmail(env, to, subject, html, text); } catch (err) { console.error("[quote-request] email", err instanceof Error ? err.message : err); } }
         return json({ success: true });
-      } catch { return json({ success: false, error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ success: false, error: "Something went wrong." }, 500); }
     }
 
     // Subscribe API
@@ -438,8 +462,8 @@ export default {
         if (!body.email || !body.password) return json({ error: "Email and password required" }, 400);
         if (!(await underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(request), "email:" + body.email.toLowerCase()]))) return tooManyRequests();
         const user = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role, password_hash, password_salt FROM users WHERE lower(email) = ?").bind(normalizeEmail(body.email)).first<User & { password_hash: string; password_salt: string }>();
-        if (!user) return json({ error: "Invalid email or password" }, 401);
-        if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) return json({ error: "Invalid email or password" }, 401);
+        if (!user) { logJson("auth_failed", { path: "/api/login" }); return json({ error: "Invalid email or password" }, 401); }
+        if (!(await verifyPassword(body.password, user.password_salt, user.password_hash))) { logJson("auth_failed", { path: "/api/login" }); return json({ error: "Invalid email or password" }, 401); }
         if (!user.password_hash.startsWith("pbkdf2$")) { const salt = generateSalt(); await env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(await hashPassword(body.password, salt), salt, user.id).run(); }
         const token = await createSession(env, user.id);
         const { password_hash, password_salt, ...userWithoutPw } = user;
@@ -449,7 +473,7 @@ export default {
     }
 
     // Continue with Google
-    const googleResponse = await handleGoogleRoutes(request, env, url, { generateToken, sha256Hex, createSession: (userId) => createSession(env, userId), allowAttempt: (req) => underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(req)]) });
+    const googleResponse = await handleGoogleRoutes(request, env, url, { generateToken, sha256Hex, createSession: (userId) => createSession(env, userId), allowAttempt: (req) => underLimit(env.AUTH_LIMITER, ["ip:" + clientIp(req)]) }, googleFetcher);
     if (googleResponse) return googleResponse;
 
     // Password reset: request a link by email
@@ -470,7 +494,7 @@ export default {
         }
         // Same answer whether or not the account exists, so this can't be used to discover emails.
         return json({ success: true });
-      } catch { return json({ error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Something went wrong." }, 500); }
     }
 
     // Password reset: set a new password with the emailed token
@@ -490,7 +514,7 @@ export default {
           env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(reset.user_id),
         ]);
         return json({ success: true });
-      } catch { return json({ error: "Something went wrong." }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Something went wrong." }, 500); }
     }
 
     // Public listings, listing photos and the Zillow feed
@@ -519,7 +543,7 @@ export default {
     const user = await getUserFromRequest(request, env);
     // Emails in the ADMIN_EMAILS secret count as admins everywhere (Chat Leads, /admin).
     if (user && isAdmin(env, user)) user.role = "admin";
-    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/public/video-voice" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) return json({ error: "Unauthorized" }, 401);
+    if (!user && url.pathname.startsWith("/api/") && url.pathname !== "/api/chat" && url.pathname !== "/api/public/video-voice" && url.pathname !== "/api/subscribe" && url.pathname !== "/api/login" && url.pathname !== "/api/tenant-application" && url.pathname !== "/api/maintenance-request" && !url.pathname.startsWith("/api/password-reset/") && !url.pathname.startsWith("/api/tenant-invite")) { logJson("auth_failed", { path: url.pathname }); return json({ error: "Unauthorized" }, 401); }
 
     // Tenants only reach their portal; every other API route is for landlords.
     if (user && user.role === "tenant" && url.pathname.startsWith("/api/") && !tenantMayUse(url.pathname)) return json({ error: "This page is for landlord accounts." }, 403);
@@ -550,7 +574,7 @@ export default {
     if (user && (url.pathname === "/api/billing" || url.pathname.startsWith("/api/billing/"))) { try { const res = await handleBillingRoutes(request, env, url, user); if (res) return res; } catch (err) { console.error("[billing]", err instanceof Error ? err.message : err); return json({ error: "Billing is having trouble right now. Please try again in a minute." }, 502); } }
 
     if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
-    if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch { return json({ error: "Update failed" }, 500); } }
+    if (url.pathname === "/api/me" && request.method === "PUT") { try { const body = await request.json() as { name?: string; company?: string }; await env.DB.prepare("UPDATE users SET name = ?, company = ? WHERE id = ?").bind(body.name || user!.name, body.company || user!.company, user!.id).run(); const updated = await env.DB.prepare("SELECT id, name, company, email, plan, property_limit, role FROM users WHERE id = ?").bind(user!.id).first<User>(); return json({ user: updated }); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Update failed" }, 500); } }
 
     if (url.pathname === "/api/me/password" && request.method === "PUT") {
       try {
@@ -566,23 +590,23 @@ export default {
         const token = request.headers.get("Authorization")!.slice(7);
         await env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?").bind(user!.id, token).run();
         return json({ success: true });
-      } catch { return json({ error: "Password change failed" }, 500); }
+      } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Password change failed" }, 500); }
     }
 
     // Properties API
     if (url.pathname === "/api/properties" && request.method === "GET") { const results = await env.DB.prepare("SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC").bind(user!.id).all(); return json(results.results); }
-    if (url.pathname === "/api/properties" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); if (count && count.count >= user!.property_limit) return json({ error: "Property limit reached for your plan. Upgrade to add more." }, 403); const result = await env.DB.prepare("INSERT INTO properties (user_id, address, city, state, zip, rent_amount, tenant_name, tenant_email, tenant_phone, lease_start, lease_end, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(user!.id, body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", new Date().toISOString()).run(); return json({ success: true, id: result.meta.last_row_id }); } catch { return json({ error: "Failed to create property" }, 500); } }
+    if (url.pathname === "/api/properties" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; const count = await env.DB.prepare("SELECT COUNT(*) as count FROM properties WHERE user_id = ?").bind(user!.id).first<{ count: number }>(); if (count && count.count >= user!.property_limit) return json({ error: "Property limit reached for your plan. Upgrade to add more." }, 403); const result = await env.DB.prepare("INSERT INTO properties (user_id, address, city, state, zip, rent_amount, tenant_name, tenant_email, tenant_phone, lease_start, lease_end, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(user!.id, body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", new Date().toISOString()).run(); return json({ success: true, id: result.meta.last_row_id }); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Failed to create property" }, 500); } }
     const propMatch = url.pathname.match(/^\/api\/properties\/(\d+)$/);
-    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { if (!(await ownsProperty(env, user!.id, propId))) return json({ error: "Not found" }, 404); const inspKeys = (await env.DB.prepare("SELECT t.r2_key FROM inspection_items t JOIN inspections i ON t.inspection_id = i.id WHERE i.property_id = ?").bind(propId).all<{ r2_key: string }>()).results.map((r) => r.r2_key); if (env.PHOTOS && inspKeys.length) await env.PHOTOS.delete(inspKeys); await env.DB.batch([env.DB.prepare("DELETE FROM inspection_items WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspection_details WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspections WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id)]); return json({ success: true }); } }
+    if (propMatch) { const propId = parseInt(propMatch[1]); if (request.method === "GET") { const prop = await env.DB.prepare("SELECT * FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id).first(); return prop ? json(prop) : json({ error: "Not found" }, 404); } if (request.method === "PUT") { try { const body = await request.json() as Record<string, unknown>; await env.DB.prepare("UPDATE properties SET address = ?, city = ?, state = ?, zip = ?, rent_amount = ?, tenant_name = ?, tenant_email = ?, tenant_phone = ?, lease_start = ?, lease_end = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?").bind(body.address, body.city || "", body.state || "CA", body.zip || "", body.rent_amount || 0, body.tenant_name || "", body.tenant_email || "", body.tenant_phone || "", body.lease_start || "", body.lease_end || "", body.status || "vacant", body.notes || "", propId, user!.id).run(); return json({ success: true }); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Update failed" }, 500); } } if (request.method === "DELETE") { if (!(await ownsProperty(env, user!.id, propId))) return json({ error: "Not found" }, 404); const inspKeys = (await env.DB.prepare("SELECT t.r2_key FROM inspection_items t JOIN inspections i ON t.inspection_id = i.id WHERE i.property_id = ?").bind(propId).all<{ r2_key: string }>()).results.map((r) => r.r2_key); if (env.PHOTOS && inspKeys.length) await env.PHOTOS.delete(inspKeys); await env.DB.batch([env.DB.prepare("DELETE FROM inspection_items WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspection_details WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM transactions WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM maintenance_requests WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM inspection_photos WHERE inspection_id IN (SELECT id FROM inspections WHERE property_id = ?)").bind(propId), env.DB.prepare("DELETE FROM inspections WHERE property_id = ?").bind(propId), env.DB.prepare("DELETE FROM properties WHERE id = ? AND user_id = ?").bind(propId, user!.id)]); return json({ success: true }); } }
 
     // Transactions and tax reports (src/finance.ts)
     if (user && (url.pathname === "/api/reports" || url.pathname === "/api/transactions" || url.pathname.startsWith("/api/transactions/"))) { try { const res = await handleFinanceRoutes(request, env, url, user); if (res) return res; } catch (err) { return dbErrorResponse("finance", err); } }
 
     // Maintenance API
     if (url.pathname === "/api/maintenance" && request.method === "GET") { const results = await env.DB.prepare("SELECT m.*, p.address as property_address FROM maintenance_requests m JOIN properties p ON m.property_id = p.id WHERE p.user_id = ? ORDER BY m.created_at DESC").bind(user!.id).all(); return json(results.results); }
-    if (url.pathname === "/api/maintenance" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404); await env.DB.prepare("INSERT INTO maintenance_requests (property_id, tenant_name, description, priority, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)").bind(body.property_id, body.tenant_name || "", body.description, body.priority || "normal", new Date().toISOString()).run(); return json({ success: true }); } catch { return json({ error: "Failed to create request" }, 500); } }
+    if (url.pathname === "/api/maintenance" && request.method === "POST") { try { const body = await request.json() as Record<string, unknown>; if (!(await ownsProperty(env, user!.id, body.property_id))) return json({ error: "Property not found" }, 404); await env.DB.prepare("INSERT INTO maintenance_requests (property_id, tenant_name, description, priority, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)").bind(body.property_id, body.tenant_name || "", body.description, body.priority || "normal", new Date().toISOString()).run(); return json({ success: true }); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Failed to create request" }, 500); } }
     const maintMatch = url.pathname.match(/^\/api\/maintenance\/(\d+)$/);
-    if (maintMatch && request.method === "PUT") { const maintId = parseInt(maintMatch[1]); try { const body = await request.json() as { status?: string; priority?: string }; if (body.priority) { if (!MAINTENANCE_PRIORITIES.includes(body.priority)) return json({ error: "Priority must be one of: " + MAINTENANCE_PRIORITIES.join(", ") }, 400); await env.DB.prepare("UPDATE maintenance_requests SET priority = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.priority, maintId, user!.id).run(); return json({ success: true }); } await env.DB.prepare("UPDATE maintenance_requests SET status = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.status || "resolved", maintId, user!.id).run(); return json({ success: true }); } catch { return json({ error: "Update failed" }, 500); } }
+    if (maintMatch && request.method === "PUT") { const maintId = parseInt(maintMatch[1]); try { const body = await request.json() as { status?: string; priority?: string }; if (body.priority) { if (!MAINTENANCE_PRIORITIES.includes(body.priority)) return json({ error: "Priority must be one of: " + MAINTENANCE_PRIORITIES.join(", ") }, 400); await env.DB.prepare("UPDATE maintenance_requests SET priority = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.priority, maintId, user!.id).run(); return json({ success: true }); } await env.DB.prepare("UPDATE maintenance_requests SET status = ? WHERE id = ? AND property_id IN (SELECT id FROM properties WHERE user_id = ?)").bind(body.status || "resolved", maintId, user!.id).run(); return json({ success: true }); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Update failed" }, 500); } }
 
 
     // Dashboard Overview API
@@ -614,7 +638,7 @@ export default {
       const result = body.source === "listing_inquiries"
         ? await env.DB.prepare("UPDATE listing_inquiries SET " + sets.join(", ") + " WHERE id = ?").bind(...vals, id).run()
         : await env.DB.prepare("UPDATE signups SET " + sets.join(", ") + " WHERE id = ? AND plan IN ('tenant_application', 'maintenance_request', 'quote_request', 'rent_review', 'inspection_request', 'ai_inspection', 'video_request', 'website_request', 'tello_hub', 'calculator')").bind(...vals, id).run();
-      return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch { return json({ error: "Update failed" }, 500); } }
+      return result.meta.changes ? json({ success: true }) : json({ error: "Not found" }, 404); } catch (err) { logJson("request_failed", { path: url.pathname, status: 500, error: err instanceof Error ? err.message : String(err) }); return json({ error: "Update failed" }, 500); } }
 
     // === Inspection API (src/inspections.ts) ===
     if (user && url.pathname === "/api/inspections/remote") { try { const res = await handleLandlordRemote(request, env, url, user, notify); if (res) return res; } catch (err) { return dbErrorResponse("remote-inspection", err); } }
@@ -622,21 +646,47 @@ export default {
 
     // The dashboard's code-editor preview runs the Worker without the static assets binding.
     if (!env.ASSETS) return new Response("Static pages aren't available in this preview. Open https://ecrentalpm.com instead.", { status: 503, headers: { "Content-Type": "text/plain" } });
+    // Phase 2: unknown paths 404 fast, with no D1 access — the SPA fallback would otherwise
+    // answer 200 for anything (/wp-login.php). Runs after every redirect and route above, so
+    // known pages, assets and tello.live are untouched.
+    if (!isKnownPath(url.pathname)) {
+      if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
+      return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+    }
     return env.ASSETS.fetch(request);
   },
 
   // Daily cron (wrangler.toml [triggers]): rent reminders and late notices, trial reminders, Tello's morning briefing.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     // The Green Tello morning briefing for tello.live businesses is sent by the tello-live Worker's own cron.
-    ctx.waitUntil(runRentReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
-      .then((n) => console.log("[rent-reminders] sent", n))
-      .catch((err) => console.error("[rent-reminders]", err instanceof Error ? err.message : err)));
-    ctx.waitUntil(runTrialReminders(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
-      .then((n) => console.log("[trial-reminders] sent", n))
-      .catch((err) => console.error("[trial-reminders]", err instanceof Error ? err.message : err)));
-    ctx.waitUntil(runTelloBriefings(env, (to, subject, html, text) => sendEmail(env, to, subject, html, text), "https://ecrentalpm.com")
-      .then((n) => console.log("[tello-briefings] sent", n))
-      .catch((err) => console.error("[tello-briefings]", err instanceof Error ? err.message : err)));
+    ctx.waitUntil(runCron(env));
   },
 };
+const CRON_DEADLINE_MS = 30000;
+/** The cron as one bounded job: each reminder job runs in isolation (one failing must not kill the others),
+ *  every outbound call inside them goes through fetchWithTimeout, and the whole run is capped at ~30s —
+ *  if it cannot finish inside that, it logs and aborts rather than running indefinitely. tello-live fires
+ *  at the same minute against the same database, so a slow cron here contends with it. */
+async function runCron(env: Env): Promise<void> {
+  const started = Date.now();
+  const guarded = { ...env, DB: guardedDB(env.DB) };
+  const send = (to: string, subject: string, html: string, text: string) => sendEmail(guarded, to, subject, html, text);
+  const work = (async () => {
+    try { const n = await runRentReminders(guarded, send, "https://ecrentalpm.com"); console.log("[rent-reminders] sent", n); }
+    catch (err) { console.error(JSON.stringify({ event: "cron_job_failed", job: "rent-reminders", ms: Date.now() - started, error: err instanceof Error ? err.message : err })); }
+    try { const n = await runTrialReminders(guarded, send, "https://ecrentalpm.com"); console.log("[trial-reminders] sent", n); }
+    catch (err) { console.error(JSON.stringify({ event: "cron_job_failed", job: "trial-reminders", ms: Date.now() - started, error: err instanceof Error ? err.message : err })); }
+    try { const n = await runTelloBriefings(guarded, send, "https://ecrentalpm.com"); console.log("[tello-briefings] sent", n); }
+    catch (err) { console.error(JSON.stringify({ event: "cron_job_failed", job: "tello-briefings", ms: Date.now() - started, error: err instanceof Error ? err.message : err })); }
+  })();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error("cron_deadline")), CRON_DEADLINE_MS); });
+  try {
+    await Promise.race([work, deadline]);
+    clearTimeout(timer);
+    console.log(JSON.stringify({ event: "cron_done", ms: Date.now() - started }));
+  } catch (err) {
+    console.error(JSON.stringify({ event: "cron_deadline", ms: Date.now() - started, error: err instanceof Error ? err.message : err }));
+  }
+}
 interface Env { AI: Ai; ASSETS: Fetcher; DB: D1Database; PHOTOS?: R2Bucket; AUTH_LIMITER?: RateLimit; CHAT_LIMITER?: RateLimit; INQUIRY_LIMITER?: RateLimit; TURNSTILE_SECRET_KEY?: string; TURNSTILE_SITE_KEY?: string; RESEND_API_KEY?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; EMAIL_FROM: string; ZILLOW_LEAD_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; STRIPE_SECRET_KEY?: string; STRIPE_WEBHOOK_SECRET?: string; STRIPE_TRIAL_DAYS?: string; STRIPE_API_BASE?: string; STRIPE_CONNECT_WEBHOOK_SECRET?: string; ADMIN_EMAILS?: string; }

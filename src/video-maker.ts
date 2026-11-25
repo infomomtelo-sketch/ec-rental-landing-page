@@ -6,6 +6,7 @@
 // Ported from the standalone Pages Functions, so it is plain JavaScript on purpose (type checking is off
 // for this file). Nothing is stored.
 import { textRun } from "./ai-text";
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, SITE_READ_TIMEOUT_MS, UPSTREAM_TIMEOUT_MS } from "./outbound";
 
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -93,7 +94,7 @@ export async function fetchPage(rawUrl) {
   if (!u) return { error: 'That link does not look like a public website address.' };
   try {
     for (let hop = 0; hop < 4; hop++) {
-      const res = await fetch(u.toString(), { redirect: 'manual', signal: AbortSignal.timeout(7000), headers: { 'User-Agent': 'TelloVideoBot/1.0 (+https://tello.live)', Accept: 'text/html,application/xhtml+xml' } });
+      const res = await fetchWithTimeout(u.toString(), { redirect: 'manual', headers: { 'User-Agent': 'TelloVideoBot/1.0 (+https://tello.live)', Accept: 'text/html,application/xhtml+xml' } }, SITE_READ_TIMEOUT_MS);
       if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
         const next = safeUrl(new URL(res.headers.get('location'), u).toString());
         if (!next) return { error: 'The link redirects somewhere I cannot read.' };
@@ -108,7 +109,7 @@ export async function fetchPage(rawUrl) {
       return { page: readPage(html, u.toString()) };
     }
     return { error: 'The link redirects too many times.' };
-  } catch (e) { return { error: 'I could not reach that page.' }; }
+  } catch (e) { if (isTimeoutError(e)) logUpstreamTimeout('video-site-read', SITE_READ_TIMEOUT_MS, { host: u.hostname }); return { error: 'I could not reach that page.' }; }
 }
 
 /* ───────────── video spec ───────────── */
@@ -247,14 +248,14 @@ function toBase64(bytes) {
 // Workers AI voice first and a second model as a backup.
 async function kokoro(key, text) {
   try {
-    const r = await fetch('https://api.deepinfra.com/v1/openai/audio/speech', {
+    const r = await fetchWithTimeout('https://api.deepinfra.com/v1/openai/audio/speech', {
       method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'hexgrad/Kokoro-82M', input: text, voice: 'af_heart', response_format: 'mp3' }),
     });
     if (!r.ok) { console.error('video-voice kokoro', r.status); return null; }
     const buf = new Uint8Array(await r.arrayBuffer());
     return buf.length > 500 ? 'data:audio/mpeg;base64,' + toBase64(buf) : null;
-  } catch (e) { console.error('video-voice kokoro', e && e.message); return null; }
+  } catch (e) { if (isTimeoutError(e)) logUpstreamTimeout('deepinfra', UPSTREAM_TIMEOUT_MS); console.error('video-voice kokoro', e && e.message); return null; }
 }
 
 async function speak(ai, text, env) {

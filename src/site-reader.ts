@@ -4,6 +4,7 @@
 // front page. Every address, including each redirect, goes through the video maker's safeUrl check (no IP addresses,
 // localhost, internal names or odd ports). Nothing is stored.
 import { safeUrl, readPage } from "./video-maker";
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, SITE_READ_TIMEOUT_MS } from "./outbound";
 
 export interface SitePage { url: string; title: string; description: string; headings: string[]; text: string; }
 
@@ -27,7 +28,7 @@ async function getHtml(raw: string): Promise<{ html?: string; url?: URL; error?:
   try {
     for (let hop = 0; hop < 4; hop++) {
       if (/(^|\.)workers\.dev$/i.test(u.hostname)) return { error: "That address cannot be read." };
-      const res = await fetch(u.toString(), { redirect: "manual", signal: AbortSignal.timeout(7000), headers: { "User-Agent": "TelloBot/1.0 (+https://tello.live)", Accept: "text/html,application/xhtml+xml" } });
+      const res = await fetchWithTimeout(u.toString(), { redirect: "manual", headers: { "User-Agent": "TelloBot/1.0 (+https://tello.live)", Accept: "text/html,application/xhtml+xml" } }, SITE_READ_TIMEOUT_MS);
       const loc = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && loc) {
         const next: URL | null = safeUrl(new URL(loc, u).toString());
@@ -43,7 +44,7 @@ async function getHtml(raw: string): Promise<{ html?: string; url?: URL; error?:
       return { html, url: u };
     }
     return { error: "The link redirects too many times." };
-  } catch { return { error: "I could not reach that page." }; }
+  } catch (err) { if (isTimeoutError(err)) logUpstreamTimeout("site-reader", SITE_READ_TIMEOUT_MS, { host: u.hostname }); return { error: "I could not reach that page." }; }
 }
 
 /** The page's own links that are most likely to hold what customers ask about, best first. */
