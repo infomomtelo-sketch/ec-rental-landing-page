@@ -12,6 +12,8 @@
  * No key is ever needed in the browser: DEEPINFRA_API_KEY lives only as a
  * Worker secret, and the route still works without it (Workers AI fallback).
  */
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, UPSTREAM_TIMEOUT_MS } from "./outbound";
+
 export interface PublicVoiceEnv { AI?: Ai; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; }
 
 function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
@@ -36,14 +38,14 @@ function toBase64(bytes: Uint8Array): string {
 // Workers AI voice first and a second model as a backup.
 async function kokoro(key: string, text: string, voice: string): Promise<string | null> {
   try {
-    const r = await fetch("https://api.deepinfra.com/v1/openai/audio/speech", {
+    const r = await fetchWithTimeout("https://api.deepinfra.com/v1/openai/audio/speech", {
       method: "POST", headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "hexgrad/Kokoro-82M", input: text, voice, response_format: "mp3" }),
     });
     if (!r.ok) { console.error("video-voice kokoro", r.status); return null; }
     const buf = new Uint8Array(await r.arrayBuffer());
     return buf.length > 500 ? "data:audio/mpeg;base64," + toBase64(buf) : null;
-  } catch (e) { console.error("video-voice kokoro", (e as Error)?.message); return null; }
+  } catch (e) { if (isTimeoutError(e)) logUpstreamTimeout("deepinfra", UPSTREAM_TIMEOUT_MS); console.error("video-voice kokoro", (e as Error)?.message); return null; }
 }
 
 async function speak(ai: Ai, text: string, env: PublicVoiceEnv): Promise<string | null> {

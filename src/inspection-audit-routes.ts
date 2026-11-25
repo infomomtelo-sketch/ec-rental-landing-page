@@ -39,6 +39,7 @@ import {
   type UsageDecision, type ValidationError, type WarningAck,
 } from "./inspection-audit";
 import { buildAuditPrompt } from "./inspection-audit-prompt";
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, UPSTREAM_TIMEOUT_MS } from "./outbound";
 
 export interface InspectionAuditEnv {
   DB: D1Database;
@@ -277,19 +278,13 @@ async function firePartnerWebhook(env: InspectionAuditEnv, insp: InspectionAudit
     const org = await env.DB.prepare("SELECT webhook_url FROM organizations WHERE id = ?").bind(insp.organization_id).first<{ webhook_url: string | null }>();
     const hook = org?.webhook_url ? String(org.webhook_url).trim() : "";
     if (!hook) return;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
-    try {
-      await fetch(hook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: insp.organization_id, inspection_id: insp.id, status: state.status, report: fullReport(state) }),
-        signal: ctrl.signal,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    await fetchWithTimeout(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organization_id: insp.organization_id, inspection_id: insp.id, status: state.status, report: fullReport(state) }),
+    });
   } catch (err) {
+    if (isTimeoutError(err)) logUpstreamTimeout("partner-webhook", UPSTREAM_TIMEOUT_MS);
     console.error("[inspection-audit] partner webhook failed", err);
   }
 }
@@ -323,27 +318,33 @@ async function callClaudeVision(env: InspectionAuditEnv, prompt: string, photos:
   const imageBlock = (p: AuditPhoto) => p.data_base64
     ? { type: "image", source: { type: "base64", media_type: p.media_type || "image/jpeg", data: p.data_base64 } }
     : { type: "image", source: { type: "url", url: p.url } };
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: env.INSPECT_AUDIT_MODEL || env.HUB_MODEL || DEFAULT_MODEL,
-      max_tokens: 8192,
-      temperature: 0,
-      system: prompt,
-      messages: [{
-        role: "user",
-        content: [
-          ...photos.filter((p) => p.data_base64 || p.url).map(imageBlock),
-          { type: "text", text: "Run the full audit on the photos above, in manifest order (CURRENT photos first, then BASELINE). Return ONLY the JSON object in the required schema." },
-        ],
-      }],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: env.INSPECT_AUDIT_MODEL || env.HUB_MODEL || DEFAULT_MODEL,
+        max_tokens: 8192,
+        temperature: 0,
+        system: prompt,
+        messages: [{
+          role: "user",
+          content: [
+            ...photos.filter((p) => p.data_base64 || p.url).map(imageBlock),
+            { type: "text", text: "Run the full audit on the photos above, in manifest order (CURRENT photos first, then BASELINE). Return ONLY the JSON object in the required schema." },
+          ],
+        }],
+      }),
+    });
+  } catch (err) {
+    if (isTimeoutError(err)) { logUpstreamTimeout("anthropic", UPSTREAM_TIMEOUT_MS); return null; }
+    throw err;
+  }
   if (!res.ok) return null;
   const data = await res.json() as { content?: { type: string; text?: string }[] };
   const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text || "").join("");

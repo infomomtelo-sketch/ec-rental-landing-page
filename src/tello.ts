@@ -4,6 +4,7 @@
  * questions from, and the optional morning email (daily cron). Read-only: Tello never changes the landlord's data.
  */
 import { keyMode, type BillingEnv } from "./billing";
+import { fetchWithTimeout, isTimeoutError, logUpstreamTimeout, UPSTREAM_TIMEOUT_MS } from "./outbound";
 
 export interface TelloEnv extends BillingEnv { DB: D1Database; ELEVENLABS_API_KEY?: string; ELEVENLABS_VOICE_ID?: string; DEEPINFRA_API_KEY?: string; TELLO_KOKORO_VOICE?: string; }
 type SendEmail = (to: string, subject: string, html: string, text: string) => Promise<boolean>;
@@ -195,7 +196,7 @@ async function tellVoice(request: Request, env: TelloEnv, userId: number): Promi
   if (text.length < 2) return json({ error: "Nothing to say." }, 400);
   if (env.DEEPINFRA_API_KEY) {
     try {
-      const r = await fetch("https://api.deepinfra.com/v1/openai/audio/speech", {
+      const r = await fetchWithTimeout("https://api.deepinfra.com/v1/openai/audio/speech", {
         method: "POST",
         headers: { Authorization: "Bearer " + env.DEEPINFRA_API_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({ model: "hexgrad/Kokoro-82M", input: text, voice: (env.TELLO_KOKORO_VOICE || "af_heart").replace(/[^a-z_]/g, ""), response_format: "mp3" }),
@@ -204,19 +205,19 @@ async function tellVoice(request: Request, env: TelloEnv, userId: number): Promi
         const bytes = new Uint8Array(await r.arrayBuffer());
         if (bytes.length > 500) return json({ audio: "data:audio/mpeg;base64," + b64(bytes) });
       } else console.error("tello voice kokoro", r.status);
-    } catch (e) { console.error("tello voice kokoro", (e as Error)?.message); }
+    } catch (e) { if (isTimeoutError(e)) logUpstreamTimeout("deepinfra", UPSTREAM_TIMEOUT_MS); console.error("tello voice kokoro", (e as Error)?.message); }
     if (!env.ELEVENLABS_API_KEY) return json({ error: "voice_failed" }, 503);
   }
   const voice = (env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL").replace(/[^A-Za-z0-9]/g, "");
   try {
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`, {
+    const r = await fetchWithTimeout(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`, {
       method: "POST",
       headers: { "xi-api-key": env.ELEVENLABS_API_KEY as string, "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({ text, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.25 } }),
     });
     if (!r.ok) { console.error("tello voice elevenlabs", r.status); return json({ error: "voice_failed" }, 503); }
     return json({ audio: "data:audio/mpeg;base64," + b64(new Uint8Array(await r.arrayBuffer())) });
-  } catch (e) { console.error("tello voice elevenlabs", (e as Error)?.message); return json({ error: "voice_failed" }, 503); }
+  } catch (e) { if (isTimeoutError(e)) logUpstreamTimeout("elevenlabs", UPSTREAM_TIMEOUT_MS); console.error("tello voice elevenlabs", (e as Error)?.message); return json({ error: "voice_failed" }, 503); }
 }
 
 /** Daily cron: emails the briefing to landlords who switched it on, only on days something needs them. Returns how many went out. */
