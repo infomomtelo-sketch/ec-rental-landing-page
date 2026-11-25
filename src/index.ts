@@ -313,9 +313,11 @@ export default {
             if ((res.meta.changes || 0) === 0) return json({ success: false, error: "This home is no longer available." }, 404);
           } else {
             // No home named (homepage chat): kept for the admin, with no landlord attached.
+            // The live table declares listing_id and landlord_user_id NOT NULL, so 0 is bound
+            // for both (same treatment as the saveListingLead fallback), instead of NULL.
             await env.DB.prepare(
               "INSERT INTO listing_inquiries (listing_id, landlord_user_id, name, email, phone, listing_address, bedrooms, budget, move_in_date, message, extra, lead_type, source, status, inquiry_date, created_at, updated_at) " +
-              "VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?, ?)")
+              "VALUES (0, 0, ?, ?, ?, ?, ?, ?, ?, '', '', '', 'chat', 'pending', ?, ?, ?)")
               .bind(name, email, phone, area, bedrooms, budget, moveIn, today, now, now).run();
           }
         } catch (err) {
